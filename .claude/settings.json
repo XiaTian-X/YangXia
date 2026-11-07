@@ -7,5 +7,19 @@
       "Bash(git commit * -n)",
       "Bash(git commit * -n *)"
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/stop-check.mjs\"",
+            "timeout": 180,
+            "statusMessage": "检查模板和单元测试…"
+          }
+        ]
+      }
+    ]
   }
 }

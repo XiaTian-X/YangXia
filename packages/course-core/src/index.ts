@@ -10,3 +10,4 @@ export { redlineHits, failedRedlineCases, type RedlineRules, type RedlineCase } 
 export { validateCourse } from "./validate.ts";
 export { checkCourse, numbersBefore, type CheckContext } from "./check.ts";
 export { MANIFEST_FORMAT, productCode, type Manifest, type ManifestExercise, type ManifestProduct } from "./manifest.ts";
+export { checkNotes, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";

@@ -44,6 +44,17 @@
 - 只提交必要文件。临时文件、构建产物、导出的媒体、个人数据、密钥都不提交，规则见 `.gitignore`。
 - 依赖选发布超过两周的稳定版本，写死版本号，`package-lock.json` 一起提交。
 
+## Skills（`.claude/skills/`）
+
+| Skill | 什么时候用 |
+|---|---|
+| `onboard` | 新使用者建档：入口问卷、安全筛查、上床时间 |
+| `course-export` | 把成品里某一天的训练原样导出成跟练课程 |
+| `weekly-review` | 读打卡和练习记录，按成品规则决定下周 |
+| `meal-plan` | 按全家餐饮模板排菜单、算采购量 |
+| `sequencer-dev` | 改编排器或课程核心库 |
+| `template-maintain`（在模板仓库里） | 改计划模板 |
+
 ## 常用命令
 
 ```
@@ -52,6 +63,10 @@ npm test                                              # 单元测试（模板不
 npm run e2e                                           # 打包编排器并跑冒烟测试（Playwright）
 npm run course -- check <课程.json> --profile <档案.json>   # 导出课程后必须跑，0 个错误才能交给用户
 npm run course -- summary <课程.json>                 # 总时长、动作、组数
+npm run course -- intake [年龄段]                     # 入口问卷和这个年龄段的筛查项
+npm run course -- bedtime <阶段> <HH:MM>              # 算上床时间（不要心算）
+npm run course -- moves <成品名>                      # 这份成品能导出的动作、处方原文、呼吸节奏
+npm run profile -- check profiles/<代号>              # 档案、练习记录、课程、复盘和菜单的检查
 python3 templates/tpl.py all                          # 改了模板后构建 + 校验
 ```
 
@@ -60,7 +75,7 @@ python3 templates/tpl.py all                          # 改了模板后构建 + 
 - 给人看的用中文「养夏」：显示名、页面标题、界面文字、文档和成品文件名。
 - 给程序读的用英文：目录、命令、npm 包名（`@yangxia/…`）、数据格式标识（`yangxia.course/1` 等）、git 标签、仓库名（`YangXia`）。
 
-## 目录（★ 表示还没建，按重构方案分阶段补上）
+## 目录
 
 ```
 AGENTS.md  CLAUDE.md  README.md  package.json
@@ -72,7 +87,7 @@ packages/course-core/  课程核心库：格式、节奏、时间轴、字幕、
 contracts/             课程、练习记录、个人档案的数据格式和样例（说明见 docs/数据约定.md）
 profiles/              个人数据（不提交）
 docs/                  重构方案、历史文档
-.claude/               项目设置、★ skills
+.claude/               项目设置（Stop hook、禁止 --no-verify）、skills
 ```
 
 ## 现在在做什么

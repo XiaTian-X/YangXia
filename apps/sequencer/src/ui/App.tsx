@@ -16,6 +16,8 @@ import { Recorder } from "./Recorder.tsx";
 import { Settings } from "./Settings.tsx";
 
 type Tab = "course" | "sound" | "screen" | "library" | "voice";
+/** 本地日期 YYYY-MM-DD（toISOString 是 UTC，北京时间凌晨会差一天）。 */
+const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 
 export function App() {
@@ -335,7 +337,7 @@ function SessionForm({ course, timeline, session, onDone }: {
       <div class="row" style={{ marginTop: 8 }}>
         <button class="btn primary" onClick={() => {
           download(sessionRecord(course, { ...session, feeling, symptoms, note, setsDone }),
-            `养夏_练习记录_${session.startedAt.toISOString().slice(0, 10)}.json`);
+            `养夏_练习记录_${localDate(session.startedAt)}.json`);
           onDone();
         }}>导出练习记录</button>
         <button class="btn" onClick={onDone}>不记录</button>
