@@ -1,0 +1,18 @@
+{
+  "schema": "yangxia.profile/1",
+  "code": "样例甲",
+  "stage": "18–39 岁",
+  "age": "a18",
+  "venue": "home",
+  "product": "18-39岁-居家版",
+  "wake": "06:20",
+  "bedtime": "22:00",
+  "screening": {
+    "answers": [
+      { "item": "哮喘或慢性呼吸道疾病", "answer": "否" }
+    ],
+    "doctorCleared": false
+  },
+  "startDate": "2026-11-09",
+  "week": 1
+}

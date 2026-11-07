@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yangxia.session/1",
+  "title": "养夏练习记录",
+  "description": "练完一次跟练课程的记录：编排器导出，放进 profiles/<代号>/打卡/，周复盘读它。属于个人数据，不提交。",
+  "type": "object",
+  "required": ["schema", "course", "startedAt", "items", "feeling", "symptoms"],
+  "properties": {
+    "schema": { "const": "yangxia.session/1" },
+    "course": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "source": { "type": "object" }
+      }
+    },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "endedAt": { "type": "string", "format": "date-time" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["exercise", "setsPlanned", "setsDone"],
+        "properties": {
+          "exercise": { "type": "string" },
+          "setsPlanned": { "type": "integer", "minimum": 0 },
+          "setsDone": { "type": "integer", "minimum": 0 },
+          "skipped": { "type": "boolean" }
+        }
+      }
+    },
+    "feeling": { "enum": ["轻松", "正好", "吃力"] },
+    "symptoms": {
+      "type": "object",
+      "description": "任何一项为 true：停止加量，按成品里\"疼了怎么办\"处理，必要时就医",
+      "required": ["pain", "dizzy", "chest"],
+      "properties": {
+        "pain": { "type": "boolean", "description": "关节疼、刺痛" },
+        "dizzy": { "type": "boolean", "description": "头晕、眼前发黑" },
+        "chest": { "type": "boolean", "description": "胸痛、胸闷、心慌" }
+      }
+    },
+    "note": { "type": "string", "maxLength": 500 }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yangxia.profile/1",
+  "title": "养夏个人档案",
+  "description": "放在 profiles/<代号>/档案.json，不提交。用代号不用真名；安全筛查只记是 / 否，不记病名和用药。",
+  "type": "object",
+  "required": ["schema", "code", "stage", "age", "product", "screening", "startDate"],
+  "properties": {
+    "schema": { "const": "yangxia.profile/1" },
+    "code": { "type": "string", "pattern": "^[^/\\\\\\s]{1,20}$", "description": "代号，也是 profiles/ 下的目录名" },
+    "stage": { "enum": ["小学", "初中", "高中", "18–39 岁", "40–64 岁", "65 岁以上"] },
+    "age": { "enum": ["a06", "a13", "a18", "a40", "a65"] },
+    "venue": { "enum": ["gym", "home", "bw", "play", "chair"] },
+    "product": { "type": "string", "description": "选用的成品名" },
+    "wake": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
+    "bedtime": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
+    "screening": {
+      "type": "object",
+      "required": ["answers", "doctorCleared"],
+      "properties": {
+        "answers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["item", "answer"],
+            "properties": { "item": { "type": "string" }, "answer": { "enum": ["是", "否"] } }
+          }
+        },
+        "doctorCleared": { "type": "boolean", "description": "使用者说医生已经同意开始。65 岁以上必须为 true；其余年龄段有任何一项\"是\"时必须为 true" },
+        "doctorAdvice": { "type": "string", "maxLength": 300, "description": "医生的意见，照使用者说的记" }
+      }
+    },
+    "startDate": { "type": "string", "format": "date" },
+    "week": { "type": "integer", "minimum": 1, "maximum": 4 }
+  }
+}

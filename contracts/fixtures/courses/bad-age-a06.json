@@ -1,0 +1,88 @@
+{
+  "schema": "yangxia.course/1",
+  "id": "c_fixture01a",
+  "name": "18-39 居家 · 第 1 周 · A 日（节选）",
+  "age": "a06",
+  "source": {
+    "product": "18-39岁-居家版",
+    "templates": "v2.0",
+    "week": 1,
+    "day": "A"
+  },
+  "blocks": [
+    {
+      "kind": "sets",
+      "items": [
+        {
+          "exercise": "squat",
+          "name": "徒手深蹲",
+          "mode": "reps",
+          "sets": 2,
+          "reps": 15,
+          "tempo": {
+            "start": "down",
+            "down": 2,
+            "up": 1
+          },
+          "rest": 90,
+          "quote": [
+            "第 1 周（2 组，边学边练）",
+            "3 组 × 15–20 次",
+            "大动作（深蹲、分腿蹲、俯卧撑、划船）休息 90 秒，小动作 45–60 秒"
+          ]
+        },
+        {
+          "exercise": "split-squat",
+          "name": "原地分腿蹲",
+          "mode": "reps",
+          "sets": 2,
+          "reps": 10,
+          "perSide": true,
+          "tempo": {
+            "start": "down",
+            "down": 2,
+            "up": 1
+          },
+          "rest": 90,
+          "quote": [
+            "第 1 周（2 组，边学边练）",
+            "每侧 3 组 × 10–12 次",
+            "大动作（深蹲、分腿蹲、俯卧撑、划船）休息 90 秒，小动作 45–60 秒"
+          ]
+        },
+        {
+          "exercise": "glute-bridge",
+          "name": "臀桥",
+          "mode": "reps",
+          "sets": 2,
+          "reps": 20,
+          "tempo": {
+            "start": "up",
+            "up": 1,
+            "top": 2,
+            "down": 2
+          },
+          "rest": 60,
+          "quote": [
+            "第 1 周（2 组，边学边练）",
+            "3 组 × 20 次",
+            "大动作（深蹲、分腿蹲、俯卧撑、划船）休息 90 秒，小动作 45–60 秒"
+          ]
+        },
+        {
+          "exercise": "wall-sit",
+          "name": "靠墙静蹲",
+          "mode": "timed",
+          "sets": 2,
+          "duration": 30,
+          "rest": 60,
+          "quote": [
+            "第 1 周（2 组，边学边练）",
+            "3 组 × 30–90 秒",
+            "大动作（深蹲、分腿蹲、俯卧撑、划船）休息 90 秒，小动作 45–60 秒"
+          ]
+        }
+      ]
+    }
+  ]
+}

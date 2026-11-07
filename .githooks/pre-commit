@@ -16,7 +16,7 @@ SIZE_EXEMPT = {"dist/动作图解手册.pdf"}       # 模板的 PDF 手册是交
 FIXTURE_PREFIXES = ("contracts/fixtures/",)  # 只有这里允许出现个人档案 / 练习记录格式的样例
 
 BLOCK_PATH = [
-    (re.compile(r"(^|/)profiles/"), "个人数据目录 profiles/"),
+    (re.compile(r"^profiles/"), "个人数据目录 profiles/"),      # 和 .gitignore 的 /profiles/ 一致；别处的档案靠内容检查拦
     (re.compile(r"(^|/)\.env(\.|$)"), "环境变量文件 .env"),
     (re.compile(r"\.(pem|key|p12|pfx|keystore|secret)$"), "密钥 / 证书文件"),
     (re.compile(r"(^|/)id_(rsa|ed25519)"), "SSH 私钥"),

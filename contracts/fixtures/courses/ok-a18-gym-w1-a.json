@@ -1,0 +1,54 @@
+{
+  "schema": "yangxia.course/1",
+  "id": "c_fixture02a",
+  "name": "18-39岁-健身房版 · 第 1 周 · A 日（节选）",
+  "age": "a18",
+  "source": {
+    "product": "18-39岁-健身房版",
+    "templates": "v2.0",
+    "week": 1,
+    "day": "A"
+  },
+  "blocks": [
+    {
+      "kind": "sets",
+      "items": [
+        {
+          "exercise": "gym-smith-squat",
+          "name": "史密斯深蹲",
+          "mode": "reps",
+          "sets": 2,
+          "reps": 12,
+          "tempo": {
+            "start": "down",
+            "down": 2,
+            "up": 1
+          },
+          "rest": 90,
+          "quote": [
+            "第 1 周 | 每个动作 2 组 × 12 次",
+            "A1 深蹲（90″）"
+          ]
+        },
+        {
+          "exercise": "gym-leg-curl",
+          "name": "腿弯举",
+          "mode": "reps",
+          "sets": 2,
+          "reps": 12,
+          "tempo": {
+            "start": "up",
+            "up": 1,
+            "top": 0.5,
+            "down": 2
+          },
+          "rest": 60,
+          "quote": [
+            "第 1 周 | 每个动作 2 组 × 12 次",
+            "A4 腿弯举（60″）"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "manifestFormat": "yangxia.manifest/1",
+  "manifestPath": "dist/manifest.json",
+  "note": "主仓库只认这个格式号的模板 manifest；路径相对于模板仓库根目录（scripts/templates-path.mjs 找到的那个目录）。"
+}

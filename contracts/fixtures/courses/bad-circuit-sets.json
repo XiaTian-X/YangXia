@@ -1,0 +1,99 @@
+{
+  "schema": "yangxia.course/1",
+  "id": "c_fixture01d",
+  "name": "18-39 居家 · 第 1 周 · D 日循环",
+  "age": "a18",
+  "source": {
+    "product": "18-39岁-居家版",
+    "templates": "v2.0",
+    "week": 1,
+    "day": "D"
+  },
+  "blocks": [
+    {
+      "kind": "circuit",
+      "rounds": 3,
+      "restBetweenRounds": 90,
+      "items": [
+        {
+          "exercise": "squat",
+          "name": "徒手深蹲",
+          "mode": "reps",
+          "reps": 15,
+          "tempo": {
+            "start": "down",
+            "down": 2,
+            "up": 1
+          },
+          "rest": 0,
+          "quote": [
+            "连着做完算一轮，中间不休息，一轮结束休息 90 秒。第 1–2 周做 3 轮",
+            "徒手深蹲 × 15"
+          ],
+          "sets": 2
+        },
+        {
+          "exercise": "pushup",
+          "name": "俯卧撑",
+          "mode": "reps",
+          "reps": 10,
+          "tempo": {
+            "start": "down",
+            "down": 2,
+            "up": 1
+          },
+          "rest": 0,
+          "quote": [
+            "中间不休息",
+            "俯卧撑（你的当前难度级）× 10"
+          ]
+        },
+        {
+          "exercise": "sa-db-row",
+          "name": "单臂哑铃划船",
+          "mode": "reps",
+          "reps": 12,
+          "perSide": true,
+          "tempo": {
+            "start": "up",
+            "up": 1,
+            "down": 2
+          },
+          "rest": 0,
+          "quote": [
+            "中间不休息",
+            "单臂哑铃划船 × 每侧 12"
+          ]
+        },
+        {
+          "exercise": "glute-bridge",
+          "name": "臀桥",
+          "mode": "reps",
+          "reps": 20,
+          "tempo": {
+            "start": "up",
+            "up": 1,
+            "top": 2,
+            "down": 2
+          },
+          "rest": 0,
+          "quote": [
+            "中间不休息",
+            "臀桥 × 20"
+          ]
+        },
+        {
+          "exercise": "plank",
+          "name": "平板支撑",
+          "mode": "timed",
+          "duration": 30,
+          "rest": 90,
+          "quote": [
+            "平板支撑 × 30 秒",
+            "一轮结束休息 90 秒"
+          ]
+        }
+      ]
+    }
+  ]
+}

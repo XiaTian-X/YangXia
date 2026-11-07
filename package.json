@@ -4,7 +4,7 @@
   "description": "养夏：由 agent 驱动的作息、锻炼、饮食习惯项目",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "workspaces": [
     "packages/*",
@@ -12,6 +12,16 @@
   ],
   "scripts": {
     "setup": "node scripts/setup.mjs",
-    "templates": "node scripts/templates-path.mjs"
+    "templates": "node scripts/templates-path.mjs",
+    "test": "vitest run",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "course": "node packages/course-core/src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "ajv": "8.20.0",
+    "typescript": "6.0.3",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
   }
 }

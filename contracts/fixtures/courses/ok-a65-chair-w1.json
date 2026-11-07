@@ -1,0 +1,52 @@
+{
+  "schema": "yangxia.course/1",
+  "id": "c_fixture08a",
+  "name": "65岁以上 · 第 1 周（节选）",
+  "age": "a65",
+  "source": {
+    "product": "65岁以上-椅子辅助版",
+    "templates": "v2.0",
+    "week": 1
+  },
+  "blocks": [
+    {
+      "kind": "sets",
+      "items": [
+        {
+          "exercise": "a65-01-sit-to-stand",
+          "name": "坐站起",
+          "mode": "reps",
+          "sets": 1,
+          "reps": 8,
+          "tempo": {
+            "start": "up",
+            "up": 2,
+            "down": 2
+          },
+          "rest": 60,
+          "quote": [
+            "1. 坐站起（8–10 次） | 1 组，可以用手撑",
+            "力量动作每组之间坐下歇 60 秒"
+          ]
+        },
+        {
+          "exercise": "a65-04-wall-pushup",
+          "name": "扶墙俯卧撑",
+          "mode": "reps",
+          "sets": 1,
+          "reps": 8,
+          "tempo": {
+            "start": "down",
+            "down": 2,
+            "up": 1
+          },
+          "rest": 60,
+          "quote": [
+            "4. 扶墙俯卧撑（8–10 次） | 1 组",
+            "力量动作每组之间坐下歇 60 秒"
+          ]
+        }
+      ]
+    }
+  ]
+}

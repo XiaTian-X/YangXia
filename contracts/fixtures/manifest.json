@@ -1,0 +1,1739 @@
+{
+ "format": "yangxia.manifest/1",
+ "project": "养夏计划模板",
+ "version": "v2.0",
+ "released": "2026-11-07",
+ "products": [
+  {
+   "file": "18-39岁-健身房版.md",
+   "name": "18-39岁-健身房版",
+   "audience": "adult",
+   "age": "a18",
+   "venue": "gym",
+   "for": "18–39 岁健康成年人",
+   "venue_note": "健身房",
+   "version": "v2.0",
+   "review": "原健身房版（多轮自查）经 v1.2 独立审查修订",
+   "figures": [
+    "wu-activate",
+    "wu-mobility-gym",
+    "wu-greatest",
+    "wu-gym-extra",
+    "st-a",
+    "st-b",
+    "st-neck",
+    "st-c",
+    "gym-smith-squat",
+    "gym-rdl",
+    "gym-leg-press",
+    "gym-leg-curl",
+    "gym-calf-raise",
+    "plank",
+    "dead-bug",
+    "gym-chest-press",
+    "gym-incline-press",
+    "gym-seated-press",
+    "lateral-raise",
+    "gym-pushdown",
+    "gym-lat-pulldown",
+    "gym-seated-row",
+    "sa-db-row",
+    "gym-face-pull",
+    "db-curl",
+    "gym-goblet-squat",
+    "gym-cs-row",
+    "gym-standing-press",
+    "gym-farmer-walk",
+    "gym-treadmill"
+   ],
+   "params_used": [
+    "BMI_CN",
+    "SLEEP_ADULT",
+    "SED_ADULT_WHO",
+    "SED_ALL_CN",
+    "WATER_CN",
+    "PA_STEPS",
+    "EGG_CN",
+    "SALT_CN",
+    "LOW_NA_SALT_CAUTION",
+    "VEG_CN",
+    "FRUIT_CN",
+    "MILK_CN",
+    "MILK_PAGODA_CN",
+    "GRAIN_CN",
+    "ANIMAL_CN",
+    "ANIMAL_WEEK_CN",
+    "SOY_NUT_CN",
+    "OIL_CN",
+    "SUGAR_CN",
+    "NSS_WHO",
+    "ALCOHOL_WHO",
+    "ALCOHOL_CN"
+   ],
+   "params_related": [
+    "PA_ADULT_AEROBIC",
+    "PA_ADULT_STRENGTH",
+    "SLEEP_BEDTIME_ADULT",
+    "SUGAR_WHO",
+    "FIBER_WHO",
+    "WAIST_CN",
+    "LOSS_REF"
+   ]
+  },
+  {
+   "file": "18-39岁-居家版.md",
+   "name": "18-39岁-居家版",
+   "audience": "adult",
+   "age": "a18",
+   "venue": "home",
+   "for": "18–39 岁健康成年人",
+   "venue_note": "居家：徒手 + 2.5kg 哑铃 + 动感单车",
+   "version": "v2.0",
+   "review": "原居家版（多轮自查）经 v1.2 独立审查修订",
+   "figures": [
+    "wu-activate",
+    "wu-mobility",
+    "wu-greatest",
+    "wu-home-extra",
+    "st-a",
+    "st-b",
+    "st-wrist",
+    "st-c",
+    "squat",
+    "split-squat",
+    "split-squat-stool",
+    "bss",
+    "glute-bridge",
+    "hip-hinge-wall",
+    "sl-rdl",
+    "wall-sit",
+    "calf-raise",
+    "plank",
+    "dead-bug",
+    "pushup",
+    "pushup-ladder",
+    "db-shoulder-press",
+    "lateral-raise",
+    "chair-dip",
+    "side-plank",
+    "table-row",
+    "door-row",
+    "sa-db-row",
+    "rear-fly",
+    "ytw",
+    "superman",
+    "bird-dog",
+    "db-curl",
+    "d-circuit-home",
+    "d-bike-setup"
+   ],
+   "params_used": [
+    "BMI_CN",
+    "SLEEP_ADULT",
+    "SED_ADULT_WHO",
+    "SED_ALL_CN",
+    "WATER_CN",
+    "PA_STEPS",
+    "EGG_CN",
+    "SALT_CN",
+    "LOW_NA_SALT_CAUTION",
+    "VEG_CN",
+    "FRUIT_CN",
+    "MILK_CN",
+    "MILK_PAGODA_CN",
+    "GRAIN_CN",
+    "ANIMAL_CN",
+    "ANIMAL_WEEK_CN",
+    "SOY_NUT_CN",
+    "OIL_CN",
+    "SUGAR_CN",
+    "NSS_WHO",
+    "ALCOHOL_WHO",
+    "ALCOHOL_CN"
+   ],
+   "params_related": [
+    "PA_ADULT_AEROBIC",
+    "PA_ADULT_STRENGTH",
+    "SLEEP_BEDTIME_ADULT",
+    "SUGAR_WHO",
+    "FIBER_WHO",
+    "WAIST_CN",
+    "LOSS_REF"
+   ]
+  },
+  {
+   "file": "18-39岁-纯徒手版.md",
+   "name": "18-39岁-纯徒手版",
+   "audience": "adult",
+   "age": "a18",
+   "venue": "bw",
+   "for": "18–39 岁健康成年人",
+   "venue_note": "纯徒手，零器械",
+   "version": "v2.0",
+   "review": "原纯徒手版（多轮自查）经 v1.2 独立审查修订",
+   "figures": [
+    "wu-activate",
+    "wu-mobility",
+    "wu-greatest",
+    "wu-home-extra",
+    "st-a",
+    "st-b",
+    "st-wrist",
+    "st-c",
+    "squat",
+    "split-squat",
+    "split-squat-stool",
+    "bss",
+    "glute-bridge",
+    "hip-hinge-wall",
+    "sl-rdl",
+    "wall-sit",
+    "calf-raise",
+    "plank",
+    "dead-bug",
+    "pushup",
+    "pushup-ladder",
+    "pike-pushup",
+    "chair-dip",
+    "wall-angel",
+    "shoulder-tap",
+    "side-plank",
+    "table-row",
+    "door-row",
+    "towel-row",
+    "ytw",
+    "reverse-snow-angel",
+    "superman",
+    "bird-dog",
+    "towel-curl",
+    "d-cardio-low",
+    "d-circuit-bw",
+    "d-jump-land"
+   ],
+   "params_used": [
+    "BMI_CN",
+    "SLEEP_ADULT",
+    "SED_ADULT_WHO",
+    "SED_ALL_CN",
+    "WATER_CN",
+    "PA_STEPS",
+    "EGG_CN",
+    "SALT_CN",
+    "LOW_NA_SALT_CAUTION",
+    "VEG_CN",
+    "FRUIT_CN",
+    "MILK_CN",
+    "MILK_PAGODA_CN",
+    "GRAIN_CN",
+    "ANIMAL_CN",
+    "ANIMAL_WEEK_CN",
+    "SOY_NUT_CN",
+    "OIL_CN",
+    "SUGAR_CN",
+    "NSS_WHO",
+    "ALCOHOL_WHO",
+    "ALCOHOL_CN"
+   ],
+   "params_related": [
+    "PA_ADULT_AEROBIC",
+    "PA_ADULT_STRENGTH",
+    "SLEEP_BEDTIME_ADULT",
+    "SUGAR_WHO",
+    "FIBER_WHO",
+    "WAIST_CN",
+    "LOSS_REF"
+   ]
+  },
+  {
+   "file": "40-64岁-健身房版.md",
+   "name": "40-64岁-健身房版",
+   "audience": "adult",
+   "age": "a40",
+   "venue": "gym",
+   "for": "40–64 岁健康成年人",
+   "venue_note": "健身房",
+   "version": "v2.0",
+   "review": "在 18–39 岁版基础上调整，未经专业审核",
+   "figures": [
+    "wu-activate",
+    "wu-mobility-gym",
+    "wu-greatest",
+    "wu-gym-extra",
+    "st-a",
+    "st-b",
+    "st-neck",
+    "st-c",
+    "wu-balance",
+    "gym-smith-squat",
+    "gym-rdl",
+    "gym-leg-press",
+    "gym-leg-curl",
+    "gym-calf-raise",
+    "plank",
+    "dead-bug",
+    "gym-chest-press",
+    "gym-incline-press",
+    "gym-seated-press",
+    "lateral-raise",
+    "gym-pushdown",
+    "gym-lat-pulldown",
+    "gym-seated-row",
+    "sa-db-row",
+    "gym-face-pull",
+    "db-curl",
+    "gym-goblet-squat",
+    "gym-cs-row",
+    "gym-standing-press",
+    "gym-farmer-walk",
+    "gym-treadmill"
+   ],
+   "params_used": [
+    "BMI_CN",
+    "SLEEP_ADULT",
+    "SED_ADULT_WHO",
+    "SED_ALL_CN",
+    "WATER_CN",
+    "PA_STEPS",
+    "EGG_CN",
+    "SALT_CN",
+    "LOW_NA_SALT_CAUTION",
+    "VEG_CN",
+    "FRUIT_CN",
+    "MILK_CN",
+    "MILK_PAGODA_CN",
+    "GRAIN_CN",
+    "ANIMAL_CN",
+    "ANIMAL_WEEK_CN",
+    "SOY_NUT_CN",
+    "OIL_CN",
+    "SUGAR_CN",
+    "NSS_WHO",
+    "ALCOHOL_WHO",
+    "ALCOHOL_CN"
+   ],
+   "params_related": [
+    "PA_ADULT_AEROBIC",
+    "PA_ADULT_STRENGTH",
+    "SLEEP_BEDTIME_ADULT",
+    "SUGAR_WHO",
+    "FIBER_WHO",
+    "WAIST_CN",
+    "LOSS_REF"
+   ]
+  },
+  {
+   "file": "40-64岁-居家版.md",
+   "name": "40-64岁-居家版",
+   "audience": "adult",
+   "age": "a40",
+   "venue": "home",
+   "for": "40–64 岁健康成年人",
+   "venue_note": "居家：徒手 + 2.5kg 哑铃 + 动感单车",
+   "version": "v2.0",
+   "review": "在 18–39 岁版基础上调整，未经专业审核",
+   "figures": [
+    "wu-activate",
+    "wu-mobility",
+    "wu-greatest",
+    "wu-home-extra",
+    "st-a",
+    "st-b",
+    "st-wrist",
+    "st-c",
+    "wu-balance",
+    "squat",
+    "split-squat",
+    "split-squat-stool",
+    "bss",
+    "glute-bridge",
+    "hip-hinge-wall",
+    "sl-rdl",
+    "wall-sit",
+    "calf-raise",
+    "plank",
+    "dead-bug",
+    "pushup",
+    "pushup-ladder",
+    "db-shoulder-press",
+    "lateral-raise",
+    "chair-dip",
+    "side-plank",
+    "table-row",
+    "door-row",
+    "sa-db-row",
+    "rear-fly",
+    "ytw",
+    "superman",
+    "bird-dog",
+    "db-curl",
+    "d-circuit-home",
+    "d-bike-setup"
+   ],
+   "params_used": [
+    "BMI_CN",
+    "SLEEP_ADULT",
+    "SED_ADULT_WHO",
+    "SED_ALL_CN",
+    "WATER_CN",
+    "PA_STEPS",
+    "EGG_CN",
+    "SALT_CN",
+    "LOW_NA_SALT_CAUTION",
+    "VEG_CN",
+    "FRUIT_CN",
+    "MILK_CN",
+    "MILK_PAGODA_CN",
+    "GRAIN_CN",
+    "ANIMAL_CN",
+    "ANIMAL_WEEK_CN",
+    "SOY_NUT_CN",
+    "OIL_CN",
+    "SUGAR_CN",
+    "NSS_WHO",
+    "ALCOHOL_WHO",
+    "ALCOHOL_CN"
+   ],
+   "params_related": [
+    "PA_ADULT_AEROBIC",
+    "PA_ADULT_STRENGTH",
+    "SLEEP_BEDTIME_ADULT",
+    "SUGAR_WHO",
+    "FIBER_WHO",
+    "WAIST_CN",
+    "LOSS_REF"
+   ]
+  },
+  {
+   "file": "40-64岁-纯徒手版.md",
+   "name": "40-64岁-纯徒手版",
+   "audience": "adult",
+   "age": "a40",
+   "venue": "bw",
+   "for": "40–64 岁健康成年人",
+   "venue_note": "纯徒手，零器械",
+   "version": "v2.0",
+   "review": "在 18–39 岁版基础上调整，未经专业审核",
+   "figures": [
+    "wu-activate",
+    "wu-mobility",
+    "wu-greatest",
+    "wu-home-extra",
+    "st-a",
+    "st-b",
+    "st-wrist",
+    "st-c",
+    "wu-balance",
+    "squat",
+    "split-squat",
+    "split-squat-stool",
+    "bss",
+    "glute-bridge",
+    "hip-hinge-wall",
+    "sl-rdl",
+    "wall-sit",
+    "calf-raise",
+    "plank",
+    "dead-bug",
+    "pushup",
+    "pushup-ladder",
+    "pike-pushup",
+    "chair-dip",
+    "wall-angel",
+    "shoulder-tap",
+    "side-plank",
+    "table-row",
+    "door-row",
+    "towel-row",
+    "ytw",
+    "reverse-snow-angel",
+    "superman",
+    "bird-dog",
+    "towel-curl",
+    "d-cardio-low",
+    "d-circuit-bw"
+   ],
+   "params_used": [
+    "BMI_CN",
+    "SLEEP_ADULT",
+    "SED_ADULT_WHO",
+    "SED_ALL_CN",
+    "WATER_CN",
+    "PA_STEPS",
+    "EGG_CN",
+    "SALT_CN",
+    "LOW_NA_SALT_CAUTION",
+    "VEG_CN",
+    "FRUIT_CN",
+    "MILK_CN",
+    "MILK_PAGODA_CN",
+    "GRAIN_CN",
+    "ANIMAL_CN",
+    "ANIMAL_WEEK_CN",
+    "SOY_NUT_CN",
+    "OIL_CN",
+    "SUGAR_CN",
+    "NSS_WHO",
+    "ALCOHOL_WHO",
+    "ALCOHOL_CN"
+   ],
+   "params_related": [
+    "PA_ADULT_AEROBIC",
+    "PA_ADULT_STRENGTH",
+    "SLEEP_BEDTIME_ADULT",
+    "SUGAR_WHO",
+    "FIBER_WHO",
+    "WAIST_CN",
+    "LOSS_REF"
+   ]
+  },
+  {
+   "file": "65岁以上-椅子辅助版.md",
+   "name": "65岁以上-椅子辅助版",
+   "audience": "senior",
+   "age": "a65",
+   "venue": "chair",
+   "for": "65 岁以上、能独立行走的老年人",
+   "venue_note": "家里两把稳固的椅子 + 厨房台面 + 户外平路步行",
+   "version": "v2.0",
+   "review": "未经专业审核",
+   "figures": [
+    "a65-warmup",
+    "a65-cooldown",
+    "a65-01-sit-to-stand",
+    "a65-02-heel-raise",
+    "a65-03-side-leg-raise",
+    "a65-04-wall-pushup",
+    "a65-05-seated-row",
+    "a65-06-tandem-stand",
+    "a65-07-single-leg",
+    "a65-08-side-step",
+    "a65-09-heel-toe-walk",
+    "a65-10-step"
+   ],
+   "params_used": [
+    "PA_OLDER_BALANCE",
+    "FALL_ASSESS",
+    "ORAL_CHECK_OLDER",
+    "SLEEP_OLDER",
+    "SLEEP_BEDTIME_OLDER",
+    "PA_ADULT_AEROBIC",
+    "PA_OLDER_CN",
+    "WATER_OLDER",
+    "SED_OLDER_WHO",
+    "SED_ALL_CN",
+    "ORAL_BRUSH",
+    "MH_HOTLINE",
+    "PA_ADULT_STRENGTH",
+    "FALL_TRAIN",
+    "RT_SARCO",
+    "SALT_CN",
+    "OIL_CN",
+    "LOW_NA_SALT_CAUTION",
+    "MILK_CN",
+    "VEG_CN",
+    "FRUIT_CN",
+    "WHOLEGRAIN_CN",
+    "ALCOHOL_WHO",
+    "ALCOHOL_CN",
+    "BMI_80PLUS",
+    "PROTEIN_RNI_65",
+    "PROTEIN_SARCO"
+   ],
+   "params_related": []
+  },
+  {
+   "file": "13-17岁-纯徒手版.md",
+   "name": "13-17岁-纯徒手版",
+   "audience": "teen",
+   "age": "a13",
+   "venue": "bw",
+   "for": "初中生、高中生",
+   "venue_note": "纯徒手，零器械（家里或操场）",
+   "version": "v2.0",
+   "review": "未经专业审核",
+   "figures": [
+    "wu-a13-activate",
+    "st-a13-a",
+    "st-a13-b",
+    "st-a13-c",
+    "a13-jump",
+    "a13-jump-land",
+    "squat",
+    "split-squat",
+    "glute-bridge",
+    "a13-sl-rdl-wall",
+    "plank",
+    "dead-bug",
+    "pushup",
+    "pushup-ladder",
+    "a13-pike-high",
+    "wall-angel",
+    "shoulder-tap",
+    "side-plank",
+    "table-row",
+    "door-row",
+    "a13-bar-row",
+    "ytw",
+    "reverse-snow-angel",
+    "superman",
+    "bird-dog",
+    "a13-towel-row-seated"
+   ],
+   "params_used": [
+    "SPINE_SCREEN",
+    "PA_YOUTH_BONE",
+    "SLEEP_JUNIOR",
+    "SLEEP_SENIOR_HS",
+    "SLEEP_13_17",
+    "BEDTIME_JUNIOR",
+    "BEDTIME_SENIOR_HS",
+    "EYE_READ_40",
+    "PA_YOUTH_SED_CN",
+    "EYE_202020",
+    "HOMEWORK_BEDTIME",
+    "PA_YOUTH_MVPA",
+    "PA_SCHOOL_TOTAL",
+    "EYE_DAYLIGHT_60",
+    "PA_YOUTH_SCREEN_CN",
+    "PA_YOUTH_SCREEN_WHO",
+    "EYE_SCREEN_LEISURE",
+    "EYE_POSTURE",
+    "EYE_CHECK_SCHOOL",
+    "YOUTH_LINE",
+    "MH_HOTLINE",
+    "MILK_YOUTH_CN",
+    "BREAKFAST_YOUTH_CN",
+    "SSB_YOUTH_CN",
+    "WATER_11_13",
+    "WATER_14_17",
+    "ORAL_BRUSH",
+    "ORAL_CHECK_CHILD",
+    "ORAL_SEALANT"
+   ],
+   "params_related": []
+  }
+ ],
+ "documents": [
+  {
+   "file": "三餐菜谱手册.md"
+  }
+ ],
+ "intake": {
+  "questions": [
+   {
+    "id": "Q1",
+    "question": "使用者处于哪个阶段",
+    "options": [
+     "学龄前",
+     "小学",
+     "初中",
+     "高中",
+     "18–39 岁",
+     "40–64 岁",
+     "65 岁以上"
+    ],
+    "purpose": "定年龄段。未成年人**按学段选，不按年龄**"
+   },
+   {
+    "id": "Q2",
+    "question": "安全筛查",
+    "options": [
+     "按年龄段逐项回答是 / 否（第三节）"
+    ],
+    "purpose": "按规则决定能不能直接开始"
+   },
+   {
+    "id": "Q3",
+    "question": "能用的场地（只问 18–64 岁）",
+    "options": [
+     "健身房",
+     "家里有 2.5kg 哑铃和动感单车",
+     "什么器械都没有"
+    ],
+    "purpose": "选场地：gym、home、bw"
+   },
+   {
+    "id": "Q4",
+    "question": "平时几点起床",
+    "options": [
+     "时间"
+    ],
+    "purpose": "算上床时间"
+   }
+  ],
+  "bedtime": {
+   "formula": "起床时间 − 目标睡眠 − 入睡缓冲",
+   "buffer_minutes": 20
+  },
+  "stages": [
+   {
+    "stage": "学龄前",
+    "age": null
+   },
+   {
+    "stage": "小学",
+    "age": "a06",
+    "sleep_hours": 10,
+    "official_bedtime": {
+     "param": "BEDTIME_PRIMARY",
+     "text": "小学生就寝时间一般不晚于 21:20"
+    }
+   },
+   {
+    "stage": "初中",
+    "age": "a13",
+    "sleep_hours": 9,
+    "official_bedtime": {
+     "param": "BEDTIME_JUNIOR",
+     "text": "初中生就寝时间一般不晚于 22:00"
+    }
+   },
+   {
+    "stage": "高中",
+    "age": "a13",
+    "sleep_hours": 8,
+    "official_bedtime": {
+     "param": "BEDTIME_SENIOR_HS",
+     "text": "高中生就寝时间一般不晚于 23:00"
+    }
+   },
+   {
+    "stage": "18–39 岁",
+    "age": "a18",
+    "sleep_hours": 8,
+    "official_bedtime": {
+     "param": "SLEEP_BEDTIME_ADULT",
+     "text": "建议 22–23 点入睡"
+    }
+   },
+   {
+    "stage": "40–64 岁",
+    "age": "a40",
+    "sleep_hours": 8,
+    "official_bedtime": {
+     "param": "SLEEP_BEDTIME_ADULT",
+     "text": "建议 22–23 点入睡"
+    }
+   },
+   {
+    "stage": "65 岁以上",
+    "age": "a65",
+    "sleep_hours": 7,
+    "official_bedtime": {
+     "param": "SLEEP_BEDTIME_OLDER",
+     "text": "老年人推荐晚上 10–11 时入睡，早晨 5–6 时起床"
+    }
+   }
+  ],
+  "screening": [
+   {
+    "age": "a06",
+    "product": "6-12岁-户外与游戏版（家长版）",
+    "heading": "这些情况先问医生",
+    "kind": "any",
+    "rule": "孩子有下面任何一条，先问医生，按医生的意见安排活动",
+    "items": [
+     "心脏方面的问题，或者活动时胸痛、心慌、晕倒过",
+     "家里有亲人年纪不大就因为心脏问题突然去世",
+     "哮喘或其他慢性呼吸道疾病（问清楚运动前要不要用药、随身带什么）",
+     "还没看过医生，但一运动就咳嗽、胸闷、喘得比别的孩子厉害，或者嘴唇发紫",
+     "糖尿病、癫痫（抽风）或其他需要长期看医生的病：问清楚运动时要注意什么，告诉学校和看护人",
+     "有过严重过敏反应（吃了东西或被虫子叮后嘴唇、脸肿，喘不上气）：问清楚随身要带什么，学校和看护人要知道什么",
+     "骨头、关节受过伤还没完全好，或者做过手术",
+     "医生说过要限制运动",
+     "正在因为某种病长期吃药"
+    ]
+   },
+   {
+    "age": "a13",
+    "product": "13-17岁-纯徒手版",
+    "heading": "先告诉家长，这些情况先问医生",
+    "kind": "any",
+    "rule": "开始之前，先告诉家长你要用这份计划。有下面任何一条，先问医生，拿到同意再开始",
+    "items": [
+     "有心脏方面的问题，或者运动时胸痛、胸闷、心慌过",
+     "家里有亲人年纪不大就因为心脏问题突然去世，或者家里有人被医生说过有遗传性的心脏病",
+     "哮喘或其他慢性呼吸道疾病（问清楚运动前要不要用药，药随身带）",
+     "糖尿病、癫痫，或者有过严重过敏反应：问清楚运动时要注意什么、随身带什么，并告诉体育老师",
+     "运动时晕倒过，或者头晕到站不稳",
+     "腰、膝、肩、脚踝有伤，或者做过手术，还没完全好",
+     "体检时医生说过不适合剧烈运动",
+     "正在因为某种病长期吃药",
+     "最近发过烧、得过病毒性感冒或肺炎，还没完全好"
+    ]
+   },
+   {
+    "age": "a18",
+    "product": "18-39岁-健身房版",
+    "heading": "先问医生的情况",
+    "kind": "any",
+    "rule": "有下面任何一条，开始前先咨询医生，不要直接照这份计划练",
+    "items": [
+     "心脏病、心律不齐、或未控制的高血压",
+     "最近运动、爬楼或快走时出现过胸闷胸痛、头晕、晕倒，或说不清原因的气短、心慌；或者不活动时也胸痛过",
+     "糖尿病、肾脏疾病（本计划蛋白质偏高）、痛风或高尿酸（红肉量偏高）、高血脂",
+     "哮喘或慢性呼吸道疾病",
+     "腰椎、膝、肩关节有明确伤病或手术史",
+     "正在服用影响心率、血压或平衡的药物",
+     "怀孕，或产后 6 个月内",
+     "BMI ≥ 28"
+    ]
+   },
+   {
+    "age": "a40",
+    "product": "40-64岁-健身房版",
+    "heading": "先问医生的情况",
+    "kind": "any",
+    "rule": "有下面任何一条，开始前先咨询医生，不要直接照这份计划练；40 岁以后开始前先做一次体检、量一次血压（近一年内做过的不用再做）",
+    "items": [
+     "心脏病、心律不齐、或未控制的高血压",
+     "最近运动、爬楼或快走时出现过胸闷胸痛、头晕、晕倒，或说不清原因的气短、心慌；或者不活动时也胸痛过",
+     "糖尿病、肾脏疾病（本计划蛋白质偏高）、痛风或高尿酸（红肉量偏高）、高血脂",
+     "哮喘或慢性呼吸道疾病",
+     "腰椎、膝、肩关节有明确伤病或手术史",
+     "正在服用影响心率、血压或平衡的药物",
+     "怀孕，或产后 6 个月内",
+     "BMI ≥ 28"
+    ]
+   },
+   {
+    "age": "a65",
+    "product": "65岁以上-椅子辅助版",
+    "heading": "第一步：先问医生",
+    "kind": "all",
+    "rule": "65 岁以上的朋友，开始前都要先问医生。下面这些情况尤其要问清楚",
+    "items": [
+     "心脏病、心律不齐、高血压（包括吃药控制住的）",
+     "糖尿病、肾脏疾病、痛风、高血脂",
+     "哮喘或慢性呼吸道疾病",
+     "骨质疏松；骨折过（尤其是轻轻一摔就骨折）、明显驼背",
+     "腰、膝、髋、肩有伤病或做过手术（包括换过关节）",
+     "中风后、帕金森病，或者脚底发麻、踩地没感觉",
+     "正在服用影响心率、血压、血糖或平衡的药物",
+     "最近一年摔倒过（先做正式的跌倒风险评估），或者走路要扶东西、用拐杖",
+     "经常头晕，或者站起来时眼前发黑",
+     "视力明显下降，看不清地面和台阶",
+     "记性明显变差、容易糊涂（这种情况要家人全程陪着练）",
+     "最近体重掉得明显，或者吃得比以前少很多"
+    ]
+   },
+   {
+    "age": "fam",
+    "product": "全家餐饮模板",
+    "heading": "这些家庭成员，先问医生或营养师",
+    "kind": "any",
+    "rule": "家里有下面任何一种情况，先问医生，按医生或注册营养师的要求给这位成员单独调整，不要直接照这份模板吃",
+    "items": [
+     "食物过敏（鱼、虾、鸡蛋、牛奶、大豆、小麦、花生、坚果等）：过敏的食材整道菜不做，或者给他单独做一份，替换方法见第八章。注意三点：",
+     "有医生开的饮食要求：高血压、糖尿病、慢性肾病、痛风、高血脂、肥胖等，国家卫健委有对应的食养指南，按医生的建议来",
+     "咀嚼、吞咽困难，吃饭容易呛咳的老人",
+     "怀孕、哺乳的家庭成员",
+     "在吃华法林（抗凝药）的家人：菠菜、油菜、西兰花这类深绿色蔬菜每天吃的量尽量稳定，不要突然大量增减；换菜单前问医生或药师",
+     "5 岁及以下的孩子：这份模板不覆盖。6–23 月龄的孩子，WHO 的辅食喂养指南建议：不吃高糖、高盐和含反式脂肪的食物，不喝含糖饮料，不用代糖；具体怎么吃，问儿童保健医生。家里有 5 岁及以下的孩子和大家同桌吃饭：整颗坚果、花生、整颗葡萄和小番茄、果冻、硬糖、爆米花不给（坚果磨碎或做成坚果酱，葡萄、小番茄切成四瓣）；鱼挑净刺，鸡肉去骨撕小"
+    ]
+   }
+  ],
+  "not_covered": [
+   {
+    "group": "学龄前儿童（0–5 岁）",
+    "advice": "本模板不覆盖，请先问医生或儿童保健医生"
+   },
+   {
+    "group": "孕期、产后 6 个月内",
+    "advice": "本模板不覆盖，请先问医生"
+   },
+   {
+    "group": "确诊慢性病",
+    "advice": "先问医生，按医生的建议选择活动和饮食"
+   },
+   {
+    "group": "残障人士",
+    "advice": "请在医生或康复治疗师指导下选择活动"
+   },
+   {
+    "group": "最近一年跌倒过的老年人",
+    "advice": "先做一次正式的跌倒风险评估，再按医生意见决定"
+   }
+  ]
+ },
+ "exercises": [
+  {
+   "id": "gym-smith-squat",
+   "name": "深蹲",
+   "aliases": [],
+   "short": "史密斯深蹲",
+   "mode": "reps",
+   "per_side": false,
+   "figure": "gym-smith-squat",
+   "used": [
+    "a18·gym",
+    "a40·gym"
+   ],
+   "used_in": [
+    {
+     "product": "18-39岁-健身房版",
+     "code": "a18·gym",
+     "title": "深蹲（史密斯机）",
+     "prescription": "",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒（过了最吃力的那一段把气呼完）→ 站直后换一口气，再蹲下一次。**每一下都换气**，不要整组憋着。",
+     "line": 677
+    },
+    {
+     "product": "40-64岁-健身房版",
+     "code": "a40·gym",
+     "title": "深蹲（史密斯机）",
+     "prescription": "",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒（过了最吃力的那一段把气呼完）→ 站直后换一口气，再蹲下一次。**每一下都换气**，不要整组憋着。",
+     "line": 703
+    }
+   ]
+  },
+  {
+   "id": "gym-leg-curl",
+   "name": "腿弯举",
+   "aliases": [],
+   "short": "腿弯举",
+   "mode": "reps",
+   "per_side": false,
+   "figure": "gym-leg-curl",
+   "used": [
+    "a18·gym",
+    "a40·gym"
+   ],
+   "used_in": [
+    {
+     "product": "18-39岁-健身房版",
+     "code": "a18·gym",
+     "title": "腿弯举（俯卧或坐姿）",
+     "prescription": "",
+     "breathing": "呼气，卷起约 1 秒 → 顶点停半秒（进阶停 1 秒），把气慢慢呼完 → 吸气，放回约 2 秒；不憋气。",
+     "line": 720
+    },
+    {
+     "product": "40-64岁-健身房版",
+     "code": "a40·gym",
+     "title": "腿弯举（俯卧或坐姿）",
+     "prescription": "",
+     "breathing": "呼气，卷起约 1 秒 → 顶点停半秒（进阶停 1 秒），把气慢慢呼完 → 吸气，放回约 2 秒；不憋气。",
+     "line": 746
+    }
+   ]
+  },
+  {
+   "id": "plank",
+   "name": "平板支撑",
+   "aliases": [],
+   "short": "平板支撑",
+   "mode": "timed",
+   "per_side": false,
+   "figure": "plank",
+   "used": [
+    "a18·gym",
+    "a40·gym",
+    "a18·home",
+    "a40·home",
+    "a18·bw",
+    "a40·bw"
+   ],
+   "used_in": [
+    {
+     "product": "18-39岁-纯徒手版",
+     "code": "a18·bw",
+     "title": "平板支撑",
+     "prescription": "3 组 × 30–60 秒",
+     "breathing": "呼气，把身体撑起来（约 1 秒）→ 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 吸气，慢慢放下。",
+     "line": 811
+    },
+    {
+     "product": "18-39岁-纯徒手版",
+     "code": "a18·bw",
+     "title": "平板支撑",
+     "prescription": "30 秒",
+     "breathing": "撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气。",
+     "line": 1081
+    },
+    {
+     "product": "18-39岁-健身房版",
+     "code": "a18·gym",
+     "title": "平板支撑",
+     "prescription": "",
+     "breathing": "呼气，把身体撑起来（约 1 秒）→ 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 吸气，慢慢放下。",
+     "line": 746
+    },
+    {
+     "product": "18-39岁-居家版",
+     "code": "a18·home",
+     "title": "平板支撑",
+     "prescription": "3 组 × 30–60 秒",
+     "breathing": "呼气，把身体撑起来（约 1 秒）→ 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 吸气，慢慢放下。",
+     "line": 810
+    },
+    {
+     "product": "18-39岁-居家版",
+     "code": "a18·home",
+     "title": "平板支撑",
+     "prescription": "30 秒",
+     "breathing": "撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气。",
+     "line": 1036
+    },
+    {
+     "product": "40-64岁-纯徒手版",
+     "code": "a40·bw",
+     "title": "平板支撑",
+     "prescription": "3 组 × 30–60 秒",
+     "breathing": "呼气，把身体撑起来（约 1 秒）→ 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 吸气，慢慢放下。",
+     "line": 836
+    },
+    {
+     "product": "40-64岁-纯徒手版",
+     "code": "a40·bw",
+     "title": "平板支撑",
+     "prescription": "30 秒",
+     "breathing": "撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气。",
+     "line": 1106
+    },
+    {
+     "product": "40-64岁-健身房版",
+     "code": "a40·gym",
+     "title": "平板支撑",
+     "prescription": "",
+     "breathing": "呼气，把身体撑起来（约 1 秒）→ 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 吸气，慢慢放下。",
+     "line": 772
+    },
+    {
+     "product": "40-64岁-居家版",
+     "code": "a40·home",
+     "title": "平板支撑",
+     "prescription": "3 组 × 30–60 秒",
+     "breathing": "呼气，把身体撑起来（约 1 秒）→ 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 吸气，慢慢放下。",
+     "line": 835
+    },
+    {
+     "product": "40-64岁-居家版",
+     "code": "a40·home",
+     "title": "平板支撑",
+     "prescription": "30 秒",
+     "breathing": "撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气。",
+     "line": 1061
+    }
+   ]
+  },
+  {
+   "id": "sa-db-row",
+   "name": "单臂哑铃划船",
+   "aliases": [],
+   "short": "单臂哑铃划船",
+   "mode": "reps",
+   "per_side": true,
+   "figure": "sa-db-row",
+   "used": [
+    "a18·gym",
+    "a40·gym",
+    "a18·home",
+    "a40·home"
+   ],
+   "used_in": [
+    {
+     "product": "18-39岁-健身房版",
+     "code": "a18·gym",
+     "title": "单臂哑铃划船",
+     "prescription": "",
+     "breathing": "呼气，拉起约 1 秒 → 吸气，放下约 2 秒；不憋气。",
+     "line": 875
+    },
+    {
+     "product": "18-39岁-居家版",
+     "code": "a18·home",
+     "title": "单臂哑铃划船",
+     "prescription": "每侧 3 组 × 12–15 次",
+     "breathing": "呼气，拉起约 1 秒 → 顶点停 2 秒，停住时自然呼吸 → 吸气，用 3 秒慢慢放下；不憋气。",
+     "line": 938
+    },
+    {
+     "product": "18-39岁-居家版",
+     "code": "a18·home",
+     "title": "单臂哑铃划船",
+     "prescription": "每侧 12",
+     "breathing": "呼气，拉起约 1 秒 → 吸气，放下约 2 秒（顶点不停）。",
+     "line": 1032
+    },
+    {
+     "product": "40-64岁-健身房版",
+     "code": "a40·gym",
+     "title": "单臂哑铃划船",
+     "prescription": "",
+     "breathing": "呼气，拉起约 1 秒 → 吸气，放下约 2 秒；不憋气。",
+     "line": 901
+    },
+    {
+     "product": "40-64岁-居家版",
+     "code": "a40·home",
+     "title": "单臂哑铃划船",
+     "prescription": "每侧 3 组 × 12–15 次",
+     "breathing": "呼气，拉起约 1 秒 → 顶点停 2 秒，停住时自然呼吸 → 吸气，用 3 秒慢慢放下；不憋气。",
+     "line": 963
+    },
+    {
+     "product": "40-64岁-居家版",
+     "code": "a40·home",
+     "title": "单臂哑铃划船",
+     "prescription": "每侧 12",
+     "breathing": "呼气，拉起约 1 秒 → 吸气，放下约 2 秒（顶点不停）。",
+     "line": 1057
+    }
+   ]
+  },
+  {
+   "id": "squat",
+   "name": "徒手深蹲",
+   "aliases": [],
+   "short": "徒手深蹲",
+   "mode": "reps",
+   "per_side": false,
+   "figure": "squat",
+   "used": [
+    "a18·home",
+    "a40·home",
+    "a18·bw",
+    "a40·bw",
+    "a13·bw"
+   ],
+   "used_in": [
+    {
+     "product": "13-17岁-纯徒手版",
+     "code": "a13·bw",
+     "title": "徒手深蹲（练大腿前侧、臀）",
+     "prescription": "3 组 × 12–15 次",
+     "breathing": "吸气，蹲下控制住约 2 秒（第 3 周起放慢到 3 秒，心里数\"一、二、三\"）→ 呼气，站起约 1 秒。练到\"底部停 2 秒\"那一级时，停的 2 秒里自然呼吸；不憋气。",
+     "line": 436
+    },
+    {
+     "product": "18-39岁-纯徒手版",
+     "code": "a18·bw",
+     "title": "徒手深蹲",
+     "prescription": "3 组 × 15–20 次",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒。难度阶梯里\"下放 3 秒\"那一级，吸气数满 3 秒；\"底部停 2 秒\"那一级，停住时自然呼吸；不憋气。",
+     "line": 690
+    },
+    {
+     "product": "18-39岁-纯徒手版",
+     "code": "a18·bw",
+     "title": "徒手深蹲",
+     "prescription": "15",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒。",
+     "line": 1073
+    },
+    {
+     "product": "18-39岁-居家版",
+     "code": "a18·home",
+     "title": "徒手深蹲",
+     "prescription": "3 组 × 15–20 次",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒。难度阶梯里\"下放 3 秒\"那一级，吸气数满 3 秒；\"底部停 2 秒\"那一级，停住时自然呼吸；不憋气。",
+     "line": 688
+    },
+    {
+     "product": "18-39岁-居家版",
+     "code": "a18·home",
+     "title": "徒手深蹲",
+     "prescription": "15",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒。",
+     "line": 1028
+    },
+    {
+     "product": "40-64岁-纯徒手版",
+     "code": "a40·bw",
+     "title": "徒手深蹲",
+     "prescription": "3 组 × 15–20 次",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒。难度阶梯里\"下放 3 秒\"那一级，吸气数满 3 秒；\"底部停 2 秒\"那一级，停住时自然呼吸；不憋气。",
+     "line": 715
+    },
+    {
+     "product": "40-64岁-纯徒手版",
+     "code": "a40·bw",
+     "title": "徒手深蹲",
+     "prescription": "15",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒。",
+     "line": 1098
+    },
+    {
+     "product": "40-64岁-居家版",
+     "code": "a40·home",
+     "title": "徒手深蹲",
+     "prescription": "3 组 × 15–20 次",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒。难度阶梯里\"下放 3 秒\"那一级，吸气数满 3 秒；\"底部停 2 秒\"那一级，停住时自然呼吸；不憋气。",
+     "line": 713
+    },
+    {
+     "product": "40-64岁-居家版",
+     "code": "a40·home",
+     "title": "徒手深蹲",
+     "prescription": "15",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒。",
+     "line": 1053
+    }
+   ]
+  },
+  {
+   "id": "split-squat",
+   "name": "原地分腿蹲",
+   "aliases": [],
+   "short": "原地分腿蹲",
+   "mode": "reps",
+   "per_side": true,
+   "figure": "split-squat",
+   "used": [
+    "a18·home",
+    "a40·home",
+    "a18·bw",
+    "a40·bw",
+    "a13·bw"
+   ],
+   "used_in": [
+    {
+     "product": "13-17岁-纯徒手版",
+     "code": "a13·bw",
+     "title": "原地分腿蹲（练大腿前侧、臀，单腿站稳）",
+     "prescription": "每侧 3 组 × 8–10 次（左右各做完算 1 组，换边不休息）",
+     "breathing": "吸气，往下控制住约 2 秒（第 3 周起放慢到 3 秒）→ 呼气，站起约 1 秒；不憋气。",
+     "line": 449
+    },
+    {
+     "product": "18-39岁-纯徒手版",
+     "code": "a18·bw",
+     "title": "原地分腿蹲",
+     "prescription": "",
+     "breathing": "吸气，身体往下沉约 2 秒（第 3 周起放慢到 3 秒，见上表）→ 呼气，发力站回约 1 秒；不憋气。",
+     "line": 716
+    },
+    {
+     "product": "18-39岁-居家版",
+     "code": "a18·home",
+     "title": "原地分腿蹲",
+     "prescription": "",
+     "breathing": "吸气，身体往下沉约 2 秒（第 3 周起放慢到 3 秒，见上表）→ 呼气，发力站回约 1 秒；不憋气。",
+     "line": 714
+    },
+    {
+     "product": "40-64岁-纯徒手版",
+     "code": "a40·bw",
+     "title": "原地分腿蹲",
+     "prescription": "",
+     "breathing": "吸气，身体往下沉约 2 秒（第 3 周起放慢到 3 秒，见上表）→ 呼气，发力站回约 1 秒；不憋气。",
+     "line": 741
+    },
+    {
+     "product": "40-64岁-居家版",
+     "code": "a40·home",
+     "title": "原地分腿蹲",
+     "prescription": "",
+     "breathing": "吸气，身体往下沉约 2 秒（第 3 周起放慢到 3 秒，见上表）→ 呼气，发力站回约 1 秒；不憋气。",
+     "line": 739
+    }
+   ]
+  },
+  {
+   "id": "glute-bridge",
+   "name": "臀桥",
+   "aliases": [],
+   "short": "臀桥",
+   "mode": "reps",
+   "per_side": false,
+   "figure": "glute-bridge",
+   "used": [
+    "a18·home",
+    "a40·home",
+    "a18·bw",
+    "a40·bw",
+    "a13·bw"
+   ],
+   "used_in": [
+    {
+     "product": "13-17岁-纯徒手版",
+     "code": "a13·bw",
+     "title": "臀桥（练臀、大腿后侧）",
+     "prescription": "3 组 × 15 次",
+     "breathing": "呼气，往上顶约 1 秒 → 最高点停 2 秒，停住时自然呼吸 → 吸气，慢慢放下约 2 秒；\"顶点停 3 秒\"那一级照写的秒数停；不憋气。",
+     "line": 462
+    },
+    {
+     "product": "18-39岁-纯徒手版",
+     "code": "a18·bw",
+     "title": "臀桥",
+     "prescription": "3 组 × 20 次",
+     "breathing": "呼气，往上顶约 1 秒 → 顶点停 2 秒，停住时自然呼吸 → 吸气，慢慢放下约 2 秒。难度阶梯里\"顶点停 3 秒\"那几级，照写的秒数停，停住时同样自然呼吸；不憋气。",
+     "line": 749
+    },
+    {
+     "product": "18-39岁-纯徒手版",
+     "code": "a18·bw",
+     "title": "臀桥",
+     "prescription": "20",
+     "breathing": "呼气，往上顶约 1 秒 → 吸气，放下约 2 秒（顶点不停）。",
+     "line": 1079
+    },
+    {
+     "product": "18-39岁-居家版",
+     "code": "a18·home",
+     "title": "臀桥",
+     "prescription": "3 组 × 20 次",
+     "breathing": "呼气，往上顶约 1 秒 → 顶点停 2 秒，停住时自然呼吸 → 吸气，慢慢放下约 2 秒。难度阶梯里\"顶点停 3 秒\"那几级，照写的秒数停，停住时同样自然呼吸；不憋气。",
+     "line": 747
+    },
+    {
+     "product": "18-39岁-居家版",
+     "code": "a18·home",
+     "title": "臀桥",
+     "prescription": "20",
+     "breathing": "呼气，往上顶约 1 秒 → 顶点停 2 秒，停住时自然呼吸 → 吸气，放下约 2 秒。",
+     "line": 1034
+    },
+    {
+     "product": "40-64岁-纯徒手版",
+     "code": "a40·bw",
+     "title": "臀桥",
+     "prescription": "3 组 × 20 次",
+     "breathing": "呼气，往上顶约 1 秒 → 顶点停 2 秒，停住时自然呼吸 → 吸气，慢慢放下约 2 秒。难度阶梯里\"顶点停 3 秒\"那几级，照写的秒数停，停住时同样自然呼吸；不憋气。",
+     "line": 774
+    },
+    {
+     "product": "40-64岁-纯徒手版",
+     "code": "a40·bw",
+     "title": "臀桥",
+     "prescription": "20",
+     "breathing": "呼气，往上顶约 1 秒 → 吸气，放下约 2 秒（顶点不停）。",
+     "line": 1104
+    },
+    {
+     "product": "40-64岁-居家版",
+     "code": "a40·home",
+     "title": "臀桥",
+     "prescription": "3 组 × 20 次",
+     "breathing": "呼气，往上顶约 1 秒 → 顶点停 2 秒，停住时自然呼吸 → 吸气，慢慢放下约 2 秒。难度阶梯里\"顶点停 3 秒\"那几级，照写的秒数停，停住时同样自然呼吸；不憋气。",
+     "line": 772
+    },
+    {
+     "product": "40-64岁-居家版",
+     "code": "a40·home",
+     "title": "臀桥",
+     "prescription": "20",
+     "breathing": "呼气，往上顶约 1 秒 → 顶点停 2 秒，停住时自然呼吸 → 吸气，放下约 2 秒。",
+     "line": 1059
+    }
+   ]
+  },
+  {
+   "id": "wall-sit",
+   "name": "靠墙静蹲",
+   "aliases": [],
+   "short": "靠墙静蹲",
+   "mode": "timed",
+   "per_side": false,
+   "figure": "wall-sit",
+   "used": [
+    "a18·home",
+    "a40·home",
+    "a18·bw",
+    "a40·bw"
+   ],
+   "used_in": [
+    {
+     "product": "18-39岁-纯徒手版",
+     "code": "a18·bw",
+     "title": "靠墙静蹲",
+     "prescription": "3 组 × 30–90 秒（撑到姿势快保持不住就停，不撑到力竭）",
+     "breathing": "吸气，背贴墙往下滑约 2 秒 → 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 呼气，背贴墙滑回站直（约 1–2 秒）。",
+     "line": 779
+    },
+    {
+     "product": "18-39岁-居家版",
+     "code": "a18·home",
+     "title": "靠墙静蹲",
+     "prescription": "3 组 × 30–90 秒（撑到姿势快保持不住就停，不撑到力竭）",
+     "breathing": "吸气，背贴墙往下滑约 2 秒 → 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 呼气，背贴墙滑回站直（约 1–2 秒）。",
+     "line": 778
+    },
+    {
+     "product": "40-64岁-纯徒手版",
+     "code": "a40·bw",
+     "title": "靠墙静蹲",
+     "prescription": "3 组 × 30–90 秒（撑到姿势快保持不住就停，40–64 岁版不撑到力竭）",
+     "breathing": "吸气，背贴墙往下滑约 2 秒 → 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 呼气，背贴墙滑回站直（约 1–2 秒）。",
+     "line": 804
+    },
+    {
+     "product": "40-64岁-居家版",
+     "code": "a40·home",
+     "title": "靠墙静蹲",
+     "prescription": "3 组 × 30–90 秒（撑到姿势快保持不住就停，40–64 岁版不撑到力竭）",
+     "breathing": "吸气，背贴墙往下滑约 2 秒 → 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 呼气，背贴墙滑回站直（约 1–2 秒）。",
+     "line": 803
+    }
+   ]
+  },
+  {
+   "id": "pushup",
+   "name": "俯卧撑",
+   "aliases": [],
+   "short": "俯卧撑",
+   "mode": "reps",
+   "per_side": false,
+   "figure": "pushup",
+   "used": [
+    "a18·home",
+    "a40·home",
+    "a18·bw",
+    "a40·bw",
+    "a13·bw"
+   ],
+   "used_in": [
+    {
+     "product": "13-17岁-纯徒手版",
+     "code": "a13·bw",
+     "title": "俯卧撑（练胸、肩前面、手臂后侧）",
+     "prescription": "3 组 × 8–12 次",
+     "breathing": "吸气，下放控制住约 2 秒（第 3 周起放慢到 3 秒）→ 呼气，推起约 1 秒；不憋气。",
+     "line": 519
+    },
+    {
+     "product": "18-39岁-纯徒手版",
+     "code": "a18·bw",
+     "title": "俯卧撑（阶梯动作，本日核心）",
+     "prescription": "3 组 × 8–15 次",
+     "breathing": "吸气，下放约 2 秒 → 呼气，推起约 1 秒；阶梯第 5 级\"下放 3 秒\"吸气数满 3 秒，推起还是约 1 秒；不憋气。",
+     "line": 826
+    },
+    {
+     "product": "18-39岁-纯徒手版",
+     "code": "a18·bw",
+     "title": "俯卧撑（你的当前难度级）",
+     "prescription": "10",
+     "breathing": "吸气，下放约 2 秒 → 呼气，推起约 1 秒。",
+     "line": 1075
+    },
+    {
+     "product": "18-39岁-居家版",
+     "code": "a18·home",
+     "title": "俯卧撑（阶梯动作，本日核心）",
+     "prescription": "3 组 × 8–15 次",
+     "breathing": "吸气，下放约 2 秒 → 呼气，推起约 1 秒；阶梯第 5 级\"下放 3 秒\"吸气数满 3 秒，推起还是约 1 秒；不憋气。",
+     "line": 825
+    },
+    {
+     "product": "18-39岁-居家版",
+     "code": "a18·home",
+     "title": "俯卧撑（你的当前难度级）",
+     "prescription": "10",
+     "breathing": "吸气，下放约 2 秒 → 呼气，推起约 1 秒。",
+     "line": 1030
+    },
+    {
+     "product": "40-64岁-纯徒手版",
+     "code": "a40·bw",
+     "title": "俯卧撑（阶梯动作，本日核心）",
+     "prescription": "3 组 × 8–15 次",
+     "breathing": "吸气，下放约 2 秒 → 呼气，推起约 1 秒；阶梯第 5 级\"下放 3 秒\"吸气数满 3 秒，推起还是约 1 秒；不憋气。",
+     "line": 851
+    },
+    {
+     "product": "40-64岁-纯徒手版",
+     "code": "a40·bw",
+     "title": "俯卧撑（你的当前难度级）",
+     "prescription": "10",
+     "breathing": "吸气，下放约 2 秒 → 呼气，推起约 1 秒。",
+     "line": 1100
+    },
+    {
+     "product": "40-64岁-居家版",
+     "code": "a40·home",
+     "title": "俯卧撑（阶梯动作，本日核心）",
+     "prescription": "3 组 × 8–15 次",
+     "breathing": "吸气，下放约 2 秒 → 呼气，推起约 1 秒；阶梯第 5 级\"下放 3 秒\"吸气数满 3 秒，推起还是约 1 秒；不憋气。",
+     "line": 850
+    },
+    {
+     "product": "40-64岁-居家版",
+     "code": "a40·home",
+     "title": "俯卧撑（你的当前难度级）",
+     "prescription": "10",
+     "breathing": "吸气，下放约 2 秒 → 呼气，推起约 1 秒。",
+     "line": 1055
+    }
+   ]
+  },
+  {
+   "id": "a65-01-sit-to-stand",
+   "name": "坐站起",
+   "aliases": [],
+   "short": "坐站起",
+   "mode": "reps",
+   "per_side": false,
+   "figure": "a65-01-sit-to-stand",
+   "used": [
+    "a65·chair"
+   ],
+   "used_in": [
+    {
+     "product": "65岁以上-椅子辅助版",
+     "code": "a65·chair",
+     "title": "坐站起（练大腿、臀部）",
+     "prescription": "8–10 次一组。",
+     "breathing": "吸气，身体往前倾（约 1 秒）→ 呼气，双腿用力站起来、站直（约 2 秒）→ 站直后照常换一口气 → 吸气，慢慢坐下（约 2–3 秒），屁股先往后找椅子。第 3 周起坐下时心里数\"一千零一、一千零二、一千零三\"，数完正好坐到椅子上（约 3 秒），数的时候气慢慢吸，别把气停住。",
+     "line": 443
+    }
+   ]
+  },
+  {
+   "id": "a65-04-wall-pushup",
+   "name": "扶墙俯卧撑",
+   "aliases": [],
+   "short": "扶墙俯卧撑",
+   "mode": "reps",
+   "per_side": false,
+   "figure": "a65-04-wall-pushup",
+   "used": [
+    "a65·chair"
+   ],
+   "used_in": [
+    {
+     "product": "65岁以上-椅子辅助版",
+     "code": "a65·chair",
+     "title": "扶墙俯卧撑（练胸、肩、手臂）",
+     "prescription": "8–10 次一组。",
+     "breathing": "吸气，弯曲手肘、胸口慢慢靠近墙（约 2 秒）→ 呼气，推回来（约 1–2 秒）；不撞墙、不猛推。觉得太轻松、推回来时改成慢慢数 3 下的，数的时候照样呼气，别把气停住。",
+     "line": 481
+    }
+   ]
+  }
+ ],
+ "redlines": {
+  "banned": {
+   "a06": [
+    "kcal",
+    "千卡",
+    "大卡",
+    "卡路里",
+    "热量",
+    "赤字",
+    "减重",
+    "减肥",
+    "减脂",
+    "节食",
+    "断食",
+    "称重",
+    "体重",
+    "上秤",
+    "腰围",
+    "BMI",
+    "身材照",
+    "力竭",
+    "极限",
+    "排名",
+    "饮酒",
+    "喝酒",
+    "酒精",
+    "啤酒",
+    "咖啡",
+    "代糖",
+    "甜味剂",
+    "低钠盐"
+   ],
+   "a13": [
+    "kcal",
+    "千卡",
+    "大卡",
+    "卡路里",
+    "热量",
+    "赤字",
+    "减重",
+    "减肥",
+    "减脂",
+    "节食",
+    "断食",
+    "称重",
+    "体重",
+    "上秤",
+    "腰围",
+    "BMI",
+    "身材照",
+    "力竭",
+    "极限",
+    "排名",
+    "饮酒",
+    "喝酒",
+    "酒精",
+    "啤酒",
+    "咖啡",
+    "代糖",
+    "甜味剂",
+    "低钠盐"
+   ],
+   "a65": [
+    "跳跃",
+    "开合跳",
+    "跳绳",
+    "蹦",
+    "闭眼",
+    "屏息",
+    "憋气",
+    "力竭",
+    "减重",
+    "减肥",
+    "减脂",
+    "赤字",
+    "节食",
+    "断食"
+   ],
+   "fam": [
+    "kcal",
+    "千卡",
+    "大卡",
+    "卡路里",
+    "热量赤字",
+    "赤字",
+    "减肥",
+    "减脂",
+    "节食",
+    "断食",
+    "力竭",
+    "IU"
+   ]
+  },
+  "whitelist": {
+   "a06": [
+    "不称体重、不量腰围、不拍身材照",
+    "不给孩子称体重、量腰围、拍身材照",
+    "不要用减肥、节食来要求孩子",
+    "不和别的孩子排名"
+   ],
+   "a13": [
+    "每组留 2–3 次余力，不练到力竭",
+    "不做力竭测试",
+    "不称体重、不量腰围、不拍身材照",
+    "不称体重、不量腰围、不拍身材照做对比",
+    "不要节食、不要断食、不要为了减肥不吃饭",
+    "不和别人排名",
+    "体重、身材的变化交给时间",
+    "关于体重的疑问，去问校医或医生"
+   ],
+   "a65": [
+    "不做跳跃",
+    "不闭眼",
+    "不屏息、不憋气",
+    "用力时呼气，不憋气",
+    "不要为了减重少吃",
+    "不追求减重"
+   ]
+  },
+  "required_all": [
+   "不能替代",
+   "安全须知"
+  ],
+  "required": {
+   "a06": [
+    "家长",
+    "未经专业审核",
+    "先问医生",
+    "过敏",
+    "打 120",
+    "生病"
+   ],
+   "a13": [
+    "告诉家长",
+    "未经专业审核",
+    "先问医生",
+    "12356"
+   ],
+   "a40": [
+    "未经专业审核",
+    "体检"
+   ],
+   "fam": [
+    "未经专业审核",
+    "先问医生",
+    "过敏",
+    "先盛出"
+   ],
+   "a65": [
+    "先问医生",
+    "扶",
+    "未经专业审核",
+    "跌倒",
+    "摔倒了"
+   ]
+  },
+  "cases": [
+   {
+    "age": "a13",
+    "scope": "正文",
+    "text": "每组留 2–3 次余力，不练到力竭",
+    "blocked": false
+   },
+   {
+    "age": "a13",
+    "scope": "正文",
+    "text": "最后一组练到力竭",
+    "blocked": true
+   },
+   {
+    "age": "a13",
+    "scope": "字幕和图",
+    "text": "不做力竭测试",
+    "blocked": true
+   },
+   {
+    "age": "a06",
+    "scope": "正文",
+    "text": "不和别的孩子排名",
+    "blocked": false
+   },
+   {
+    "age": "a06",
+    "scope": "正文",
+    "text": "每周给孩子称一次体重",
+    "blocked": true
+   },
+   {
+    "age": "a65",
+    "scope": "正文",
+    "text": "用力时呼气，不憋气",
+    "blocked": false
+   },
+   {
+    "age": "a65",
+    "scope": "字幕和图",
+    "text": "用力时呼气，不憋气",
+    "blocked": true
+   },
+   {
+    "age": "a65",
+    "scope": "字幕和图",
+    "text": "用力时呼气，别把气停住",
+    "blocked": false
+   },
+   {
+    "age": "a65",
+    "scope": "正文",
+    "text": "原地开合跳 20 次",
+    "blocked": true
+   },
+   {
+    "age": "fam",
+    "scope": "正文",
+    "text": "控制热量赤字",
+    "blocked": true
+   },
+   {
+    "age": "fam",
+    "scope": "正文",
+    "text": "每天吃够一斤蔬菜",
+    "blocked": false
+   },
+   {
+    "age": "a18",
+    "scope": "字幕和图",
+    "text": "最后三次冲刺",
+    "blocked": false
+   }
+  ]
+ }
+}

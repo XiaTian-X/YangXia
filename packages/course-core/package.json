@@ -1,0 +1,14 @@
+{
+  "name": "@yangxia/course-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "养夏课程核心库：课程格式、节奏、时间轴、字幕、课程检查（零运行时依赖）",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --root ."
+  }
+}
