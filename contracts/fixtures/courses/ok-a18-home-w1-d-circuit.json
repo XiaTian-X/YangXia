@@ -3,7 +3,7 @@
   "id": "c_fixture01d",
   "name": "18-39 居家 · 第 1 周 · D 日循环",
   "age": "a18",
-  "source": { "product": "18-39岁-居家版", "templates": "v2.0", "week": 1, "day": "D" },
+  "source": { "product": "18-39岁-居家版", "templates": "v2.1", "week": 1, "day": "D" },
   "blocks": [
     {
       "kind": "circuit", "rounds": 3, "restBetweenRounds": 90,

@@ -1,8 +1,8 @@
 {
  "format": "yangxia.manifest/1",
  "project": "养夏计划模板",
- "version": "v2.0",
- "released": "2026-11-07",
+ "version": "v2.1",
+ "released": "2026-11-08",
  "products": [
   {
    "file": "18-39岁-健身房版.md",
@@ -12,7 +12,7 @@
    "venue": "gym",
    "for": "18–39 岁健康成年人",
    "venue_note": "健身房",
-   "version": "v2.0",
+   "version": "v2.1",
    "review": "原健身房版（多轮自查）经 v1.2 独立审查修订",
    "figures": [
     "wu-activate",
@@ -88,7 +88,7 @@
    "venue": "home",
    "for": "18–39 岁健康成年人",
    "venue_note": "居家：徒手 + 2.5kg 哑铃 + 动感单车",
-   "version": "v2.0",
+   "version": "v2.1",
    "review": "原居家版（多轮自查）经 v1.2 独立审查修订",
    "figures": [
     "wu-activate",
@@ -169,7 +169,7 @@
    "venue": "bw",
    "for": "18–39 岁健康成年人",
    "venue_note": "纯徒手，零器械",
-   "version": "v2.0",
+   "version": "v2.1",
    "review": "原纯徒手版（多轮自查）经 v1.2 独立审查修订",
    "figures": [
     "wu-activate",
@@ -252,7 +252,7 @@
    "venue": "gym",
    "for": "40–64 岁健康成年人",
    "venue_note": "健身房",
-   "version": "v2.0",
+   "version": "v2.1",
    "review": "在 18–39 岁版基础上调整，未经专业审核",
    "figures": [
     "wu-activate",
@@ -329,7 +329,7 @@
    "venue": "home",
    "for": "40–64 岁健康成年人",
    "venue_note": "居家：徒手 + 2.5kg 哑铃 + 动感单车",
-   "version": "v2.0",
+   "version": "v2.1",
    "review": "在 18–39 岁版基础上调整，未经专业审核",
    "figures": [
     "wu-activate",
@@ -411,7 +411,7 @@
    "venue": "bw",
    "for": "40–64 岁健康成年人",
    "venue_note": "纯徒手，零器械",
-   "version": "v2.0",
+   "version": "v2.1",
    "review": "在 18–39 岁版基础上调整，未经专业审核",
    "figures": [
     "wu-activate",
@@ -494,7 +494,7 @@
    "venue": "chair",
    "for": "65 岁以上、能独立行走的老年人",
    "venue_note": "家里两把稳固的椅子 + 厨房台面 + 户外平路步行",
-   "version": "v2.0",
+   "version": "v2.1",
    "review": "未经专业审核",
    "figures": [
     "a65-warmup",
@@ -549,7 +549,7 @@
    "venue": "bw",
    "for": "初中生、高中生",
    "venue_note": "纯徒手，零器械（家里或操场）",
-   "version": "v2.0",
+   "version": "v2.1",
    "review": "未经专业审核",
    "figures": [
     "wu-a13-activate",

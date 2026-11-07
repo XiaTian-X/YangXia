@@ -3,7 +3,7 @@
   "id": "c_fixture01a",
   "name": "18-39 居家 · 第 1 周 · A 日（节选）",
   "age": "a18",
-  "source": { "product": "18-39岁-居家版", "templates": "v2.0", "week": 1, "day": "A" },
+  "source": { "product": "18-39岁-居家版", "templates": "v2.1", "week": 1, "day": "A" },
   "blocks": [
     {
       "kind": "sets",
