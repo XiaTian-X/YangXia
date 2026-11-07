@@ -1,0 +1,70 @@
+# 只提交"别人拿到仓库后需要、而且不能自动生成"的文件。
+
+# 系统、编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# 临时、缓存
+__pycache__/
+*.pyc
+.pytest_cache/
+.cache/
+tmp/
+*.tmp
+*.log
+
+# 密钥、凭据
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+id_rsa*
+id_ed25519*
+credentials*.json
+*.secret
+secrets.*
+.secrets/
+.npmrc
+.netrc
+
+# Claude Code 个人设置
+.claude/settings.local.json
+CLAUDE.local.md
+
+# 压缩包
+*.zip
+*.tar.gz
+*.7z
+
+# ---- 主仓库专有 ----
+
+# 模板仓库（YangXia-templates）是独立的 git 仓库，开头的 / 表示只排除根目录这一个
+/templates/
+
+# 个人健康数据：档案、打卡、练习记录（只存在本地）
+/profiles/
+
+# 依赖和构建产物
+node_modules/
+apps/*/dist/
+packages/*/dist/
+*.tsbuildinfo
+coverage/
+test-results/
+playwright-report/
+
+# 编排器导出的媒体；测试样例例外
+*.webm
+*.wav
+*.mp4
+*.srt
+!contracts/fixtures/**
+!**/test/fixtures/**

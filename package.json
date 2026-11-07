@@ -1,0 +1,17 @@
+{
+  "name": "yangxia",
+  "private": true,
+  "description": "养夏：由 agent 驱动的作息、锻炼、饮食习惯项目",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "templates": "node scripts/templates-path.mjs"
+  }
+}

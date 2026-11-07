@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""提交前检查：拒绝把个人数据、密钥、超大文件提交进仓库。只用 Python 标准库。
+
+启用（每个克隆做一次）：模板仓库 `python3 tpl.py setup`，主仓库 `npm run setup`，
+两者都等价于 `git config core.hooksPath .githooks`。
+
+主仓库和模板仓库用的是同一份脚本，改了要两边同步。
+不要用 `git commit --no-verify` / `-n` 跳过它。
+"""
+import re
+import subprocess
+import sys
+
+MAX_BYTES = 5 * 1024 * 1024
+SIZE_EXEMPT = {"dist/动作图解手册.pdf"}       # 模板的 PDF 手册是交付物
+FIXTURE_PREFIXES = ("contracts/fixtures/",)  # 只有这里允许出现个人档案 / 练习记录格式的样例
+
+BLOCK_PATH = [
+    (re.compile(r"(^|/)profiles/"), "个人数据目录 profiles/"),
+    (re.compile(r"(^|/)\.env(\.|$)"), "环境变量文件 .env"),
+    (re.compile(r"\.(pem|key|p12|pfx|keystore|secret)$"), "密钥 / 证书文件"),
+    (re.compile(r"(^|/)id_(rsa|ed25519)"), "SSH 私钥"),
+    (re.compile(r"(^|/)credentials[^/]*\.json$"), "凭据文件"),
+    (re.compile(r"(^|/)secrets\.[^/]+$"), "凭据文件"),
+    (re.compile(r"(^|/)\.secrets/"), "凭据目录"),
+    (re.compile(r"(^|/)\.(npmrc|netrc)$"), "可能含令牌的配置文件"),
+    (re.compile(r"(^|/)\.claude/settings\.local\.json$"), "Claude Code 个人设置"),
+    (re.compile(r"(^|/)CLAUDE\.local\.md$"), "Claude Code 个人说明"),
+]
+ALLOW_PATH = [re.compile(r"(^|/)\.env\.example$")]
+
+CONTENT = [
+    (re.compile(rb"-----BEGIN [A-Z ]*PRIVATE KEY-----"), "私钥"),
+    (re.compile(rb"\bsk-[A-Za-z0-9_-]{20,}"), "API 密钥（sk-…）"),
+    (re.compile(rb"\bghp_[A-Za-z0-9]{30,}"), "GitHub 令牌（ghp_…）"),
+    (re.compile(rb"\bgithub_pat_[A-Za-z0-9_]{30,}"), "GitHub 令牌（github_pat_…）"),
+    (re.compile(rb"\bAKIA[0-9A-Z]{16}\b"), "AWS 访问密钥"),
+]
+# 声明自己是个人档案 / 练习记录的数据文件（JSON 的 "schema": "…" 或 Markdown 开头的 schema: …）
+PERSONAL = re.compile(rb'(^|\n)\s*"?schema"?\s*:\s*"?yangxia\.(profile|session)/')
+
+
+def git(*args):
+    return subprocess.run(["git", *args], capture_output=True, check=True).stdout
+
+
+def main():
+    # -z：不转义中文路径（默认会输出成 "\345…"，按前缀匹配会漏掉）
+    raw = git("diff", "--cached", "--name-only", "-z", "--diff-filter=ACMRT")
+    paths = [p.decode("utf-8") for p in raw.split(b"\0") if p]
+    problems = []
+    for path in paths:
+        if not any(p.search(path) for p in ALLOW_PATH):
+            for pat, what in BLOCK_PATH:
+                if pat.search(path):
+                    problems.append(f"{path}：{what}，不能提交")
+                    break
+        blob = git("show", f":{path}")
+        if len(blob) > MAX_BYTES and path not in SIZE_EXEMPT:
+            problems.append(f"{path}：{len(blob) / 1024 / 1024:.1f} MB，超过 5 MB")
+        for pat, what in CONTENT:
+            if pat.search(blob):
+                problems.append(f"{path}：内容里像是有{what}")
+        if not path.startswith(FIXTURE_PREFIXES) and PERSONAL.search(blob):
+            problems.append(f"{path}：这是个人档案或练习记录，只能放在 profiles/（不提交）")
+    if problems:
+        print("提交前检查没通过：", file=sys.stderr)
+        for p in problems:
+            print(f"  - {p}", file=sys.stderr)
+        print("把这些文件移出暂存区（git restore --staged <文件>）后再提交。", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
