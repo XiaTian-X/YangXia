@@ -1,5 +1,6 @@
 // 跟练画面（HUD）：一帧怎么画。照原版 drawHudCanvasOnce 原样移植，改成纯函数：
-// 输入画面状态和画布，不读播放器；实时播放和离线导出视频共用。去掉了原版的透明背景模式。
+// 输入画面状态和画布，不读播放器；实时播放和离线导出视频共用。去掉了原版的透明背景模式；
+// 强调色从原版的绿色换成养夏的青色（#14b8a6 / #5eead4）。
 import { barTarget, type TimelineEvent } from "@yangxia/course-core";
 
 export const HUD_WIDTH = 1280;
@@ -87,10 +88,10 @@ export function drawHud(ctx: CanvasRenderingContext2D, s: HudState, W = HUD_WIDT
 
     const accentColor = s.state === 'rest'
       ? '#38bdf8'
-      : (s.isLastThree ? '#f59e0b' : '#24c789');
+      : (s.isLastThree ? '#f59e0b' : '#14b8a6');
     const accentBright = s.state === 'rest'
       ? '#7dd3fc'
-      : (s.isLastThree ? '#fbbf24' : '#3df5b0');
+      : (s.isLastThree ? '#fbbf24' : '#5eead4');
 
     // 左上角动作序号 + 动作名称 + 组数 + 全局进度胶囊
     const badgeX = 48;

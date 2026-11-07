@@ -49,6 +49,7 @@
 ```
 npm run setup                                         # 新克隆后启用两个仓库的提交前检查
 npm test                                              # 单元测试（模板不在时，安全相关测试照样跑）
+npm run e2e                                           # 打包编排器并跑冒烟测试（Playwright）
 npm run course -- check <课程.json> --profile <档案.json>   # 导出课程后必须跑，0 个错误才能交给用户
 npm run course -- summary <课程.json>                 # 总时长、动作、组数
 python3 templates/tpl.py all                          # 改了模板后构建 + 校验
@@ -66,7 +67,7 @@ AGENTS.md  CLAUDE.md  README.md  package.json
 .githooks/pre-commit   提交前检查（和模板仓库是同一份脚本）
 scripts/               setup、templates-path
 templates/             模板仓库（独立 git）
-apps/sequencer/        跟练编排器；reference/原版.html 是重构前的版本，只读，做对照
+apps/sequencer/        跟练编排器（npm run build → dist/养夏跟练编排器.html）；reference/原版.html 是重构前的版本，只读
 packages/course-core/  课程核心库：格式、节奏、时间轴、字幕、课程检查（npm run course）
 contracts/             课程、练习记录、个人档案的数据格式和样例（说明见 docs/数据约定.md）
 profiles/              个人数据（不提交）

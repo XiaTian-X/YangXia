@@ -9,13 +9,13 @@
 | 部分 | 是什么 | 在哪 |
 |---|---|---|
 | **养夏计划模板** | 按年龄段和场地分的四周计划（运动、三餐、睡眠），10 份成品 + 菜谱手册 + 动作图解 | `templates/`（独立仓库 YangXia-templates），用法见 `templates/README.md` |
-| **养夏跟练编排器** | 把一天的训练编成带语音报数、呼吸提示的跟练音频、视频和字幕 | `apps/sequencer/`（重构中；重构前的版本在 `apps/sequencer/reference/原版.html`） |
-| **养夏课程核心库** | 课程格式、时间轴、字幕、课程检查，编排器和别的项目共用 | `packages/course-core/`（待建） |
+| **养夏跟练编排器** | 把一天的训练编成带语音报数、呼吸提示的跟练音频、视频和字幕 | `npm run build` 生成 `apps/sequencer/dist/养夏跟练编排器.html`（单文件，双击打开、离线可用）；和原版的对照见 `docs/编排器功能清单.md` |
+| **养夏课程核心库** | 课程格式、时间轴、字幕、课程检查，编排器和别的项目共用 | `packages/course-core/`；数据格式见 `docs/数据约定.md` |
 | **agent 工作流** | 建档、导出跟练课程、周复盘、排菜单 | `AGENTS.md`、`.claude/skills/`（待建） |
 
 ## 开始
 
-需要 Node 22 以上、Python 3.9 以上、git。
+需要 Node 24 以上（命令行直接运行 TypeScript）、Python 3.9 以上、git。
 
 1. 把模板仓库放在 `templates/`，或者设置环境变量 `YANGXIA_TEMPLATES` 指向它。
 2. 启用两个仓库的提交前检查：

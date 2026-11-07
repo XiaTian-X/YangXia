@@ -122,8 +122,8 @@ export function createSimpleWebmMuxer({ width, height, fps, videoCodecId, sample
 
     const segmentInfo = ebmlElement([0x15, 0x49, 0xA9, 0x66], [
       ebmlUint([0x2A, 0xD7, 0xB1], 1000000),
-      ebmlAscii([0x4D, 0x80], 'KeepCourseSequencer-WebCodecs'),
-      ebmlAscii([0x57, 0x41], 'KeepCourseSequencer-WebCodecs'),
+      ebmlAscii([0x4D, 0x80], 'YangXia-Sequencer-WebCodecs'),
+      ebmlAscii([0x57, 0x41], 'YangXia-Sequencer-WebCodecs'),
       ebmlFloat64([0x44, 0x89], Math.max(100, durationMs))
     ]);
 
