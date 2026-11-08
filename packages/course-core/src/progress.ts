@@ -1,101 +1,405 @@
-// 周次推进：档案的 weeks 记下每一段练的是第几周、从哪天开始（周复盘每次追加一段，放行就加 1，重复本周就不变）。
-// 有了日期，就能按代码核对 AGENTS.md 的两条规矩：
-// - 每一段结束都有周复盘（复盘/<这一段的开始日期>-第N周.md），不复盘不能进下一段；
-// - 这一段的练习记录里有疼痛、头晕、胸闷，下一段不能加量（周次不能往上走）。
+// 段序列和个人进度：档案的 segments 记下每一段（起始期 4 周一段）每一周从哪天开始；progressLog 记下每个动作的
+// 难度级、次数、重量每一次是怎么改的、依据哪份练习记录或复盘。按代码核对 AGENTS.md 和成品的规矩：
+// - 每一周结束都有周复盘（复盘/<开始日期>-第N周.md 和同名 .json），不复盘不能进下一周；
+// - 一周里有疼痛、头晕、胸闷，下一周不能往上走，这一周之后的进度也不能往上加；
+// - 进度只能照成品的规则改（找级、升级、加次数、加重各有允许的周和依据），一次只改一样，重放日志要等于档案的 progress。
+import { currentSegment, progressRow, type PlansData, ruleValue, type RulesData, startLevel } from "./plan.ts";
 import type { Issue } from "./types.ts";
 
-export interface WeekEntry {
+export interface SegmentEntry {
+  /** 第几段（换段、换成品时加 1）。 */
+  n: number;
+  /** 段型：标准 / 减量。 */
+  type: string;
+  /** 这一段的第几周（起始期 1–4）。 */
   week: number;
+  /** 这一周从哪天开始。 */
   start: string;
+  /** 这一段用的成品。 */
+  product: string;
+  phase?: string;
 }
 
 type Obj = Record<string, any>;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const TYPES = ["标准", "减量"];
 
-/** 复盘文件名：复盘/<这一段的开始日期>-第N周.md */
-export const reviewName = (e: WeekEntry) => `${e.start}-第${e.week}周.md`;
+/** 复盘文件名：复盘/<这一周的开始日期>-第N周.md（和同名 .json）。 */
+export const reviewName = (e: { start: string; week: number }) => `${e.start}-第${e.week}周.md`;
+export const reviewDataName = (e: { start: string; week: number }) => `${e.start}-第${e.week}周.json`;
 
 const DAY = 86_400_000;
 /** 本地时区的这一天 0 点。 */
 const dayStart = (d: string) => new Date(`${d}T00:00:00`).getTime();
-const localToday = (now: Date) => dayStart(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`);
+const localDate = (t: Date) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+const localToday = (now: Date) => dayStart(localDate(now));
 
 /**
- * weeks 的结构：至少一段；第一段是第 1 周、从 startDate 开始；每段至少 7 天；每段最多比上一段多 1 周；
- * 第二段起的开始日期最晚是明天（不能预先写好以后的推进）；最后一段就是现在的 week。
+ * segments 的结构：至少一段；第一段是第 1 段第 1 周、从 startDate 开始；每一周至少 7 天、开始日期最晚是明天；
+ * 同一段里每次最多推进一周、成品和段型不变；新开一段（n 加 1）从第 1 周开始，只能在上一段第 4 周之后或者换成品时；
+ * 最后一段的成品就是档案的 product。旧的 week、round、weeks 不再用。
  */
-export function validateWeeks(p: Obj, now = new Date()): Issue[] {
+export function validateSegments(p: Obj, now = new Date()): Issue[] {
   const out: Issue[] = [];
   const err = (path: string, message: string) => out.push({ level: "error", path, message });
-  const ws = p.weeks;
-  if (!Array.isArray(ws) || ws.length === 0) {
-    err("weeks", "缺少 weeks（每一段练第几周、从哪天开始）：建档时写 [{ \"week\": 1, \"start\": 开始日期 }]");
+  for (const k of ["week", "round", "weeks"]) {
+    if (p[k] !== undefined) err(k, `${k} 是旧字段，换成 segments（每一段的成品、段型、第几段、第几周、开始日期）`);
+  }
+  const ss = p.segments;
+  if (!Array.isArray(ss) || ss.length === 0) {
+    err("segments", '缺少 segments：建档时写 [{ "n": 1, "type": "标准", "week": 1, "start": 开始日期, "product": 成品名 }]');
     return out;
   }
-  ws.forEach((e: unknown, i: number) => {
-    const w = e as Obj;
-    if (typeof e !== "object" || e === null || !Number.isInteger(w.week) || w.week < 1 || w.week > 4 || typeof w.start !== "string" || !DATE.test(w.start)) {
-      err(`weeks[${i}]`, "每一段要有 week（1–4）和 start（YYYY-MM-DD）");
-      return;
+  let bad = false;
+  ss.forEach((e: unknown, i: number) => {
+    const s = e as Obj;
+    if (typeof e !== "object" || e === null || !Number.isInteger(s.n) || s.n < 1 || !TYPES.includes(s.type)
+      || !Number.isInteger(s.week) || s.week < 1 || s.week > 4 || typeof s.start !== "string" || !DATE.test(s.start)
+      || typeof s.product !== "string" || !s.product) {
+      err(`segments[${i}]`, "每一项要有 n（第几段）、type（标准 / 减量）、week（1–4）、start（YYYY-MM-DD）、product（成品名）");
+      bad = true;
     }
-    if (i === 0) {
-      if (w.week !== 1) err("weeks[0].week", "第一段要从第 1 周开始");
-      if (typeof p.startDate === "string" && w.start !== p.startDate) err("weeks[0].start", `第一段的开始日期要和 startDate（${p.startDate}）一致`);
-      return;
-    }
-    const prev = ws[i - 1] as Obj;
-    if (typeof prev?.start === "string" && DATE.test(prev.start) && dayStart(w.start) - dayStart(prev.start) < 7 * DAY) {
-      err(`weeks[${i}].start`, `每一段至少练 7 天：上一段 ${prev.start} 开始，这一段最早 7 天后开始`);
-    }
-    if (dayStart(w.start) > localToday(now) + DAY) err(`weeks[${i}].start`, `开始日期 ${w.start} 还没到：周复盘做完才追加下一段，最早从明天开始`);
-    if (Number.isInteger(prev?.week) && w.week > prev.week + 1) err(`weeks[${i}].week`, `从第 ${prev.week} 周不能直接跳到第 ${w.week} 周：每次最多推进一周`);
+    if (s?.phase !== undefined && s.phase !== "起始") err(`segments[${i}].phase`, "phase 现在只有 起始");
   });
-  const last = ws[ws.length - 1] as Obj;
-  const week = p.week ?? 1;
-  if (Number.isInteger(last?.week) && last.week !== week) err("week", `week 是 ${week}，weeks 最后一段是第 ${last.week} 周：两处要一致`);
+  if (bad) return out;
+  const first = ss[0] as SegmentEntry;
+  if (first.n !== 1 || first.week !== 1) err("segments[0]", "第一项要是第 1 段第 1 周");
+  if (typeof p.startDate === "string" && first.start !== p.startDate) err("segments[0].start", `第一项的开始日期要和 startDate（${p.startDate}）一致`);
+  for (let i = 1; i < ss.length; i++) {
+    const s = ss[i] as SegmentEntry;
+    const prev = ss[i - 1] as SegmentEntry;
+    if (dayStart(s.start) - dayStart(prev.start) < 7 * DAY) err(`segments[${i}].start`, `每一周至少练 7 天：上一周 ${prev.start} 开始，这一周最早 7 天后开始`);
+    if (dayStart(s.start) > localToday(now) + DAY) err(`segments[${i}].start`, `开始日期 ${s.start} 还没到：周复盘做完才追加下一周，最早从明天开始`);
+    if (s.n === prev.n) {
+      if (s.product !== prev.product || s.type !== prev.type) err(`segments[${i}]`, "同一段里成品和段型不变；换成品、换段型要新开一段（n 加 1）");
+      if (s.week > prev.week + 1) err(`segments[${i}].week`, `从第 ${prev.week} 周不能直接跳到第 ${s.week} 周：每次最多推进一周`);
+      if (s.week < prev.week) err(`segments[${i}].week`, `同一段里周次不能往回走（第 ${prev.week} 周 → 第 ${s.week} 周）；要从头来就新开一段`);
+    } else if (s.n === prev.n + 1) {
+      if (s.week !== 1) err(`segments[${i}].week`, "新的一段从第 1 周开始");
+      if (prev.week !== 4 && s.product === prev.product) err(`segments[${i}].n`, `上一段才到第 ${prev.week} 周：练完第 4 周（段末）或者换成品，才能新开一段`);
+    } else err(`segments[${i}].n`, `段号要连续：上一项是第 ${prev.n} 段，这一项是第 ${s.n} 段`);
+  }
+  const last = ss[ss.length - 1] as SegmentEntry;
+  if (typeof p.product === "string" && last.product !== p.product) err("product", `档案的 product 是「${p.product}」，segments 最后一项是「${last.product}」：两处要一致`);
   return out;
 }
 
+export interface SessionFile {
+  name: string;
+  raw: Obj;
+  archived?: boolean;
+}
+
+const symptomatic = (raw: Obj) => {
+  const s = raw?.symptoms;
+  return !!s && !!(s.pain || s.dizzy || s.chest);
+};
+
+/** 某个时间落在 segments 的哪一项（周）；早于第一项返回 -1。 */
+function periodIndex(ss: SegmentEntry[], t: number): number {
+  for (let i = ss.length - 1; i >= 0; i--) if (t >= dayStart(ss[i].start)) return i;
+  return -1;
+}
+
 /**
- * 按 weeks 核对练习记录和周复盘：
- * - 除了正在进行的最后一段，每一段都要有复盘文件；
- * - 某一段里有不适记录，下一段的周次不能比它高；
- * - 练习记录练的周次比当时那一段高：提醒（课程检查本来会拦，可能是手改的课程）。
+ * 按 segments 核对练习记录和周复盘：
+ * - 除了正在进行的最后一周，每一周都要有复盘（.md 和 .json）；复盘数据的训练次数不能少于这一周的练习记录数，
+ *   练习记录里有不适，复盘就不能写没有；
+ * - 某一周有不适，同一段的下一周不能比它高；
+ * - 练习记录练的周次比当时高：提醒。
  */
-export function checkProgress(profile: Obj, sessions: { name: string; raw: Obj; archived?: boolean }[], reviews: string[], now = new Date()): Issue[] {
+export function checkProgress(profile: Obj, sessions: SessionFile[], reviews: string[], now = new Date(), reviewData: Record<string, Obj> = {}): Issue[] {
   const out: Issue[] = [];
-  const ws = profile.weeks as WeekEntry[];
-  if (!Array.isArray(ws) || validateWeeks(profile, now).length) return out;
-  const periodOf = (t: number) => {
-    for (let i = ws.length - 1; i >= 0; i--) if (t >= dayStart(ws[i].start)) return i;
-    return -1;
-  };
+  const ss = profile.segments as SegmentEntry[];
+  if (!Array.isArray(ss) || validateSegments(profile, now).some((i) => i.level === "error")) return out;
   const sick = new Set<number>();
+  const count = new Map<number, number>();
   for (const s of sessions) {
     const t = Date.parse(s.raw?.startedAt);
     if (Number.isNaN(t)) continue;
-    const i = periodOf(t);
+    const i = periodIndex(ss, t);
     if (i < 0) {
-      if (!s.archived) out.push({ level: "warning", path: s.name, message: `练习记录早于这一轮的开始日期 ${ws[0].start}：上一轮的记录应该在 历史/ 里` });
+      if (!s.archived) out.push({ level: "warning", path: s.name, message: `练习记录早于开始日期 ${ss[0].start}，不算进任何一周` });
       continue;
     }
-    // 历史/ 里的记录，日期落在这一轮之内的照样算数（不能靠挪进 历史/ 躲开不适记录）
-    const sym = s.raw?.symptoms;
-    if (sym && (sym.pain || sym.dizzy || sym.chest)) sick.add(i);
+    // 历史/ 里的记录，日期落在这些周里的照样算数（不能靠挪进 历史/ 躲开不适记录）
+    if (symptomatic(s.raw)) sick.add(i);
+    count.set(i, (count.get(i) ?? 0) + 1);
     const cw = s.raw?.course?.source?.week;
-    if (Number.isInteger(cw) && cw > ws[i].week) {
-      out.push({ level: "warning", path: s.name, message: `这天练的是第 ${cw} 周的课程，当时还在第 ${ws[i].week} 周` });
+    if (Number.isInteger(cw) && cw > ss[i].week) {
+      out.push({ level: "warning", path: s.name, message: `这天练的是第 ${cw} 周的课程，当时还在第 ${ss[i].week} 周` });
     }
   }
-  ws.forEach((e, i) => {
-    if (i === ws.length - 1) return;
-    if (!reviews.includes(reviewName(e))) {
-      out.push({ level: "error", path: `复盘/${reviewName(e)}`, message: `第 ${e.week} 周（${e.start} 起）这一段没有周复盘：先复盘，再按成品规则决定下一段` });
+  ss.forEach((e, i) => {
+    if (i === ss.length - 1) return;
+    const md = reviewName(e);
+    const js = reviewDataName(e);
+    if (!reviews.includes(md)) {
+      out.push({ level: "error", path: `复盘/${md}`, message: `第 ${e.n} 段第 ${e.week} 周（${e.start} 起）没有周复盘：先复盘，再按成品规则决定下一周` });
     }
-    const next = ws[i + 1];
-    if (sick.has(i) && next.week > e.week) {
-      out.push({ level: "error", path: `weeks[${i + 1}]`, message: `第 ${e.week} 周（${e.start} 起）有疼痛、头晕或胸闷的记录，下一段不能加到第 ${next.week} 周：按成品"疼了怎么办"处理，这一周重来或者先就医` });
+    const data = reviewData[js];
+    if (!data) {
+      out.push({ level: "error", path: `复盘/${js}`, message: `第 ${e.n} 段第 ${e.week} 周没有复盘数据（和 ${md} 成对的 .json）：训练次数、不适、逐个动作的表现要写进去` });
+    } else {
+      if (data.start !== e.start || data.week !== e.week) out.push({ level: "error", path: `复盘/${js}`, message: `复盘数据写的是 ${data.start} 第 ${data.week} 周，文件名是 ${e.start} 第 ${e.week} 周` });
+      const n = count.get(i) ?? 0;
+      if (Number.isInteger(data.trainings) && data.trainings < n) {
+        out.push({ level: "error", path: `复盘/${js}`, message: `复盘写练了 ${data.trainings} 次，这一周的练习记录就有 ${n} 份：训练次数不能少于练习记录数` });
+      }
+      if (sick.has(i) && data.symptoms === false) {
+        out.push({ level: "error", path: `复盘/${js}`, message: "这一周的练习记录里有疼痛、头晕或胸闷，复盘数据不能写没有不适" });
+      }
+      if (data.symptoms === true) sick.add(i);
+    }
+    const next = ss[i + 1];
+    if (sick.has(i) && next.n === e.n && next.week > e.week) {
+      out.push({ level: "error", path: `segments[${i + 1}]`, message: `第 ${e.week} 周（${e.start} 起）有疼痛、头晕或胸闷的记录，下一周不能加到第 ${next.week} 周：按成品"疼了怎么办"处理，这一周重来或者先就医` });
     }
   });
   return out;
 }
+
+// ---------- 个人进度 ----------
+
+export const FEELS = ["做不到下限或后面几下变形", "能做到下限，最后两下有点难", "做到上限还很轻松"] as const;
+const RULES = ["建档", "找级", "退回", "减量", "升级", "加次数", "调重量", "加重"] as const;
+const FIELDS = ["level", "reps", "weight"] as const;
+type Field = (typeof FIELDS)[number];
+const UP = new Set(["找级", "升级", "加次数", "调重量", "加重"]);
+
+/** progress 的结构：{动作或阶梯 ID: {level?, reps?, weight?}}。 */
+export function validateProgressShape(p: Obj): Issue[] {
+  const out: Issue[] = [];
+  const err = (path: string, message: string) => out.push({ level: "error", path, message });
+  if (p.progress !== undefined) {
+    if (typeof p.progress !== "object" || p.progress === null || Array.isArray(p.progress)) err("progress", "progress 是 {动作 ID: {level, reps, weight}}");
+    else for (const [k, v] of Object.entries(p.progress as Obj)) {
+      if (typeof v !== "object" || v === null) { err(`progress.${k}`, "要是 {level, reps, weight}"); continue; }
+      for (const f of Object.keys(v)) if (!(FIELDS as readonly string[]).includes(f)) err(`progress.${k}.${f}`, "只能有 level、reps、weight");
+      for (const f of FIELDS) if (v[f] !== undefined && !(typeof v[f] === "number" && v[f] > 0)) err(`progress.${k}.${f}`, `${f} 要是正数`);
+    }
+  }
+  if (p.progressLog !== undefined && !Array.isArray(p.progressLog)) err("progressLog", "progressLog 是数组");
+  else (p.progressLog ?? []).forEach((e: Obj, i: number) => {
+    if (typeof e !== "object" || e === null || typeof e.date !== "string" || !DATE.test(e.date) || typeof e.move !== "string"
+      || !(FIELDS as readonly string[]).includes(e.field) || !(typeof e.to === "number" && e.to > 0) || !(RULES as readonly string[]).includes(e.rule)) {
+      err(`progressLog[${i}]`, `每一项要有 date、move、field（level / reps / weight）、to（正数）、rule（${RULES.join(" / ")}），依据写 evidence`);
+    }
+  });
+  if (p.conditions !== undefined && !(typeof p.conditions === "object" && p.conditions !== null && Object.values(p.conditions).every((v) => typeof v === "boolean"))) {
+    err("conditions", "conditions 是 {条件名: true / false}，只记是否，不记诊断细节和用药");
+  }
+  if (p.choices !== undefined && !(Array.isArray(p.choices) && p.choices.every((c: unknown) => typeof c === "string"))) {
+    err("choices", "choices 是能用的器材对应的动作 ID 列表，按优先顺序");
+  }
+  return out;
+}
+
+/**
+ * 重放 progressLog，逐条按规则核对，最后要等于档案的 progress。
+ * sessions：档案目录里的练习记录（name 是相对档案目录的路径）；reviewData：复盘/ 下的 .json（键是文件名）。
+ */
+export function checkProgressLog(profile: Obj, plans: PlansData, rules: RulesData, sessions: SessionFile[], reviewData: Record<string, Obj>, now = new Date()): Issue[] {
+  const out: Issue[] = [];
+  const err = (i: number, message: string) => out.push({ level: "error", path: `progressLog[${i}]`, message });
+  const ss = profile.segments as SegmentEntry[];
+  if (!Array.isArray(ss) || validateSegments(profile, now).some((x) => x.level === "error") || validateProgressShape(profile).length) return out;
+  for (const name of Object.keys(profile.conditions ?? {})) {
+    if (!rules.conditions[name]) out.push({ level: "error", path: `conditions.${name}`, message: `模板的规则层没有条件「${name}」（有：${Object.keys(rules.conditions).join("、")}）` });
+  }
+  const log: Obj[] = [...(profile.progressLog ?? [])].map((e, i) => ({ ...e, _i: i }));
+  log.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a._i - b._i));
+  const state: Record<string, Partial<Record<Field, number>>> = {};
+  const upOnDate = new Map<string, number>();
+  const weightOnce = new Set<string>();
+  const sessionAt = (name: string) => sessions.find((s) => s.name === name || s.name.endsWith(`/${name}`) || s.name === name.replace(/\//g, "\\"));
+  for (const e of log) {
+    const i = e._i as number;
+    const t = dayStart(e.date);
+    if (t < dayStart(ss[0].start) || t > localToday(now) + DAY) {
+      err(i, `日期 ${e.date} 不在档案的时间范围里（${ss[0].start} 到明天）`);
+      continue;
+    }
+    const pi = periodIndex(ss, t);
+    const period = ss[pi];
+    const p = plans.products[period.product];
+    if (!p) {
+      err(i, `「${period.product}」没有训练单`);
+      continue;
+    }
+    const known = p.rows.some((r) => r.moves.includes(e.move));
+    if (!known) {
+      err(i, `「${e.move}」不在${period.product}的训练单里`);
+      continue;
+    }
+    const row = progressRow(p, rules, profile, period.type, period.week, e.move);
+    const ladder = p.ladders[e.move];
+    const cur = (state[e.move] ??= {});
+    const from = cur[e.field as Field];
+    const to = e.to as number;
+    const field = e.field as Field;
+    const usable = new Set((ladder ?? []).filter((l) => l.usable).map((l) => l.level));
+    const allowedLevels = new Set((row?.levels ?? []).filter((x) => usable.has(x)));
+    // 依据：练习记录、复盘数据
+    const sess = typeof e.evidence === "string" ? sessionAt(e.evidence) : undefined;
+    const itemOf = (raw: Obj) => (raw?.items ?? []).find((it: Obj) => it.exercise === e.move || (ladder ?? []).some((l) => l.exercise === it.exercise));
+    const reviewEntry = () => {
+      const key = typeof e.evidence === "string" ? e.evidence.replace(/^复盘[/\\]/, "") : "";
+      const rv = reviewData[key];
+      if (!rv) return null;
+      if (dayStart(rv.start) >= t) return null;           // 依据的复盘要是这一天之前那一周的
+      return { rv, m: (rv.moves ?? []).find((x: Obj) => x.move === e.move) };
+    };
+    if (field === "level" && !ladder) { err(i, `「${e.move}」没有难度阶梯，不记 level`); continue; }
+    if (field === "reps" && row && row.reps_from !== "progress") { err(i, `「${e.move}」的次数由当周的表定（周表），不记进度`); continue; }
+    if (field === "weight" && p.venue !== "gym") { err(i, "只有健身房版记重量"); continue; }
+    if (e.rule === "建档") {
+      const firstOfProduct = pi === 0 || ss[pi - 1].product !== period.product;
+      if (from !== undefined) err(i, `「${e.move}」的 ${field} 已经有值，建档只能写一次`);
+      else if (e.date !== period.start || !firstOfProduct) err(i, `建档只能在开始那天（${firstOfProduct ? period.start : ss[0].start}）或者换成品那天写`);
+      else if (field === "level" && !allowedLevels.has(to)) err(i, `第 ${to} 级第 ${period.week} 周不能用（可以用第 ${[...allowedLevels].join("、")} 级）`);
+      else if (field === "reps" && row?.reps && to !== row.reps.min) err(i, `建档时次数取区间下限 ${row.reps.min}，写的是 ${to}`);
+    } else if (from === undefined) {
+      // 还没建档：起始值按训练单（起始级、区间下限），重量必须先建档
+      if (field === "weight") { err(i, `「${e.move}」还没记过起始重量：先写一条"建档"`); continue; }
+    }
+    const before = from ?? (field === "level" && ladder ? startLevel(ladder) : field === "reps" && row?.reps ? row.reps.min : undefined);
+    if (e.rule !== "建档" && before === undefined) { err(i, `「${e.move}」没有起始值`); continue; }
+    const symptomsSoFar = sessions.some((s) => {
+      const st = Date.parse(s.raw?.startedAt);
+      return !Number.isNaN(st) && st >= dayStart(period.start) && st < t + DAY && symptomatic(s.raw);
+    });
+    if (UP.has(e.rule) && symptomsSoFar) err(i, `这一周（${period.start} 起）有疼痛、头晕或胸闷的记录：不加量、不升级（可以降）`);
+    if (UP.has(e.rule)) {
+      const k = `${e.move}|${e.date}`;
+      upOnDate.set(k, (upOnDate.get(k) ?? 0) + 1);
+      if ((upOnDate.get(k) ?? 0) > 1) err(i, `「${e.move}」${e.date} 已经加过一样了：一次只改一样（升级、加次数、加重不同时）`);
+    }
+    const weeksOf = (rule: string) => ruleValue(rules, p.code, rule);
+    const inWeeks = (rule: string) => {
+      const v = weeksOf(rule);
+      return !!v && period.week >= v.min && period.week <= v.max;
+    };
+    switch (e.rule) {
+      case "找级": {
+        if (field !== "level") err(i, "找级只改难度级");
+        else if (!inWeeks("找级周")) err(i, `第 ${period.week} 周不是找级的周（${fmtWeeks(weeksOf("找级周"))}）`);
+        else if (Math.abs(to - before!) !== 1) err(i, `找级一次只能上下调一级（第 ${before} 级 → 第 ${to} 级）`);
+        else if (!allowedLevels.has(to)) err(i, `第 ${to} 级这一周不能用（可以用第 ${[...allowedLevels].join("、")} 级）`);
+        else {
+          const it = sess ? itemOf(sess.raw) : null;
+          const want = to > before! ? FEELS[2] : FEELS[0];
+          if (!sess || !it) err(i, `找级要写依据：哪一份练习记录（evidence 写 打卡/… 的文件名），记录里这个动作的感受是"${want}"`);
+          else if (it.feel !== want) err(i, `依据的练习记录里这个动作的感受是"${it.feel ?? "（没填）"}"，${to > before! ? "升" : "降"}一级要"${want}"`);
+        }
+        break;
+      }
+      case "退回": {
+        const it = sess ? itemOf(sess.raw) : null;
+        if (field !== "level" || to !== before! - 1) err(i, "退回是难度级降回上一级");
+        else if (!it || it.reverted !== true) err(i, "退回要写依据：练习记录里这个动作标了\"退回\"（reverted）");
+        break;
+      }
+      case "减量":
+        if (!(to < before!)) err(i, "减量只能往下调（降级、减次数、减重量随时可以）");
+        break;
+      case "升级": {
+        const nextRound = weeksOf("下一轮升级");
+        const okWeek = inWeeks("升级周") || (!!nextRound && period.n >= 2 && period.week >= nextRound.min);
+        const top = row?.reps?.max;
+        const rv = reviewEntry();
+        if (field !== "level" || to !== before! + 1) err(i, "升级是难度级加一级");
+        else if (!okWeek) err(i, `第 ${period.n} 段第 ${period.week} 周不能升级（${weeksOf("升级周") === null ? "这一版这一轮不升级，下一轮从第 1 周起" : `升级周：${fmtWeeks(weeksOf("升级周"))}`}）`);
+        else if (!allowedLevels.has(to)) err(i, `第 ${to} 级这一周不能用（可以用第 ${[...allowedLevels].join("、")} 级）`);
+        else if (top !== undefined && (cur.reps ?? row!.reps!.min) !== top) err(i, `升级要先达标：档案里这个动作的次数要到区间上限 ${top}，现在是 ${cur.reps ?? row!.reps!.min}`);
+        else if (!rv?.m || rv.m.allAtTop !== true || !(rv.m.spare >= 1)) err(i, "升级要写依据：上一周的复盘数据（evidence 写 复盘/….json），里面这个动作每组都做到上限、最后一组还有余力");
+        break;
+      }
+      case "加次数": {
+        const step = weeksOf("加次数");
+        const rv = reviewEntry();
+        if (field !== "reps") err(i, "加次数只改次数");
+        else if (!step) err(i, "这份成品没有加次数的规则");
+        else if (to - before! < step.min || to - before! > step.max) err(i, `每次加 ${step.min}–${step.max} 次（${before} → ${to}）`);
+        else if (row?.reps && to > row.reps.max) err(i, `不能超过区间上限 ${row.reps.max}`);
+        else if (!rv?.m || !(rv.m.spare >= 1)) err(i, "加次数要写依据：上一周的复盘数据（evidence 写 复盘/….json），这个动作最后一组还有余力");
+        break;
+      }
+      case "调重量": {
+        const it = sess ? itemOf(sess.raw) : null;
+        if (field !== "weight" || !(to > before!)) err(i, "调重量是往上加一档");
+        else if (!inWeeks("调重量周")) err(i, `第 ${period.week} 周不调重量（${fmtWeeks(weeksOf("调重量周"))}）`);
+        else if (!it || !(it.spare >= 6)) err(i, "调重量要写依据：练习记录里这个动作\"还能做几下\"是 6 下以上");
+        else if (weightOnce.has(`调重量|${e.move}|${pi}`)) err(i, "这一周已经调过一次了");
+        weightOnce.add(`调重量|${e.move}|${pi}`);
+        break;
+      }
+      case "加重": {
+        if (field !== "weight" || !(to > before!)) err(i, "加重是往上加一档");
+        else if (!inWeeks("加重周")) err(i, `第 ${period.week} 周不加重（加重周：${fmtWeeks(weeksOf("加重周"))}）`);
+        else if (weightOnce.has(`加重|${e.move}|${period.n}`)) err(i, "这一段已经加过重了");
+        weightOnce.add(`加重|${e.move}|${period.n}`);
+        break;
+      }
+    }
+    cur[field] = to;
+    if (e.rule === "升级" && row?.reps) cur.reps = row.reps.min;   // 升级后次数回到区间下限
+    else if (e.rule === "升级") delete cur.reps;
+  }
+  // 重放结果要等于档案的 progress
+  const prog: Obj = profile.progress ?? {};
+  const keys = new Set([...Object.keys(prog), ...Object.keys(state)]);
+  for (const k of keys) {
+    for (const f of FIELDS) {
+      const a = prog[k]?.[f];
+      const b = state[k]?.[f];
+      if (a !== b && !(a === undefined && b === undefined)) {
+        out.push({ level: "error", path: `progress.${k}.${f}`, message: `档案写的是 ${a ?? "（没写）"}，按 progressLog 重放应该是 ${b ?? "（没写）"}：进度只能经 progressLog 改，每一条写明规则和依据` });
+      }
+    }
+  }
+  // 现在这一周，进度要在训练单允许的范围里
+  const seg = currentSegment(profile);
+  const p = seg ? plans.products[seg.product] : undefined;
+  if (seg && p) {
+    for (const [k, v] of Object.entries(prog)) {
+      const row = progressRow(p, rules, profile, seg.type, seg.week, k);
+      const ladder = p.ladders[k];
+      if (!row) continue;
+      if (v.level !== undefined && ladder && !(row.levels ?? []).includes(v.level)) {
+        out.push({ level: "warning", path: `progress.${k}.level`, message: `第 ${v.level} 级这一周（第 ${seg.week} 周）不能用，导出前要降回第 ${(row.levels ?? []).join("、")} 级里` });
+      }
+      if (v.reps !== undefined && row.reps && (v.reps < row.reps.min || v.reps > row.reps.max)) {
+        out.push({ level: "error", path: `progress.${k}.reps`, message: `次数 ${v.reps} 不在这一周的区间 ${row.reps.min}–${row.reps.max} 里` });
+      }
+    }
+  }
+  return out;
+}
+
+const fmtWeeks = (v: { min: number; max: number } | null | undefined) =>
+  v === undefined ? "成品没写" : v === null ? "这一轮没有" : v.min === v.max ? `第 ${v.min} 周` : `第 ${v.min}–${v.max} 周`;
+
+/** 复盘数据 yangxia.review/1 的结构。 */
+export const REVIEW_FORMAT = "yangxia.review/1";
+export function validateReview(raw: unknown): Issue[] {
+  const out: Issue[] = [];
+  const err = (path: string, message: string) => out.push({ level: "error", path, message });
+  if (typeof raw !== "object" || raw === null) return [{ level: "error", path: "", message: "复盘数据要是 JSON 对象" }];
+  const r = raw as Obj;
+  if (r.schema !== REVIEW_FORMAT) err("schema", `格式标识要写 "${REVIEW_FORMAT}"`);
+  if (typeof r.start !== "string" || !DATE.test(r.start)) err("start", "start 是这一周的开始日期 YYYY-MM-DD");
+  if (!Number.isInteger(r.week) || r.week < 1 || r.week > 4) err("week", "week 是 1–4");
+  if (!Number.isInteger(r.trainings) || r.trainings < 0) err("trainings", "trainings 是这一周练了几次（照使用者说的）");
+  if (r.checkinDays !== undefined && !(Number.isInteger(r.checkinDays) && r.checkinDays >= 0 && r.checkinDays <= 7)) err("checkinDays", "checkinDays 是 0–7");
+  if (typeof r.symptoms !== "boolean") err("symptoms", "symptoms：这一周有没有疼痛、头晕、胸闷（true / false）");
+  if (!Array.isArray(r.moves)) err("moves", "moves 是逐个动作的表现：[{ move, allAtTop, spare }]");
+  else r.moves.forEach((m: Obj, i: number) => {
+    if (typeof m !== "object" || m === null || typeof m.move !== "string" || typeof m.allAtTop !== "boolean" || !(Number.isInteger(m.spare) && m.spare >= 0)) {
+      err(`moves[${i}]`, "每项要有 move（动作 ID）、allAtTop（每组都做到区间上限）、spare（最后一组还剩几次余力）");
+    }
+  });
+  return out;
+}
+
+export { localDate };

@@ -135,6 +135,7 @@ describe("档案", () => {
     const p = readJson<Record<string, any>>(`${FIX}profiles/ok-a18-home.json`);
     const prod = manifest.products.find((x) => x.name === product)!;
     Object.assign(p, { age, stage: STAGE[age], product, venue: prod.venue });
+    p.segments[0].product = product;
     delete p.wake;
     delete p.bedtime;
     p.screening.answers = manifest.intake.screening.find((s) => s.age === age)!.items.map((item) => ({ item, answer: "否" }));

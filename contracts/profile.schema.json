@@ -2,53 +2,249 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "yangxia.profile/1",
   "title": "养夏个人档案",
-  "description": "放在 profiles/<代号>/档案.json，不提交。用代号不用真名；安全筛查只记是 / 否，不记病名和用药。",
+  "description": "放在 profiles/<代号>/档案.json，不提交。用代号不用真名；安全筛查只记是 / 否，不记诊断细节和用药；训练单用到的几项条件（conditions）只记是 / 否。",
   "type": "object",
-  "required": ["schema", "code", "stage", "age", "product", "screening", "startDate", "weeks"],
+  "required": [
+    "schema",
+    "code",
+    "stage",
+    "age",
+    "product",
+    "screening",
+    "startDate",
+    "segments"
+  ],
   "properties": {
-    "schema": { "const": "yangxia.profile/1" },
-    "code": { "type": "string", "pattern": "^[^/\\\\\\s]{1,20}$", "description": "代号，也是 profiles/ 下的目录名" },
-    "stage": { "enum": ["小学", "初中", "高中", "18–39 岁", "40–64 岁", "65 岁以上"] },
-    "age": { "enum": ["a06", "a13", "a18", "a40", "a65"] },
-    "venue": { "enum": ["gym", "home", "bw", "play", "chair"] },
-    "product": { "type": "string", "description": "选用的成品名" },
-    "wake": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
-    "bedtime": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
+    "schema": {
+      "const": "yangxia.profile/1"
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[^/\\\\\\s]{1,20}$",
+      "description": "代号，也是 profiles/ 下的目录名"
+    },
+    "stage": {
+      "enum": [
+        "小学",
+        "初中",
+        "高中",
+        "18–39 岁",
+        "40–64 岁",
+        "65 岁以上"
+      ]
+    },
+    "age": {
+      "enum": [
+        "a06",
+        "a13",
+        "a18",
+        "a40",
+        "a65"
+      ]
+    },
+    "venue": {
+      "enum": [
+        "gym",
+        "home",
+        "bw",
+        "play",
+        "chair"
+      ]
+    },
+    "product": {
+      "type": "string",
+      "description": "选用的成品名；等于 segments 最后一项的 product"
+    },
+    "wake": {
+      "type": "string",
+      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+    },
+    "bedtime": {
+      "type": "string",
+      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+    },
     "screening": {
       "type": "object",
-      "required": ["answers", "doctorCleared"],
+      "required": [
+        "answers",
+        "doctorCleared"
+      ],
       "properties": {
         "answers": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["item", "answer"],
-            "properties": { "item": { "type": "string" }, "answer": { "enum": ["是", "否"] } }
+            "required": [
+              "item",
+              "answer"
+            ],
+            "properties": {
+              "item": {
+                "type": "string"
+              },
+              "answer": {
+                "enum": [
+                  "是",
+                  "否"
+                ]
+              }
+            }
           }
         },
-        "doctorCleared": { "type": "boolean", "description": "使用者说医生已经同意开始。65 岁以上必须为 true；其余年龄段有任何一项\"是\"时必须为 true" },
-        "doctorAdvice": { "type": "string", "maxLength": 300, "description": "医生的意见，照使用者说的记" }
+        "doctorCleared": {
+          "type": "boolean",
+          "description": "使用者说医生已经同意开始。65 岁以上必须为 true；其余年龄段有任何一项\"是\"时必须为 true"
+        },
+        "doctorAdvice": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "医生的意见，照使用者说的记"
+        }
       }
     },
-    "startDate": { "type": "string", "format": "date" },
-    "week": { "type": "integer", "minimum": 1, "maximum": 4, "description": "这一轮的第几周，默认 1；周复盘按成品规则放行后才改成下一周" },
-    "round": { "type": "integer", "minimum": 1, "description": "第几轮（四周一轮），默认 1；新一轮开始时上一轮的课程、打卡、复盘移进 历史/第R轮/" },
+    "startDate": {
+      "type": "string",
+      "format": "date"
+    },
+    "segments": {
+      "type": "array",
+      "minItems": 1,
+      "description": "每一周一项：第几段（起始期 4 周一段）、段型、第几周、开始日期、成品。建档写第一项；周复盘每次追加一项（放行就加 1，重复本周不变）；段末或换成品时新开一段（n 加 1、从第 1 周起）。最后一项就是现在",
+      "items": {
+        "type": "object",
+        "required": [
+          "n",
+          "type",
+          "week",
+          "start",
+          "product"
+        ],
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "type": {
+            "enum": [
+              "标准",
+              "减量"
+            ]
+          },
+          "week": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "start": {
+            "type": "string",
+            "format": "date"
+          },
+          "product": {
+            "type": "string"
+          },
+          "phase": {
+            "const": "起始"
+          }
+        }
+      }
+    },
+    "conditions": {
+      "type": "object",
+      "description": "训练单用到的条件（高血压、骨质疏松、家里没有别人、没地方跳、家长在旁边），只记是 / 否；没记的按模板规则层的\"没确认时\"导出保守版本",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "choices": {
+      "type": "array",
+      "description": "能用的器材对应的动作 ID，按优先顺序（如 [\"door-row\"]）；训练单\"按器材选一个\"时取第一个能用的",
+      "items": {
+        "type": "string"
+      }
+    },
+    "progress": {
+      "type": "object",
+      "description": "个人进度：{动作或阶梯 ID: {level 难度级, reps 每组次数, weight 健身房重量}}。没写的按训练单的起始级、区间下限。只能经 progressLog 改",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reps": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "weight": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "progressLog": {
+      "type": "array",
+      "description": "进度每一次改动：日期、动作、哪一项、改成多少、按哪条规则、依据（练习记录或复盘数据的文件名）。profile check 重放它，结果要等于 progress",
+      "items": {
+        "type": "object",
+        "required": [
+          "date",
+          "move",
+          "field",
+          "to",
+          "rule"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "move": {
+            "type": "string"
+          },
+          "field": {
+            "enum": [
+              "level",
+              "reps",
+              "weight"
+            ]
+          },
+          "to": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "rule": {
+            "enum": [
+              "建档",
+              "找级",
+              "退回",
+              "减量",
+              "升级",
+              "加次数",
+              "调重量",
+              "加重"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "description": "依据：打卡/… 的练习记录，或 复盘/….json"
+          }
+        }
+      }
+    },
     "household": {
       "type": "array",
       "description": "一起吃饭的家庭成员（含自己）的年龄段，排菜单时记；菜单按每个年龄段的红线检查。只记年龄段，不记名字",
-      "items": { "enum": ["a06", "a13", "a18", "a40", "a65"] }
-    },
-    "weeks": {
-      "type": "array",
-      "minItems": 1,
-      "description": "这一轮每一段练第几周、从哪天开始。建档写第一段；周复盘每次追加一段（放行就加 1，重复本周不变）。最后一段就是现在的 week",
       "items": {
-        "type": "object",
-        "required": ["week", "start"],
-        "properties": {
-          "week": { "type": "integer", "minimum": 1, "maximum": 4 },
-          "start": { "type": "string", "format": "date" }
-        }
+        "enum": [
+          "a06",
+          "a13",
+          "a18",
+          "a40",
+          "a65"
+        ]
       }
     }
   }

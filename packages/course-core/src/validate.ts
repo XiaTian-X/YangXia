@@ -31,6 +31,11 @@ export function validateCourse(raw: unknown): { course: Course | null; issues: I
     if (!isInt(src.week, 1, 4)) err("source.week", "week 要是 1–4 的整数");
     if (src.day !== undefined && (typeof src.day !== "string" || src.day.length > 20)) err("source.day", "day 最多 20 个字");
     if (src.templates !== undefined && typeof src.templates !== "string") err("source.templates", "templates 要是字符串");
+    if (src.plan !== undefined && src.plan !== "yangxia.plans/1") err("source.plan", 'plan 只能是 "yangxia.plans/1"');
+    if (src.segment !== undefined && !isInt(src.segment, 1, 99)) err("source.segment", "segment 是第几段，从 1 起的整数");
+    if (src.type !== undefined && !["标准", "减量"].includes(src.type as string)) err("source.type", "type 只能是 标准 / 减量");
+    if (src.phase !== undefined && src.phase !== "起始") err("source.phase", "phase 现在只有 起始");
+    if (src.picks !== undefined && !(isObj(src.picks) && Object.values(src.picks).every((v) => typeof v === "string"))) err("source.picks", "picks 是 {轮换组: 动作 ID}");
   }
   if (raw.presentation !== undefined && !isObj(raw.presentation)) err("presentation", "presentation 要是对象");
   if (!Array.isArray(raw.blocks) || raw.blocks.length < 1 || raw.blocks.length > 12) {

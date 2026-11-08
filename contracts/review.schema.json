@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yangxia.review/1",
+  "title": "养夏周复盘数据",
+  "description": "放在 profiles/<代号>/复盘/<这一周的开始日期>-第N周.json，和同名 .md 成对，不提交。数字照使用者说的填；profile check 拿它核对训练次数、不适和进度改动的依据。",
+  "type": "object",
+  "required": [
+    "schema",
+    "start",
+    "week",
+    "trainings",
+    "symptoms",
+    "moves"
+  ],
+  "properties": {
+    "schema": {
+      "const": "yangxia.review/1"
+    },
+    "start": {
+      "type": "string",
+      "format": "date",
+      "description": "这一周的开始日期（segments 里那一项的 start）"
+    },
+    "week": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4
+    },
+    "trainings": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "这一周练了几次（不能少于这一周的练习记录数）"
+    },
+    "checkinDays": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 7,
+      "description": "每日打卡达标的天数"
+    },
+    "symptoms": {
+      "type": "boolean",
+      "description": "这一周有没有疼痛、头晕、胸闷（练习记录里有，就不能写没有）"
+    },
+    "moves": {
+      "type": "array",
+      "description": "逐个动作的表现",
+      "items": {
+        "type": "object",
+        "required": [
+          "move",
+          "allAtTop",
+          "spare"
+        ],
+        "properties": {
+          "move": {
+            "type": "string",
+            "description": "动作或阶梯 ID"
+          },
+          "allAtTop": {
+            "type": "boolean",
+            "description": "每组都做到了区间上限"
+          },
+          "spare": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "最后一组还剩几次余力"
+          }
+        }
+      }
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  }
+}

@@ -52,11 +52,18 @@ test("养夏跟练编排器：导入、跟练、导出", async ({ page }) => {
   await page.waitForTimeout(500);
   await page.locator('[data-stage="ex-1-set-1"]').click();
   await expect(page.getByText("练习记录", { exact: true })).toBeVisible({ timeout: 20_000 });
+  // 每个动作的补充：找级的感受（照成品原话）、当场退回
+  await page.getByText("每个动作（可不填）").click();
+  await page.locator('[data-item="1"] select').selectOption("做到上限还很轻松");
+  await page.locator('[data-item="0"] input[type="checkbox"]').check();
   const session = JSON.parse((await saved(page, () => page.getByRole("button", { name: "导出练习记录" }).click())).toString("utf8"));
   expect(session.schema).toBe("yangxia.session/1");
   expect(session.feeling).toBe("正好");
   expect(session.items.map((i: any) => [i.exercise, i.setsPlanned, i.setsDone, i.skipped]))
     .toEqual([["squat", 1, 0, true], ["plank", 1, 1, false]]);
+  expect(session.items[0].reverted).toBe(true);
+  expect(session.items[1].feel).toBe("做到上限还很轻松");
+  expect(session.items[0].feel).toBeUndefined();
   expect(validateSession(session)).toEqual([]);
 
   const tl = expected();

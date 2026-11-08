@@ -38,11 +38,33 @@ CONTENT = [
     (re.compile(rb"\bAKIA[0-9A-Z]{16}\b"), "AWS 访问密钥"),
 ]
 # 声明自己是个人档案 / 练习记录的数据文件（JSON 的 "schema": "…"，含压成一行的 {"schema":…}；或 Markdown 开头的 schema: …）
-PERSONAL = re.compile(rb'(^|[\n{,])\s*"?schema"?\s*:\s*"?yangxia\.(profile|session)/')
+PERSONAL = re.compile(rb'(^|[\n{,])\s*"?schema"?\s*:\s*"?yangxia\.(profile|session|review|assessment)/')
+TEMPLATE_DIRS = ("content/", "tools/", "dist/")   # 模板仓库：改了这些就要跑 tpl.py check
 
 
 def git(*args):
     return subprocess.run(["git", *args], capture_output=True, check=True).stdout
+
+
+def template_checks(paths):
+    """只在模板仓库（根目录有 tpl.py）里做：暂存了 content/、tools/、dist/ 的改动时，
+    这三处不能有没暂存的改动或没跟踪的新文件（否则查的是工作区、提交的是暂存区），再跑一遍 python3 tpl.py check。"""
+    import os
+    root = git("rev-parse", "--show-toplevel").decode("utf-8").strip()
+    if not os.path.exists(os.path.join(root, "tpl.py")) or not any(p.startswith(TEMPLATE_DIRS) for p in paths):
+        return []
+    dirs = [d.rstrip("/") for d in TEMPLATE_DIRS]
+    loose = [p.decode("utf-8") for p in git("diff", "--name-only", "-z", "--", *dirs).split(b"\0") if p]
+    loose += [p.decode("utf-8") for p in git("ls-files", "--others", "--exclude-standard", "-z", "--", *dirs).split(b"\0") if p]
+    if loose:
+        shown = "、".join(loose[:5]) + ("……" if len(loose) > 5 else "")
+        return [f"content/、tools/、dist/ 还有没暂存的改动或没跟踪的新文件（{shown}）：先 git add 或撤销，"
+                "提交前检查查的是工作区，要和要提交的内容一致"]
+    r = subprocess.run([sys.executable, "tpl.py", "check"], cwd=root, capture_output=True, text=True)
+    if r.returncode:
+        tail = [ln for ln in r.stdout.splitlines() if ln.startswith("[错误]")][:8]
+        return ["python3 tpl.py check 没通过（先 python3 tpl.py all，改到 0 错误）：", *[f"    {t}" for t in tail]]
+    return []
 
 
 def main():
@@ -64,11 +86,12 @@ def main():
                 problems.append(f"{path}：内容里像是有{what}")
         if not path.startswith(FIXTURE_PREFIXES) and PERSONAL.search(blob):
             problems.append(f"{path}：这是个人档案或练习记录，只能放在 profiles/（不提交）")
+    problems += template_checks(paths)
     if problems:
         print("提交前检查没通过：", file=sys.stderr)
         for p in problems:
             print(f"  - {p}", file=sys.stderr)
-        print("把这些文件移出暂存区（git restore --staged <文件>）后再提交。", file=sys.stderr)
+        print("个人数据、密钥、大文件：移出暂存区（git restore --staged <文件>）后再提交；模板核对：改到通过再提交。", file=sys.stderr)
         return 1
     return 0
 

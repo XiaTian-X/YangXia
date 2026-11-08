@@ -1,7 +1,7 @@
 // 养夏 · 跟练编排器：导入课程 → 预览、跟练 → 导出 WAV / SRT / 视频 → 练完导出练习记录。
 import {
-  buildTimeline, DEFAULT_SETTINGS, itemSpec, setsDoneFromPlayed, settingsOf, validateCourse,
-  type Course, type Issue, type PlaybackSettings, type TimelineEvent,
+  buildTimeline, DEFAULT_SETTINGS, FEELS, itemSpec, setsDoneFromPlayed, settingsOf, validateCourse,
+  type Course, type Issue, type ItemNote, type PlaybackSettings, type TimelineEvent,
 } from "@yangxia/course-core";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import sample from "../../../../contracts/fixtures/courses/ok-a18-home-w1-a.json";
@@ -320,7 +320,12 @@ function SessionForm({ session, onDone }: { session: Session; onDone: () => void
   const [feeling, setFeeling] = useState<Feeling>("正好");
   const [symptoms, setSymptoms] = useState({ pain: false, dizzy: false, chest: false });
   const [note, setNote] = useState("");
+  const [perItem, setPerItem] = useState<Record<number, ItemNote>>({});
   const anySymptom = symptoms.pain || symptoms.dizzy || symptoms.chest;
+  // 动作顺序和时间轴的 itemIndex 一致：按 blocks、items 的先后展开
+  const items = session.course.blocks.flatMap((b) => b.items);
+  const gym = /健身房/.test(session.course.source.product);
+  const set = (i: number, patch: Partial<ItemNote>) => setPerItem({ ...perItem, [i]: { ...perItem[i], ...patch } });
   return (
     <div class="item" style={{ marginTop: 12 }}>
       <b>练习记录</b>
@@ -338,10 +343,30 @@ function SessionForm({ session, onDone }: { session: Session; onDone: () => void
         ))}
       </div>
       {anySymptom && <div class="issue">有不适：下周先不加量，按计划里"疼了怎么办"处理；胸痛、胸闷、头晕站不稳要尽快就医。</div>}
+      <details style={{ marginBottom: 8 }}>
+        <summary>每个动作（可不填）：找级的感受{gym ? "、还能做几下" : ""}、当场退回</summary>
+        <p class="note">第 1–2 周找级，照计划原话选这一组的感受，下次训练按它调一级；升级后做不到下限，勾"当场退回"，下次用原来那一级。</p>
+        {items.map((it, i) => (
+          <div class="row" key={i} data-item={i} style={{ marginBottom: 4, flexWrap: "wrap" }}>
+            <span style={{ minWidth: 120 }}>{it.name}</span>
+            <select aria-label={`${it.name} 的感受`} value={perItem[i]?.feel ?? ""} onChange={(e) => set(i, { feel: (e.currentTarget.value || undefined) as ItemNote["feel"] })}>
+              <option value="">感受（不填）</option>
+              {FEELS.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+            {gym && (
+              <input aria-label={`${it.name} 还能做几下`} type="number" min={0} max={30} placeholder="还能做几下" style={{ width: 90 }}
+                value={perItem[i]?.spare ?? ""} onInput={(e) => set(i, { spare: e.currentTarget.value === "" ? undefined : Math.max(0, Math.min(30, Math.round(Number(e.currentTarget.value)))) })} />
+            )}
+            <label class="check" style={{ marginBottom: 0 }}>
+              <input type="checkbox" aria-label={`${it.name} 当场退回`} checked={!!perItem[i]?.reverted} onChange={(e) => set(i, { reverted: e.currentTarget.checked })} />当场退回
+            </label>
+          </div>
+        ))}
+      </details>
       <textarea rows={2} maxLength={500} placeholder="备注（可不填）" value={note} onInput={(e) => setNote(e.currentTarget.value)} />
       <div class="row" style={{ marginTop: 8 }}>
         <button class="btn primary" onClick={() => {
-          download(sessionRecord(session.course, { ...session, feeling, symptoms, note }),
+          download(sessionRecord(session.course, { ...session, feeling, symptoms, note, perItem }),
             `养夏_练习记录_${localDate(session.startedAt)}_${localTime(session.startedAt)}.json`);
           onDone();
         }}>导出练习记录</button>

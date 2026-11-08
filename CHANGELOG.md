@@ -2,7 +2,20 @@
 
 模板仓库（YangXia-templates）的改动记在 `templates/CHANGELOG.md`。重构方案和每个阶段的验收标准见 `docs/重构方案-v3（agent驱动）.md`。
 
-## 未发布 · 2026-11-08
+## 未发布 · v4 阶段 1：处方结构化（2026-11-08）
+
+按 `docs/重构方案-v4（结构化模板与分阶段计划）.md`（r4，独立审查通过）实施阶段 1；第十一节第 1 条用户定 A：档案记训练单用到的几项条件（只记是 / 否）。模板仓库的改动在它的 `v4-structure` 分支。
+
+- **课程由命令导出**：`npm run course -- export <档案目录> <第几周> <哪天>`，按训练单（模板 `dist/data/plans.json`）、规则参数（`rules.json`）和档案导出；组数、休息来自训练单，次数、难度级来自个人进度，节奏来自呼吸节奏原文、难度级和"下放放慢"规则，条件变体、器材、轮换按档案；照成品做的项逐条列出。核心库 `plan.ts`。
+- **课程检查**：从训练单导出的课程用同一份档案重新导出一遍逐项比对；起点课程再跑原文核对作第二层（问题记成警告）；手写的课程照旧原文核对，并提醒改用 export。
+- **个人档案**：`round`、`weeks`、`week` 换成段序列 `segments`；新增 `conditions`（只记是 / 否）、`choices`（器材）、`progress`（难度级、次数、重量）、`progressLog`（每次改动的规则和依据）。`profile check` 重放进度日志，逐条按成品规则核对（找级、退回、减量、升级、加次数、调重量、加重，不适不加、一次一样）。
+- **复盘数据** `yangxia.review/1`（`contracts/review.schema.json`）：和周复盘 `.md` 成对，训练次数不能少于练习记录数，练习记录有不适就不能写没有。
+- **练习记录**：每个动作可选 `feel`（找级的感受，照成品原话）、`spare`（健身房还能做几下）、`reverted`（当场退回）；编排器练习记录表单加"每个动作"一栏，冒烟测试覆盖。
+- 提交前检查：`yangxia.review`、`yangxia.assessment` 也算个人数据；在模板仓库里会跑 `tpl.py check`（两个仓库同一份脚本）。
+- 离线样例加训练单和规则参数的节选（`contracts/fixtures/data/`），成品原文片段带上训练单的出处原文。
+- 隐私规则（AGENTS.md）、数据约定、skills（onboard、course-export、weekly-review）、README 同步。
+
+## 未发布 · v3 阶段 0–4（2026-11-08）
 
 按重构方案 r6（经独立审查）实施阶段 0–4。
 

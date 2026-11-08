@@ -3,13 +3,14 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 import { checkNotes, validateProfile, validateSession } from "../src/profile.ts";
+import { REVIEW_FORMAT, validateReview } from "../src/progress.ts";
 import { CONTRACTS, FIX, clone, fixtureManifest, readJson } from "./helpers.ts";
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);
 const profileSchema = ajv.compile(readJson(`${CONTRACTS}profile.schema.json`) as object);
 const sessionSchema = ajv.compile(readJson(`${CONTRACTS}session.schema.json`) as object);
-const errors = (xs: { level: string }[]) => xs.filter((i) => i.level === "error");
+const errors = (xs: { level: string; path: string; message: string }[]) => xs.filter((i) => i.level === "error");
 const P = () => clone(readJson<Record<string, any>>(`${FIX}profiles/ok-a18-home.json`));
 const S = () => clone(readJson<Record<string, any>>(`${FIX}sessions/ok-a18-home.json`));
 
@@ -56,6 +57,52 @@ describe("练习记录", () => {
     const s = S();
     s.symptoms.chest = true;
     expect(validateSession(s).map((i) => i.message).join()).toMatch(/不加量.*就医/);
+  });
+  it("每个动作的感受、还能做几下、当场退回：合格", () => {
+    const s = S();
+    Object.assign(s.items[0], { feel: "做到上限还很轻松", spare: 6, reverted: true });
+    expect(sessionSchema(s)).toBe(true);
+    expect(validateSession(s)).toEqual([]);
+  });
+  it("不合格：感受不是成品原话", () => {
+    const s = S();
+    s.items[0].feel = "太轻松了";
+    expect(sessionSchema(s)).toBe(false);
+    expect(errors(validateSession(s)).map((i) => i.message).join()).toMatch(/感受只能是/);
+  });
+});
+
+describe("档案的条件、器材、进度（格式）", () => {
+  it("合格：条件只记是否、器材是 ID 列表、进度和日志", () => {
+    const p = P();
+    Object.assign(p, { conditions: { 高血压: true }, choices: ["door-row"], progress: { pushup: { level: 2 } },
+      progressLog: [{ date: "2026-11-09", move: "pushup", field: "level", to: 2, rule: "建档" }] });
+    expect(profileSchema(p)).toBe(true);
+    expect(validateProfile(p)).toEqual([]);
+  });
+  it("不合格：条件写了病名细节、进度写了别的字段、日志规则不认识", () => {
+    const p = P();
+    Object.assign(p, { conditions: { 高血压: "二级，吃药" }, progress: { pushup: { level: 2, note: "x" } },
+      progressLog: [{ date: "2026-11-09", move: "pushup", field: "level", to: 2, rule: "自己定" }] });
+    expect(profileSchema(p)).toBe(false);
+    expect(errors(validateProfile(p)).map((i) => `${i.path} ${i.message}`).join("\n")).toMatch(/只能有 level[\s\S]*rule[\s\S]*conditions/);
+  });
+});
+
+describe("复盘数据：Schema 和 TS 一致", () => {
+  const reviewSchema = ajv.compile(readJson(`${CONTRACTS}review.schema.json`) as object);
+  const R = () => ({ schema: REVIEW_FORMAT, start: "2026-11-09", week: 1, trainings: 3, checkinDays: 5, symptoms: false,
+    moves: [{ move: "pushup", allAtTop: false, spare: 2 }] });
+  it("合格", () => {
+    expect(reviewSchema(R())).toBe(true);
+    expect(validateReview(R())).toEqual([]);
+  });
+  it("不合格：缺不适、余力不是整数", () => {
+    const r: Record<string, any> = R();
+    delete r.symptoms;
+    r.moves[0].spare = 1.5;
+    expect(reviewSchema(r)).toBe(false);
+    expect(errors(validateReview(r)).length).toBe(2);
   });
 });
 

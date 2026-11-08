@@ -24,3 +24,7 @@ export function fixtureReadProduct(name: string): string | null {
 }
 
 export const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
+
+import type { PlansData, RulesData } from "../src/plan.ts";
+export const fixturePlans = () => readJson<PlansData>(join(FIX, "data", "plans.json"));
+export const fixtureRules = () => readJson<RulesData>(join(FIX, "data", "rules.json"));

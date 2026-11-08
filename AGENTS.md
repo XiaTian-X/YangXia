@@ -11,7 +11,7 @@
 | YangXia（本仓库） | `./` | agent 层、课程核心库、跟练编排器、数据约定、文档 |
 | YangXia-templates | `./templates/`（被本仓库忽略） | 计划模板，**独立的 git 仓库**，有自己的 `templates/AGENTS.md` |
 
-- **本仓库只读模板的发布物**：`templates/dist/` 里的成品和 `templates/dist/manifest.json`。不读 `templates/content/`，不 import 模板的代码。
+- **本仓库只读模板的发布物**：`templates/dist/` 里的成品、`templates/dist/manifest.json`，以及训练单和规则参数 `templates/dist/data/plans.json`、`rules.json`。不读 `templates/content/`，不 import 模板的代码。
 - 改模板：按 `templates/AGENTS.md` 的规则在模板仓库里改、在模板仓库里提交。
 - 找模板只用 `scripts/templates-path.mjs`（环境变量 `YANGXIA_TEMPLATES`，没设就用 `./templates`）。
 
@@ -30,12 +30,15 @@
 - 对 6–12 岁、13–17 岁谈体重、热量、减肥、排名；给 65 岁以上安排跳跃、闭眼、憋气。
 - 区间取值不能挑：次数、组数、时长取下限，休息取上限。
 
-打卡或练习记录里出现**疼痛、头晕、胸闷**：停止加量，按成品里"疼了怎么办"处理，必要时建议就医。`npm run profile -- check` 按档案 `weeks` 的日期核对：有不适的那一段之后，周次不能往上走；每一段结束都要有周复盘。
+打卡或练习记录里出现**疼痛、头晕、胸闷**：停止加量，按成品里"疼了怎么办"处理，必要时建议就医。`npm run profile -- check` 按档案 `segments` 的日期核对：每一周结束都要有周复盘（`.md` 和复盘数据 `.json`）；有不适的那一周之后，周次不能往上走、个人进度不能往上加。
+
+**课程由命令从训练单导出**（`npm run course -- export`），不手写处方；个人进度（难度级、次数、重量）只能照成品规则经档案的 `progressLog` 改，每一条写规则和依据，`profile check` 重放核对。
 
 ## 隐私
 
 - 个人数据（档案、打卡、练习记录、`.ics` 日历）只放在 `profiles/<代号>/`。这个目录不提交，搜索工具也搜不到，只按文件名明确读取。
-- 用**代号**不用真名；安全筛查只记"是 / 否"，不记具体病名和用药。
+- 用**代号**不用真名；安全筛查只记"是 / 否"，不记诊断细节和用药。
+- 训练单用到的几项条件（`conditions`：有没有高血压、骨质疏松，家里有没有别人、有没有跳跃场地、有没有家长在旁边）可以记，每项只记"是 / 否"，建档时如实告诉使用者；没记的一律按"没确认"导出保守版本。
 - 如实告诉用户：agent 读档案时，内容会作为对话发给模型服务处理；除此之外不发往任何地址，不放进链接参数。
 
 ## 提交规则
@@ -62,12 +65,13 @@
 npm run setup                                         # 新克隆后启用两个仓库的提交前检查
 npm test                                              # 单元测试（模板不在时，安全相关测试照样跑）
 npm run e2e                                           # 打包编排器并跑冒烟测试（Playwright）
-npm run course -- check <课程.json> --profile <档案.json>   # 导出课程后必须跑，0 个错误才能交给用户
+npm run course -- export profiles/<代号> <第几周> <哪天>     # 按训练单和档案导出一天的课程（自带检查，0 错误才写文件）
+npm run course -- check <课程.json> --profile <档案.json>   # 检查课程：从训练单导出的按训练单和档案进度逐项核对
 npm run course -- summary <课程.json>                 # 总时长、动作、组数
 npm run course -- intake [年龄段]                     # 入口问卷、成品列表和这个年龄段的筛查项
 npm run course -- bedtime <阶段> <HH:MM>              # 算上床时间（不要心算）
 npm run course -- moves <成品名>                      # 这份成品能导出的动作、处方原文、呼吸节奏
-npm run profile -- check profiles/<代号>              # 档案（和模板核对）、周次推进、练习记录、课程、复盘和菜单的检查
+npm run profile -- check profiles/<代号>              # 档案（和模板核对）、周次推进、个人进度日志、练习记录、课程、复盘和菜单的检查
 python3 templates/tpl.py all                          # 改了模板后构建 + 校验
 ```
 
@@ -93,4 +97,4 @@ docs/                  数据约定、编排器功能清单、重构方案、全
 
 ## 现在在做什么
 
-按 `docs/重构方案-v3（agent驱动）.md` 分阶段推进，第十一节有每个阶段做什么、怎么算完成。改动前先看一眼当前进行到哪个阶段，不要跳着做。
+按 `docs/重构方案-v4（结构化模板与分阶段计划）.md` 分阶段推进（v3 已完成），第九节有每个阶段做什么、怎么算完成，第十一节是每个阶段开工前要用户定的事。改动前先看一眼当前进行到哪个阶段，不要跳着做；模板仓库的 v4 改动在 `v4-structure` 分支上，合并回 main、发版由用户决定。

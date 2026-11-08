@@ -4,45 +4,126 @@
   "title": "养夏练习记录",
   "description": "练完一次跟练课程的记录：编排器导出，放进 profiles/<代号>/打卡/，周复盘读它。属于个人数据，不提交。",
   "type": "object",
-  "required": ["schema", "course", "startedAt", "items", "feeling", "symptoms"],
+  "required": [
+    "schema",
+    "course",
+    "startedAt",
+    "items",
+    "feeling",
+    "symptoms"
+  ],
   "properties": {
-    "schema": { "const": "yangxia.session/1" },
+    "schema": {
+      "const": "yangxia.session/1"
+    },
     "course": {
       "type": "object",
-      "required": ["id", "name"],
+      "required": [
+        "id",
+        "name"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "source": { "type": "object" }
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "object"
+        }
       }
     },
-    "startedAt": { "type": "string", "format": "date-time" },
-    "endedAt": { "type": "string", "format": "date-time" },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "endedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
     "items": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["exercise", "setsPlanned", "setsDone"],
+        "required": [
+          "exercise",
+          "setsPlanned",
+          "setsDone"
+        ],
         "properties": {
-          "exercise": { "type": "string" },
-          "setsPlanned": { "type": "integer", "minimum": 0 },
-          "setsDone": { "type": "integer", "minimum": 0 },
-          "skipped": { "type": "boolean" }
+          "exercise": {
+            "type": "string"
+          },
+          "setsPlanned": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "setsDone": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skipped": {
+            "type": "boolean"
+          },
+          "feel": {
+            "enum": [
+              "做不到下限或后面几下变形",
+              "能做到下限，最后两下有点难",
+              "做到上限还很轻松"
+            ],
+            "description": "找级用的感受，照成品原话（可选）"
+          },
+          "spare": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 30,
+            "description": "健身房：做完还能做几下（可选）"
+          },
+          "reverted": {
+            "type": "boolean",
+            "description": "升级做不到，当场退回原来那一级（可选）"
+          }
         }
       }
     },
-    "feeling": { "enum": ["轻松", "正好", "吃力"] },
+    "feeling": {
+      "enum": [
+        "轻松",
+        "正好",
+        "吃力"
+      ]
+    },
     "symptoms": {
       "type": "object",
       "description": "任何一项为 true：停止加量，按成品里\"疼了怎么办\"处理，必要时就医",
-      "required": ["pain", "dizzy", "chest"],
+      "required": [
+        "pain",
+        "dizzy",
+        "chest"
+      ],
       "properties": {
-        "pain": { "type": "boolean", "description": "关节疼、刺痛" },
-        "dizzy": { "type": "boolean", "description": "头晕、眼前发黑" },
-        "chest": { "type": "boolean", "description": "胸痛、胸闷、心慌" }
+        "pain": {
+          "type": "boolean",
+          "description": "关节疼、刺痛"
+        },
+        "dizzy": {
+          "type": "boolean",
+          "description": "头晕、眼前发黑"
+        },
+        "chest": {
+          "type": "boolean",
+          "description": "胸痛、胸闷、心慌"
+        }
       }
     },
-    "edited": { "type": "boolean", "description": "练的课程在编排器里手动改过，和成品原文可能不一致" },
-    "note": { "type": "string", "maxLength": 500 }
+    "edited": {
+      "type": "boolean",
+      "description": "练的课程在编排器里手动改过，和成品原文可能不一致"
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
   }
 }

@@ -12,5 +12,6 @@ export { checkCourse, numbersBefore, type CheckContext } from "./check.ts";
 export { MANIFEST_FORMAT, productCode, type Manifest, type ManifestExercise, type ManifestProduct } from "./manifest.ts";
 export { checkNotes, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
 export { bedtimeFor, checkProfileWithTemplates, notCoveredItems, screeningFor } from "./intake.ts";
-export { checkProgress, reviewName, validateWeeks, type WeekEntry } from "./progress.ts";
-export { buildSession, setsDoneFromPlayed, type Feeling, type SessionInput, type Symptoms } from "./session.ts";
+export { checkProgress, checkProgressLog, FEELS, REVIEW_FORMAT, reviewDataName, reviewName, validateProgressShape, validateReview, validateSegments, type SegmentEntry, type SessionFile } from "./progress.ts";
+export { baseTempo, checkPlanCourse, conditionValue, currentSegment, dayRows, exportCourse, isStartCourse, PLANS_FORMAT, RULES_FORMAT, type ExportInput, type ExportResult, type LadderLevel, type PlanRow, type PlansData, type ProductPlan, type RulesData } from "./plan.ts";
+export { buildSession, setsDoneFromPlayed, type Feeling, type ItemNote, type SessionInput, type Symptoms } from "./session.ts";

@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type Manifest, MANIFEST_FORMAT } from "./manifest.ts";
+import { PLANS_FORMAT, type PlansData, RULES_FORMAT, type RulesData } from "./plan.ts";
 
 const REPO_ROOT = new URL("../../../", import.meta.url);
 
@@ -14,6 +15,9 @@ export interface Templates {
   dir: string;
   manifest: Manifest;
   readProduct: (name: string) => string | null;
+  /** 训练单、规则参数（模板 dist/data/）。模板还没有这两个文件时是 null（v4 之前的模板）。 */
+  plans: PlansData | null;
+  rules: RulesData | null;
 }
 
 /** 读模板发布物。找不到模板、或 manifest 格式不对时抛出说明。 */
@@ -32,5 +36,18 @@ export async function loadTemplates(): Promise<Templates> {
     const f = join(dir, "dist", `${name}.md`);
     return existsSync(f) ? readFileSync(f, "utf8") : null;
   };
-  return { dir, manifest, readProduct };
+  const data = <T extends { format: string }>(file: string, format: string): T | null => {
+    const f = join(dir, "dist", "data", file);
+    if (!existsSync(f)) return null;
+    const d = JSON.parse(readFileSync(f, "utf8")) as T;
+    if (d.format !== format) throw new Error(`模板 ${file} 的格式是「${d.format}」，需要 ${format}：请先更新模板仓库`);
+    return d;
+  };
+  return { dir, manifest, readProduct, plans: data<PlansData>("plans.json", PLANS_FORMAT), rules: data<RulesData>("rules.json", RULES_FORMAT) };
+}
+
+/** 训练单和规则参数：导出课程、核对进度要用，没有就提示先更新模板。 */
+export function requirePlans(t: Templates): { plans: PlansData; rules: RulesData } {
+  if (!t.plans || !t.rules) throw new Error("模板还没有训练单（dist/data/plans.json、rules.json）：先把模板仓库更新到 v4 阶段 1 之后，再运行 python3 tpl.py all");
+  return { plans: t.plans, rules: t.rules };
 }

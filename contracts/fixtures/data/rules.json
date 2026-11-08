@@ -1,0 +1,443 @@
+{
+ "format": "yangxia.rules/1",
+ "version": "v2.1",
+ "conditions": {
+  "高血压": {
+   "ask": "有没有高血压（包括吃药控制住的）",
+   "products": [
+    "a18·bw",
+    "a40·bw",
+    "a18·home",
+    "a40·home",
+    "a18·gym",
+    "a40·gym"
+   ],
+   "default": true,
+   "text": false,
+   "quotes": [
+    {
+     "section": "动作库",
+     "text": "有高血压（包括吃药控制住的）"
+    }
+   ],
+   "note": "没确认的按有高血压导出：不做派克、毛巾自阻类，平板、靠墙静蹲撑得短一些"
+  },
+  "骨质疏松": {
+   "ask": "医生有没有说过你骨量低或者骨质疏松",
+   "products": [
+    "a40·bw",
+    "a40·home",
+    "a40·gym"
+   ],
+   "default": true,
+   "text": false,
+   "quotes": [
+    {
+     "section": "安全须知",
+     "text": "医生说过你骨量低或者骨质疏松的"
+    }
+   ],
+   "note": "没确认的按骨质疏松导出：负重弯腰、扭腰的动作照成品的替换做"
+  },
+  "家里没有别人": {
+   "ask": "训练时家里有没有别人在",
+   "products": [
+    "a65·chair"
+   ],
+   "default": true,
+   "text": false,
+   "quotes": [
+    {
+     "section": "训练单：每个动作每周做多少",
+     "text": "家里没有别人时"
+    }
+   ],
+   "note": "没确认的按家里没有别人导出：8 号两只手扶，9 号不做"
+  },
+  "没地方跳": {
+   "ask": "家里或楼下有没有能跳的地方",
+   "products": [
+    "a13·bw"
+   ],
+   "default": true,
+   "text": false,
+   "quotes": [
+    {
+     "section": "A · 下肢 + 跳跃",
+     "text": "实在没地方跳"
+    }
+   ],
+   "note": "没确认的按没地方跳导出：跳跃组换成快速高抬膝踏步"
+  },
+  "家长在旁边": {
+   "ask": "做桌下划船时，有没有家长在旁边压住桌子",
+   "products": [
+    "a13·bw"
+   ],
+   "default": false,
+   "text": true,
+   "quotes": [
+    {
+     "section": "C · 上肢拉 + 背",
+     "text": "每次做都要有家长在旁边压住桌子"
+    }
+   ],
+   "note": "没确认的按家长不在导出：不用桌下划船"
+  }
+ },
+ "progress": [
+  {
+   "rule": "找级周",
+   "products": [
+    "a18·bw",
+    "a18·home"
+   ],
+   "value": {
+    "min": 1,
+    "max": 2
+   },
+   "quotes": [
+    {
+     "section": "什么时候升级",
+     "text": "找级：按上面的办法试，太难就降一级，太轻就升一级，可以上下调"
+    }
+   ],
+   "note": "这两周按练习记录里的感受，下一次训练调一级"
+  },
+  {
+   "rule": "找级周",
+   "products": [
+    "a40·bw",
+    "a40·home"
+   ],
+   "value": {
+    "min": 1,
+    "max": 2
+   },
+   "quotes": [
+    {
+     "section": "什么时候升级",
+     "text": "找级：按上面的办法试，太难就降一级，太轻就升一级，可以上下调"
+    }
+   ],
+   "note": "同上"
+  },
+  {
+   "rule": "找级周",
+   "products": [
+    "a13·bw"
+   ],
+   "value": {
+    "min": 1,
+    "max": 2
+   },
+   "quotes": [
+    {
+     "section": "动作库",
+     "text": "第 1–2 周是找级阶段，可以上下调一级"
+    }
+   ],
+   "note": "同上"
+  },
+  {
+   "rule": "升级周",
+   "products": [
+    "a18·bw",
+    "a18·home"
+   ],
+   "value": {
+    "min": 4,
+    "max": 4
+   },
+   "quotes": [
+    {
+     "section": "什么时候升级",
+     "text": "达标的动作升一级（换进阶变式）；没达标的保持原来那一级"
+    }
+   ],
+   "note": "第 4 周起，达标的动作升一级"
+  },
+  {
+   "rule": "升级周",
+   "products": [
+    "a13·bw"
+   ],
+   "value": {
+    "min": 4,
+    "max": 4
+   },
+   "quotes": [
+    {
+     "section": "动作库",
+     "text": "第 4 周就换下一级"
+    }
+   ],
+   "note": "同上"
+  },
+  {
+   "rule": "升级周",
+   "products": [
+    "a40·bw",
+    "a40·home"
+   ],
+   "value": null,
+   "quotes": [
+    {
+     "section": "什么时候升级",
+     "text": "级别都不动：第 3 周下放放慢到 3 秒，第 4 周接着巩固"
+    }
+   ],
+   "note": "这一轮第 3–4 周级别不动；下一轮从第 1 周起可以升"
+  },
+  {
+   "rule": "下一轮升级",
+   "products": [
+    "a40·bw",
+    "a40·home"
+   ],
+   "value": {
+    "min": 1,
+    "max": 1
+   },
+   "quotes": [
+    {
+     "section": "什么时候升级",
+     "text": "这一轮达标的动作记进记录表，下一轮从第 1 周起升级，一次只升一样"
+    }
+   ],
+   "note": "下一轮第 1 周起，上一轮达标的动作可以升一级"
+  },
+  {
+   "rule": "达标",
+   "products": [
+    "a18·bw",
+    "a40·bw",
+    "a18·home",
+    "a40·home"
+   ],
+   "value": "3 组都到上限",
+   "quotes": [
+    {
+     "section": "动作库",
+     "text": "能标准做满 3 组、每组都达到该动作次数区间的上限"
+    }
+   ],
+   "note": "档案里这个动作的次数已经是区间上限，复盘里最后一组还有余力"
+  },
+  {
+   "rule": "达标",
+   "products": [
+    "a13·bw"
+   ],
+   "value": "3 组都到上限",
+   "quotes": [
+    {
+     "section": "动作库",
+     "text": "能标准做满 3 组、每组都达到次数上限，而且最后一组还有余力"
+    }
+   ],
+   "note": "同上"
+  },
+  {
+   "rule": "加次数",
+   "products": [
+    "a18·bw",
+    "a40·bw",
+    "a18·home",
+    "a40·home",
+    "a13·bw"
+   ],
+   "value": {
+    "min": 1,
+    "max": 2
+   },
+   "quotes": [],
+   "note": "设计值 PROGRESS_REPS_STEP：成品只写了\"在区间里往上加\"，没写一次加几次；不超过区间上限"
+  },
+  {
+   "rule": "加次数",
+   "products": [
+    "a65·chair"
+   ],
+   "value": {
+    "min": 1,
+    "max": 2
+   },
+   "quotes": [
+    {
+     "section": "怎么知道强度合适",
+     "text": "下次每组多做 1–2 次，但不超过这个动作次数范围的上限"
+    }
+   ],
+   "note": "连着两次训练都轻松才加"
+  },
+  {
+   "rule": "减次数",
+   "products": [
+    "a65·chair"
+   ],
+   "value": {
+    "min": 2,
+    "max": 2
+   },
+   "quotes": [
+    {
+     "section": "怎么知道强度合适",
+     "text": "下次每组少做 2 次"
+    }
+   ],
+   "note": "太累了就减"
+  },
+  {
+   "rule": "调重量周",
+   "products": [
+    "a18·gym",
+    "a40·gym"
+   ],
+   "value": {
+    "min": 2,
+    "max": 2
+   },
+   "quotes": [
+    {
+     "section": "选重量、加重量",
+     "text": "第 2 周调一次：3 组 × 12 次做完，觉得还能再做 6 下以上，下次就加一档"
+    }
+   ],
+   "note": "第 2 周按练习记录里\"还能做几下\"调一次"
+  },
+  {
+   "rule": "加重周",
+   "products": [
+    "a18·gym",
+    "a40·gym"
+   ],
+   "value": {
+    "min": 3,
+    "max": 3
+   },
+   "quotes": [
+    {
+     "section": "选重量、加重量",
+     "text": "第 3 周加重"
+    }
+   ],
+   "note": "第 3 周加一档；做不完 10 次就退回"
+  },
+  {
+   "rule": "重量不动周",
+   "products": [
+    "a18·gym",
+    "a40·gym"
+   ],
+   "value": {
+    "min": 4,
+    "max": 4
+   },
+   "quotes": [
+    {
+     "section": "4 周强度递进",
+     "text": "3 组 × 10 次，保持重量"
+    }
+   ],
+   "note": "第 4 周不加重"
+  }
+ ],
+ "slowdown": [
+  {
+   "products": [
+    "a18·bw",
+    "a40·bw",
+    "a18·home",
+    "a40·home"
+   ],
+   "weeks": [
+    3,
+    4
+   ],
+   "moves": null,
+   "down": 3,
+   "circuits": false,
+   "quotes": [
+    {
+     "section": "4 周强度递进",
+     "text": "下放放慢到 3 秒"
+    },
+    {
+     "section": "D ·",
+     "text": "第 3–4 周也不用放慢下放"
+    }
+   ],
+   "note": "第 3 周起，有下放那一段的计次动作下放 3 秒；D 日循环照常速"
+  },
+  {
+   "products": [
+    "a13·bw"
+   ],
+   "weeks": [
+    3,
+    4
+   ],
+   "moves": [
+    "squat",
+    "split-squat",
+    "pushup",
+    "a13-pike-high",
+    "table-row",
+    "door-row",
+    "a13-bar-row"
+   ],
+   "down": 3,
+   "circuits": false,
+   "quotes": [
+    {
+     "section": "动作库",
+     "text": "第 3 周起，有\"下放\"的动作（深蹲、分腿蹲、各种俯卧撑、划船）下放放慢到 3 秒"
+    }
+   ],
+   "note": "跳跃组、单腿硬拉、静止动作不变"
+  },
+  {
+   "products": [
+    "a65·chair"
+   ],
+   "weeks": [
+    3,
+    4
+   ],
+   "moves": [
+    "a65-01-sit-to-stand"
+   ],
+   "down": 3,
+   "circuits": false,
+   "quotes": [
+    {
+     "section": "训练单",
+     "text": "2 组，坐下数 3 秒"
+    }
+   ],
+   "note": "第 3–4 周坐下数 3 秒"
+  },
+  {
+   "products": [
+    "a65·chair"
+   ],
+   "weeks": [
+    3,
+    4
+   ],
+   "moves": [
+    "a65-02-heel-raise"
+   ],
+   "down": 3,
+   "circuits": false,
+   "quotes": [
+    {
+     "section": "训练单",
+     "text": "2 组，放下数 3 秒"
+    }
+   ],
+   "note": "第 3 周起放下数 3 秒，第 4 周同第 3 周"
+  }
+ ]
+}

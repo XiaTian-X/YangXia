@@ -44,6 +44,16 @@ export interface CourseSource {
   templates?: string;
   week: number;
   day?: string;
+  /** 由 course export 从训练单导出时写 "yangxia.plans/1"；课程检查按训练单和档案进度逐项核对。 */
+  plan?: string;
+  /** 第几段（起始期 4 周一段）。 */
+  segment?: number;
+  /** 段型：标准 / 减量。 */
+  type?: string;
+  /** 阶段：起始（稳定期在 v4 阶段 3 加）。 */
+  phase?: string;
+  /** 轮换组这一次做的是哪个：{组名: 动作 ID}。 */
+  picks?: Record<string, string>;
 }
 
 export interface Course {

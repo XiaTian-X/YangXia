@@ -1,6 +1,6 @@
 // 个人档案 yangxia.profile/1 和练习记录 yangxia.session/1 的结构校验（和 contracts/*.schema.json 对应），
 // 以及 agent 写进档案目录的文字（周复盘、菜单）的红线检查。
-import { validateWeeks } from "./progress.ts";
+import { FEELS, validateProgressShape, validateSegments } from "./progress.ts";
 import type { RedlineRules } from "./redlines.ts";
 import { redlineHits } from "./redlines.ts";
 import type { Issue } from "./types.ts";
@@ -26,12 +26,10 @@ export function validateProfile(raw: unknown): Issue[] {
   if (typeof raw.product !== "string" || !raw.product) err("product", "缺少选用的成品名");
   for (const k of ["wake", "bedtime"]) if (raw[k] !== undefined && !HHMM.test(raw[k])) err(k, `${k} 要写成 HH:MM`);
   if (typeof raw.startDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw.startDate)) err("startDate", "startDate 要写成 YYYY-MM-DD");
-  if (raw.week !== undefined && !(Number.isInteger(raw.week) && raw.week >= 1 && raw.week <= 4)) err("week", "week 要是 1–4");
-  if (raw.round !== undefined && !(Number.isInteger(raw.round) && raw.round >= 1)) err("round", "round 要是从 1 开始的整数");
   if (raw.household !== undefined && !(Array.isArray(raw.household) && raw.household.every((a: unknown) => AGES.includes(a as string)))) {
     err("household", `household 是家庭成员的年龄段列表，只能写 ${AGES.join("、")}`);
   }
-  out.push(...validateWeeks(raw));
+  out.push(...validateSegments(raw), ...validateProgressShape(raw));
   const sc = raw.screening;
   if (!isObj(sc) || !Array.isArray(sc.answers) || typeof sc.doctorCleared !== "boolean") {
     err("screening", "缺少安全筛查（answers、doctorCleared）");
@@ -62,6 +60,10 @@ export function validateSession(raw: unknown): Issue[] {
       err(`items[${i}]`, "每项要有 exercise、setsPlanned、setsDone");
     } else if (it.setsDone < 0 || it.setsDone > it.setsPlanned) {
       err(`items[${i}].setsDone`, `完成 ${it.setsDone} 组，计划只有 ${it.setsPlanned} 组：完成组数要在 0 到计划组数之间`);
+    } else {
+      if (it.feel !== undefined && !(FEELS as readonly string[]).includes(it.feel)) err(`items[${i}].feel`, `感受只能是：${FEELS.join(" / ")}`);
+      if (it.spare !== undefined && !(Number.isInteger(it.spare) && it.spare >= 0 && it.spare <= 30)) err(`items[${i}].spare`, "还能做几下：0–30 的整数");
+      if (it.reverted !== undefined && typeof it.reverted !== "boolean") err(`items[${i}].reverted`, "reverted（升级做不到当场退回）只能是 true / false");
     }
   });
   if (!["轻松", "正好", "吃力"].includes(raw.feeling)) err("feeling", "feeling 只能是 轻松 / 正好 / 吃力");

@@ -4,85 +4,316 @@
   "title": "养夏跟练课程",
   "description": "一天的训练，按成品原样导出。读的一方忽略不认识的字段。字段说明见 docs/数据约定.md。",
   "type": "object",
-  "required": ["schema", "id", "name", "age", "source", "blocks"],
+  "required": [
+    "schema",
+    "id",
+    "name",
+    "age",
+    "source",
+    "blocks"
+  ],
   "properties": {
-    "schema": { "const": "yangxia.course/1" },
-    "id": { "type": "string", "pattern": "^c_[a-z0-9]{6,40}$" },
-    "name": { "type": "string", "minLength": 1, "maxLength": 60 },
-    "age": { "enum": ["a13", "a18", "a40", "a65"], "description": "年龄段代码，和模板 manifest 的 products[].age 一致" },
+    "schema": {
+      "const": "yangxia.course/1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^c_[a-z0-9]{6,40}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60
+    },
+    "age": {
+      "enum": [
+        "a13",
+        "a18",
+        "a40",
+        "a65"
+      ],
+      "description": "年龄段代码，和模板 manifest 的 products[].age 一致"
+    },
     "source": {
       "type": "object",
-      "required": ["product", "week"],
+      "required": [
+        "product",
+        "week"
+      ],
       "properties": {
-        "product": { "type": "string", "minLength": 1, "description": "成品名，如 18-39岁-居家版" },
-        "templates": { "type": "string", "description": "模板版本，如 v2.1" },
-        "week": { "type": "integer", "minimum": 1, "maximum": 4 },
-        "day": { "type": "string", "maxLength": 20, "description": "训练日，如 A、B、C、D" }
+        "product": {
+          "type": "string",
+          "minLength": 1,
+          "description": "成品名，如 18-39岁-居家版"
+        },
+        "templates": {
+          "type": "string",
+          "description": "模板版本，如 v2.1"
+        },
+        "week": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "day": {
+          "type": "string",
+          "maxLength": 20,
+          "description": "训练日，如 A、B、C、D"
+        },
+        "plan": {
+          "const": "yangxia.plans/1",
+          "description": "由 course export 从训练单导出；课程检查按训练单和档案进度逐项核对"
+        },
+        "segment": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99,
+          "description": "第几段"
+        },
+        "type": {
+          "enum": [
+            "标准",
+            "减量"
+          ],
+          "description": "段型"
+        },
+        "phase": {
+          "const": "起始",
+          "description": "阶段"
+        },
+        "picks": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "轮换组这一次做哪一个：{组名: 动作 ID}"
+        }
       }
     },
-    "blocks": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "$ref": "#/$defs/block" } },
-    "presentation": { "type": "object", "description": "编排器怎么播（音色、鼓点、画面），别的项目可以忽略" }
+    "blocks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/$defs/block"
+      }
+    },
+    "presentation": {
+      "type": "object",
+      "description": "编排器怎么播（音色、鼓点、画面），别的项目可以忽略"
+    }
   },
   "$defs": {
     "block": {
       "oneOf": [
         {
           "type": "object",
-          "required": ["kind", "items"],
+          "required": [
+            "kind",
+            "items"
+          ],
           "properties": {
-            "kind": { "const": "sets" },
-            "items": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "$ref": "#/$defs/item" } }
+            "kind": {
+              "const": "sets"
+            },
+            "items": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 12,
+              "items": {
+                "$ref": "#/$defs/item"
+              }
+            }
           }
         },
         {
           "type": "object",
-          "required": ["kind", "rounds", "items"],
+          "required": [
+            "kind",
+            "rounds",
+            "items"
+          ],
           "properties": {
-            "kind": { "const": "circuit" },
-            "rounds": { "type": "integer", "minimum": 1, "maximum": 10 },
-            "restBetweenRounds": { "type": "integer", "minimum": 0, "maximum": 300 },
+            "kind": {
+              "const": "circuit"
+            },
+            "rounds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "restBetweenRounds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 300
+            },
             "items": {
-              "type": "array", "minItems": 1, "maxItems": 12,
-              "items": { "allOf": [{ "$ref": "#/$defs/item" }, { "properties": { "sets": { "const": 1 } } }] }
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 12,
+              "items": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/item"
+                  },
+                  {
+                    "properties": {
+                      "sets": {
+                        "const": 1
+                      }
+                    }
+                  }
+                ]
+              }
             }
           }
         }
       ]
     },
-    "seconds": { "type": "number", "minimum": 0, "maximum": 10, "multipleOf": 0.5 },
+    "seconds": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 10,
+      "multipleOf": 0.5
+    },
     "item": {
       "type": "object",
-      "required": ["exercise", "name", "mode", "rest", "quote"],
+      "required": [
+        "exercise",
+        "name",
+        "mode",
+        "rest",
+        "quote"
+      ],
       "properties": {
-        "exercise": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "模板动作索引的 ID" },
-        "name": { "type": "string", "minLength": 1, "maxLength": 24 },
-        "mode": { "enum": ["reps", "timed"] },
-        "sets": { "type": "integer", "minimum": 1, "maximum": 10, "default": 1 },
-        "reps": { "type": "integer", "minimum": 1, "maximum": 60 },
-        "duration": { "type": "integer", "minimum": 5, "maximum": 600, "description": "计时动作每组秒数" },
-        "perSide": { "type": "boolean", "default": false },
+        "exercise": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "模板动作索引的 ID"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "mode": {
+          "enum": [
+            "reps",
+            "timed"
+          ]
+        },
+        "sets": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 1
+        },
+        "reps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 600,
+          "description": "计时动作每组秒数"
+        },
+        "perSide": {
+          "type": "boolean",
+          "default": false
+        },
         "tempo": {
           "type": "object",
-          "required": ["start", "up", "down"],
+          "required": [
+            "start",
+            "up",
+            "down"
+          ],
           "description": "单位是秒。start：一次动作从发力（up）还是下放（down）开始",
           "properties": {
-            "start": { "enum": ["up", "down"] },
-            "up": { "allOf": [{ "$ref": "#/$defs/seconds" }, { "minimum": 0.5 }] },
-            "top": { "$ref": "#/$defs/seconds" },
-            "down": { "allOf": [{ "$ref": "#/$defs/seconds" }, { "minimum": 0.5 }] },
-            "bottom": { "$ref": "#/$defs/seconds" }
+            "start": {
+              "enum": [
+                "up",
+                "down"
+              ]
+            },
+            "up": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/seconds"
+                },
+                {
+                  "minimum": 0.5
+                }
+              ]
+            },
+            "top": {
+              "$ref": "#/$defs/seconds"
+            },
+            "down": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/seconds"
+                },
+                {
+                  "minimum": 0.5
+                }
+              ]
+            },
+            "bottom": {
+              "$ref": "#/$defs/seconds"
+            }
           }
         },
-        "rest": { "type": "integer", "minimum": 0, "maximum": 300, "description": "这一项每组之后的休息秒数" },
+        "rest": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 300,
+          "description": "这一项每组之后的休息秒数"
+        },
         "quote": {
-          "type": "array", "minItems": 1, "maxItems": 4,
-          "items": { "type": "string", "minLength": 2, "maxLength": 200 },
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200
+          },
           "description": "成品原文：组数、次数、秒数、休息都要能在这里找到出处"
         }
       },
       "allOf": [
-        { "if": { "properties": { "mode": { "const": "reps" } } }, "then": { "required": ["reps", "tempo"] } },
-        { "if": { "properties": { "mode": { "const": "timed" } } }, "then": { "required": ["duration"] } }
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "reps"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "reps",
+              "tempo"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "timed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "duration"
+            ]
+          }
+        }
       ]
     }
   }
