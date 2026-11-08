@@ -9,16 +9,16 @@
 //   npm run course -- bedtime <阶段> <起床时间>                    按公式算上床时间（如 初中 06:30）
 //   npm run course -- moves <成品名>                               这份成品能导出的动作：ID、短名、处方原文、呼吸节奏
 //   npm run profile -- check <档案目录>                            检查档案（和模板核对）、练习记录、课程，以及写给这个人的复盘和菜单
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, relative, sep } from "node:path";
 import { checkCourse } from "./check.ts";
 import { failedRedlineCases } from "./redlines.ts";
 import { buildSrt } from "./srt.ts";
 import { buildTimeline, itemSpec } from "./timeline.ts";
 import { validateCourse } from "./validate.ts";
 import { bedtimeFor, checkProfileWithTemplates } from "./intake.ts";
-import { checkProgress, checkProgressLog, REVIEW_FORMAT, type SessionFile, validateReview } from "./progress.ts";
-import { loadTemplates, requirePlans } from "./node.ts";
+import { checkProgress, checkProgressLog, progressOn, REVIEW_FORMAT, type SessionFile, validateReview } from "./progress.ts";
+import { loadTemplates, requirePlans, type Templates } from "./node.ts";
 import { currentSegment, exportCourse } from "./plan.ts";
 import { checkNotes, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
 import type { Issue } from "./types.ts";
@@ -107,14 +107,76 @@ function print(issues: Issue[]): number {
 }
 
 /** 按训练单和档案导出一天：agent 只选哪一天，组数、次数、级、节奏、休息都由训练单和个人进度定。 */
+/** 读整个档案目录：练习记录、复盘（文件名和复盘数据）、课程，以及逐个文件的格式和红线问题。 */
+function scanDir(dir: string, t: Templates, profile: Record<string, any>) {
+  const issues: Issue[] = [];
+  const sessions: SessionFile[] = [];
+  const reviews: string[] = [];
+  const reviewData: Record<string, Record<string, any>> = {};
+  const courses: { name: string; raw: Record<string, any>; archived: boolean }[] = [];
+  const segN = currentSegment(profile)?.n ?? 1;
+  for (const f of walk(dir)) {
+    const name = relative(dir, f);
+    if (name === "档案.json") continue;
+    const archived = name.startsWith(`历史${sep}`);
+    if (archived) {
+      // 历史/ 只放以前几段的东西：历史/第N段/…，1 ≤ N < 现在的段（不能把这一段的课程挪进去躲检查）
+      const r = new RegExp(`^历史\\${sep}第(\\d+)段\\${sep}`).exec(name);
+      if (!r || Number(r[1]) < 1 || Number(r[1]) >= segN) {
+        issues.push({ level: "error", path: name, message: `历史/ 下只放以前几段的文件（历史/第N段/，N 从 1 起、小于现在的第 ${segN} 段）` });
+      }
+    }
+    // 复盘：复盘/ 下的，和移进 历史/第N段/复盘/ 的（以前几段的复盘照样算数）
+    const rv = /(?:^|[\\/])复盘[\\/]([^\\/]+)$/.exec(name);
+    if (rv && (!archived || new RegExp(`^历史\\${sep}第\\d+段\\${sep}复盘\\${sep}`).test(name))) reviews.push(rv[1]);
+    if (f.endsWith(".json")) {
+      const raw = readJson(f) as Record<string, any>;
+      const tag = (xs: Issue[]) => xs.map((i) => ({ ...i, path: `${name}${i.path ? " " + i.path : ""}` }));
+      if (raw?.schema === SESSION_FORMAT) {
+        issues.push(...tag(validateSession(raw)));
+        sessions.push({ name: name.split(sep).join("/"), raw, archived });
+      }
+      else if (raw?.schema === "yangxia.course/1") courses.push({ name, raw, archived });
+      else if (raw?.schema === REVIEW_FORMAT) {
+        issues.push(...tag(validateReview(raw)));
+        if (rv) reviewData[rv[1]] = raw;
+      }
+      else if (raw?.schema !== PROFILE_FORMAT) issues.push({ level: "warning", path: name, message: "不认识的 JSON 文件（不是课程、练习记录、复盘数据）" });
+    } else if (f.endsWith(".md") || f.endsWith(".txt")) {
+      // 菜单给全家吃：按全家餐饮的红线，加上每个家庭成员年龄段的红线（家里有孩子，就不能谈体重、减重）
+      const menu = name.startsWith(`菜单${sep}`);
+      if (menu && !Array.isArray(profile.household)) {
+        issues.push({ level: "error", path: name, message: "排菜单前要在档案里记下家庭成员的年龄段（household），菜单按每个人的红线检查" });
+      }
+      const ages = [...new Set(menu ? ["fam", profile.age, ...(profile.household ?? [])] : [profile.age])];
+      issues.push(...checkNotes(t.manifest.redlines, ages, name, readFileSync(f, "utf8")));
+    } else if (!name.split(sep).some((s) => s.startsWith("."))) {
+      issues.push({ level: "warning", path: name, message: "不认识的文件：复盘、菜单写成 .md，课程、练习记录是 .json；别的文件不检查" });
+    }
+  }
+  return { issues, sessions, reviews, reviewData, courses };
+}
+
+/** 周次推进和个人进度（不复盘不进下一周、进度只能按规则改）：导出、检查课程之前都要过。 */
+function progressIssues(t: Templates, profile: Record<string, any>, scan: ReturnType<typeof scanDir>): Issue[] {
+  const out = [...checkProgress(profile, scan.sessions, scan.reviews, new Date(), scan.reviewData)];
+  if (t.plans && t.rules) out.push(...checkProgressLog(profile, t.plans, t.rules, scan.sessions, scan.reviewData).map((i) => ({ ...i, path: `档案.json ${i.path}` })));
+  else out.push({ level: "warning", path: "档案.json", message: "模板还没有训练单（dist/data/）：个人进度没核对，先更新模板" });
+  return out;
+}
+
+/** 按训练单和档案导出一天：agent 只选哪一天，组数、次数、级、节奏、休息都由训练单和个人进度定。 */
 async function exportCmd(dir: string, weekArg: string, day: string, rest: string[]): Promise<number> {
   const t = await loadTemplates();
   const { plans, rules } = requirePlans(t);
   const profile = readJson(join(dir, "档案.json")) as Record<string, any>;
-  const pre = [...validateProfile(profile), ...checkProfileWithTemplates(profile, t.manifest)].filter((i) => i.level === "error");
+  const scan = scanDir(dir, t, profile);
+  const pre = [...validateProfile(profile).map((i) => ({ ...i, path: `档案.json ${i.path}` })),
+    ...checkProfileWithTemplates(profile, t.manifest).map((i) => ({ ...i, path: `档案.json ${i.path}` })),
+    ...progressIssues(t, profile, scan)].filter((i) => i.level === "error");
   if (pre.length) {
-    console.log("档案没通过检查，先改档案（npm run profile -- check）：");
-    return print(pre.map((i) => ({ ...i, path: `档案.json ${i.path}` })));
+    console.log("档案目录没通过检查（周复盘、个人进度、档案本身），先改好再导出（npm run profile -- check）：");
+    return print(pre);
   }
   const picks: Record<string, string> = {};
   rest.forEach((a, i) => {
@@ -125,8 +187,7 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
   });
   const seg = currentSegment(profile)!;
   // 每次轮换：这一段这一天已经练过几次（练习记录里的课程是同一段、同一天）
-  const sessionsDone = existsSync(join(dir, "打卡")) ? walk(join(dir, "打卡")).filter((f) => f.endsWith(".json")).map((f) => readJson(f) as Record<string, any>)
-    .filter((s) => s?.schema === SESSION_FORMAT && s.course?.source?.day === day && s.course?.source?.segment === seg.n).length : 0;
+  const sessionsDone = scan.sessions.filter((s) => s.raw.course?.source?.day === day && s.raw.course?.source?.segment === seg.n).length;
   const r = exportCourse({ plans, rules, manifest: t.manifest, profile, week: Number(weekArg), day, picks, sessionsDone });
   const sc = profile.screening;
   if (r.course && sc && (profile.age === "a65" || sc.answers?.some((a: any) => a?.answer === "是")) && !sc.doctorCleared) {
@@ -140,8 +201,6 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
   const oi = rest.indexOf("--out");
   const out = oi >= 0 && rest[oi + 1] ? rest[oi + 1] : join(dir, "课程", `第${seg.n}段-第${r.course.source.week}周-${day}日.json`);
   if (!issues.some((i) => i.level === "error")) {
-    const { mkdirSync } = await import("node:fs");
-    const { dirname } = await import("node:path");
     mkdirSync(dirname(out), { recursive: true });
     writeFileSync(out, JSON.stringify(r.course, null, 2) + "\n");
     console.log(`已导出：${out}`);
@@ -149,65 +208,56 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
   return print([...r.issues, ...issues]);
 }
 
+/**
+ * 档案目录里的课程：
+ * - 现在这一段这一周的，逐项核对；对不上的，如果和进度后来改动之前那一天的进度对得上，只提醒"要练就重新导出"；
+ * - 以前几周、几段导出的，只核对格式（当时的进度、模板可能都不一样了），提醒一下；
+ * - 历史/ 下的只核对格式。
+ */
+function courseIssues(t: Templates, profile: Record<string, any>, scan: ReturnType<typeof scanDir>): Issue[] {
+  const out: Issue[] = [];
+  const seg = currentSegment(profile);
+  const ctx = (p: Record<string, any>) => ({ manifest: t.manifest, readProduct: t.readProduct, profile: p, plans: t.plans, rules: t.rules });
+  for (const c of scan.courses) {
+    const tag = (xs: Issue[]) => xs.map((i) => ({ ...i, path: `${c.name}${i.path ? " " + i.path : ""}` }));
+    const src = c.raw?.source ?? {};
+    if (c.archived) {
+      out.push(...tag(validateCourse(c.raw).issues));
+      continue;
+    }
+    if (src.plan && seg && (src.segment !== seg.n || src.week !== seg.week || src.type !== seg.type)) {
+      out.push(...tag(validateCourse(c.raw).issues));
+      out.push({ level: "warning", path: c.name, message: `以前导出的课程（第 ${src.segment} 段第 ${src.week} 周），只核对格式；要再练就重新导出` });
+      continue;
+    }
+    const got = checkCourse(c.raw, ctx(profile));
+    if (got.some((i) => i.level === "error") && src.plan && t.plans && t.rules) {
+      const dates = [...new Set((profile.progressLog ?? []).map((e: any) => e?.date).filter((d: unknown) => typeof d === "string"))].sort().reverse() as string[];
+      const earlier = dates.map((d) => {
+        const prev = new Date(new Date(`${d}T12:00:00`).getTime() - 86_400_000);
+        const day = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}-${String(prev.getDate()).padStart(2, "0")}`;
+        return { day, progress: progressOn(profile, t.plans!, t.rules!, day) };
+      });
+      const hit = earlier.find((e) => !checkCourse(c.raw, ctx({ ...profile, progress: e.progress })).some((i) => i.level === "error"));
+      if (hit) {
+        out.push({ level: "warning", path: c.name, message: `档案进度在这份课程导出之后改过（它对得上 ${hit.day} 的进度）：要再练就重新导出` });
+        continue;
+      }
+    }
+    out.push(...tag(got));
+  }
+  return out;
+}
+
 async function profileCheck(dir: string): Promise<number> {
   const t = await loadTemplates();
-  const issues: Issue[] = [];
   const profile = readJson(join(dir, "档案.json")) as Record<string, any>;
   const inProfile = (xs: Issue[]) => xs.map((i) => ({ ...i, path: `档案.json${i.path ? " " + i.path : ""}` }));
-  issues.push(...inProfile(validateProfile(profile)), ...inProfile(checkProfileWithTemplates(profile, t.manifest)));
-  const sessions: SessionFile[] = [];
-  const reviews: string[] = [];
-  const reviewData: Record<string, Record<string, any>> = {};
-  const segN = currentSegment(profile)?.n ?? 1;
-  for (const f of walk(dir)) {
-    const name = relative(dir, f);
-    if (name === "档案.json") continue;
-    const archived = name.startsWith(`历史${sep}`);
-    if (archived) {
-      // 历史/ 只放以前几段的东西：历史/第N段/…，N 比现在的段小（不能把这一段的课程挪进去躲检查）
-      const r = new RegExp(`^历史\\${sep}第(\\d+)段\\${sep}`).exec(name);
-      if (!r || Number(r[1]) >= segN) {
-        issues.push({ level: "error", path: name, message: `历史/ 下只放以前几段的文件（历史/第N段/，N 小于现在的第 ${segN} 段）` });
-      }
-    }
-    // 复盘：复盘/ 下的，和移进 历史/第N段/复盘/ 的（以前几段的复盘照样算数）
-    const rv = /(?:^|[\\/])复盘[\\/]([^\\/]+)$/.exec(name);
-    if (rv && (!archived || new RegExp(`^历史\\${sep}第\\d+段\\${sep}复盘\\${sep}`).test(name))) reviews.push(rv[1]);
-    if (f.endsWith(".json")) {
-      const raw = readJson(f) as Record<string, any>;
-      const tag = (xs: Issue[]) => xs.map((i) => ({ ...i, path: `${name}${i.path ? " " + i.path : ""}` }));
-      if (raw?.schema === SESSION_FORMAT) {
-        issues.push(...tag(validateSession(raw)));
-        sessions.push({ name, raw, archived });
-      }
-      else if (raw?.schema === "yangxia.course/1") {
-        // 历史/ 下是以前几段的课程：周次、成品可能和现在的档案不同，模板也可能更新过，只核对格式
-        issues.push(...tag(name.startsWith(`历史${sep}`) ? validateCourse(raw).issues
-          : checkCourse(raw, { manifest: t.manifest, readProduct: t.readProduct, profile, plans: t.plans, rules: t.rules })));
-      }
-      else if (raw?.schema === REVIEW_FORMAT) {
-        issues.push(...tag(validateReview(raw)));
-        const rv2 = /(?:^|[\\/])复盘[\\/]([^\\/]+)$/.exec(name);
-        if (rv2) reviewData[rv2[1]] = raw;
-      }
-      else if (raw?.schema !== PROFILE_FORMAT) issues.push({ level: "warning", path: name, message: "不认识的 JSON 文件（不是课程、练习记录）" });
-    } else if (f.endsWith(".md") || f.endsWith(".txt")) {
-      // 菜单给全家吃：按全家餐饮的红线，加上每个家庭成员年龄段的红线（家里有孩子，就不能谈体重、减重）
-      const menu = name.startsWith(`菜单${sep}`);
-      if (menu && !Array.isArray(profile.household)) {
-        issues.push({ level: "error", path: name, message: "排菜单前要在档案里记下家庭成员的年龄段（household），菜单按每个人的红线检查" });
-      }
-      const ages = [...new Set(menu ? ["fam", profile.age, ...(profile.household ?? [])] : [profile.age])];
-      issues.push(...checkNotes(t.manifest.redlines, ages, name, readFileSync(f, "utf8")));
-    } else if (!name.split(sep).some((s) => s.startsWith("."))) {
-      issues.push({ level: "warning", path: name, message: "不认识的文件：复盘、菜单写成 .md，课程、练习记录是 .json；别的文件不检查" });
-    }
-  }
-  issues.push(...checkProgress(profile, sessions, reviews, new Date(), reviewData));
-  if (t.plans && t.rules) {
-    issues.push(...inProfile(checkProgressLog(profile, t.plans, t.rules, sessions.map((s) => ({ ...s, name: s.name.split(sep).join("/") })), reviewData)));
-  } else issues.push({ level: "warning", path: "档案.json", message: "模板还没有训练单（dist/data/）：个人进度没核对，先更新模板" });
-  return print(issues);
+  const scan = scanDir(dir, t, profile);
+  return print([
+    ...inProfile(validateProfile(profile)), ...inProfile(checkProfileWithTemplates(profile, t.manifest)),
+    ...scan.issues, ...courseIssues(t, profile, scan), ...progressIssues(t, profile, scan),
+  ]);
 }
 
 function readJson(path: string): unknown {
@@ -271,8 +321,14 @@ async function main(argv: string[]): Promise<number> {
       console.log("课程要连同档案一起检查（安全筛查、成品、周次）：加 --profile profiles/<代号>/档案.json。\n只检查课程本身（样例、开发用）加 --no-profile，这样的结果不能据此把课程交给使用者。");
       return 2;
     }
-    const profile = pi >= 0 ? readJson(rest[pi + 1]) : undefined;
+    const profile = pi >= 0 ? readJson(rest[pi + 1]) as Record<string, any> : undefined;
     const issues = checkCourse(raw, { manifest: t.manifest, readProduct: t.readProduct, profile, plans: t.plans, rules: t.rules });
+    if (profile) {
+      // 档案目录里的周复盘、进度日志也要过：不复盘、不按规则改进度，课程就不能交出去
+      if (basename(rest[pi + 1]) === "档案.json") {
+        issues.push(...progressIssues(t, profile, scanDir(dirname(rest[pi + 1]), t, profile)).filter((i) => i.level === "error"));
+      } else issues.push({ level: "warning", path: "", message: "--profile 给的不是档案目录里的 档案.json：没核对周复盘和个人进度，交给使用者前要 npm run profile -- check" });
+    }
     if (pi < 0) issues.push({ level: "warning", path: "", message: "没有带档案：没核对安全筛查、成品和周次" });
     return print(issues);
   }

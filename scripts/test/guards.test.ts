@@ -37,6 +37,8 @@ describe("提交前检查", () => {
   // 样例内容运行时拼出来：源码里直接写档案格式，提交前检查会拦下这个测试文件本身
   const PROFILE = ["yangxia", "profile/1"].join(".");
   const SESSION = ["yangxia", "session/1"].join(".");
+  const REVIEW = ["yangxia", "review/1"].join(".");
+  const ASSESS = ["yangxia", "assessment/1"].join(".");
   const run = (files: Record<string, string>) => {
     const dir = mkdtempSync(join(tmpdir(), "yangxia-hook-"));
     try {
@@ -56,6 +58,11 @@ describe("提交前检查", () => {
   it("拦下多行和压成一行的个人档案", () => {
     expect(run({ "a.json": JSON.stringify({ schema: PROFILE }, null, 2) }).code).toBe(1);
     expect(run({ "b.json": JSON.stringify({ schema: SESSION, items: [] }) }).code).toBe(1);
+  });
+  it("拦下复盘数据、评估记录（多行、压成一行、放在数组里）", () => {
+    expect(run({ "r.json": JSON.stringify({ schema: REVIEW, moves: [] }, null, 2) }).code).toBe(1);
+    expect(run({ "r2.json": JSON.stringify({ schema: REVIEW }) }).code).toBe(1);
+    expect(run({ "a.json": JSON.stringify([{ schema: ASSESS }]) }).code).toBe(1);
   });
   it("拦下 profiles/、.env、私钥、日历", () => {
     for (const f of ["profiles/甲/档案.json", ".env", "id_ed25519", "训练.ics"]) expect(run({ [f]: "x\n" }).code, f).toBe(1);

@@ -69,7 +69,7 @@ describe("导出的内容照训练单", () => {
     expect(push.name).toMatch(/下放 3 秒/);
   });
   it("拦下：这一周不能用的级（第 1 周分腿蹲第 2 级）、超出区间的次数", () => {
-    expect(ex("18-39岁-纯徒手版", 1, "A", { progress: { "split-squat": { level: 2 } } }).issues.map((i) => i.message).join()).toMatch(/第 2 级第 1 周不能用/);
+    expect(ex("18-39岁-纯徒手版", 1, "A", { progress: { "split-squat": { level: 2 } } }).issues.map((i) => i.message).join()).toMatch(/第 2 级第 1 段第 1 周不能用/);
     expect(ex("18-39岁-纯徒手版", 1, "B", { progress: { pushup: { reps: 20 } } }).issues.map((i) => i.message).join()).toMatch(/区间是 8–15/);
   });
   it("拦下：档案还没到这一周", () => {
@@ -150,13 +150,13 @@ describe("课程按训练单和档案进度核对：改了就拦下", () => {
   it("没有带档案：从训练单导出的课程不放行", () => {
     expect(checkCourse(C(), { manifest, readProduct: fixtureReadProduct, plans, rules }).filter((i) => i.level === "error").map((i) => i.message).join()).toMatch(/要连同档案一起检查/);
   });
-  it("起点课程再跑一遍原文核对（第二层），问题记成警告；带进度的课程不跑", () => {
+  it("起点课程再跑一遍原文核对（第二层）：出处原文不在成品里是错误，认不出的写法记警告；带进度的课程不跑", () => {
     const p = P();
     const c = C();
     expect(isStartCourse(plans, rules, p, c)).toBe(true);
     c.blocks[0].items[0].quote = ["随便写的一句"];
     const issues = checkCourse(c, { manifest, readProduct: fixtureReadProduct, profile: p, plans, rules });
-    expect(issues.filter((i) => i.level === "error")).toEqual([]);
+    expect(issues.filter((i) => i.level === "error").map((i) => i.message).join()).toMatch(/原文核对（第二层）：原文在「/);
     expect(issues.some((i) => i.level === "warning" && /原文核对（第二层）/.test(i.message))).toBe(true);
     const p2 = profile("18-39岁-居家版", 3, { progress: { squat: { level: 2 } } });
     const c2 = exportCourse({ plans, rules, manifest, profile: p2, week: 3, day: "A" }).course!;
@@ -172,4 +172,43 @@ describe("呼吸节奏读成课程节奏", () => {
     expect(baseTempo("吸气，身体往前倾（约 1 秒）→ 呼气，双腿用力站起来（约 2 秒）→ 吸气，慢慢坐下（约 2–3 秒）")).toEqual({ start: "up", up: 2, down: 2 });
   });
   it("读不出秒数：不出节奏（导出时照成品做）", () => expect(baseTempo("吸气，微蹲 → 呼气，摆臂起跳")).toBeNull());
+});
+
+describe("审查后补的拦截", () => {
+  it("带档案时，手写的课程（没有 source.plan）不放行", () => {
+    const p = profile("18-39岁-纯徒手版", 1, { conditions: {} });
+    const c = clone(exportCourse({ plans, rules, manifest, profile: profile("18-39岁-纯徒手版", 1, { conditions: { 高血压: false } }), week: 1, day: "B" }).course!) as any;
+    for (const k of ["plan", "segment", "type", "phase"]) delete c.source[k];
+    expect(errors(c, p).join()).toMatch(/不是用 course export 从训练单导出的/);
+  });
+  it("改课程名称冒充别的难度级（40–64 岁背包那一级）：拦下", () => {
+    const p = profile("40-64岁-纯徒手版", 1);
+    const c = clone(exportCourse({ plans, rules, manifest, profile: p, week: 1, day: "A" }).course!);
+    c.blocks[0].items[0].name = "徒手深蹲·抱装书的背包";
+    expect(errors(c, p).join()).toMatch(/名称应该是/);
+  });
+  it("循环用循环那里写的呼吸节奏：顶点不停", () => {
+    const d = ex("18-39岁-纯徒手版", 1, "D").course!;
+    const circuit = d.blocks.find((b) => b.kind === "circuit")!;
+    const bridge = circuit.items.find((i) => i.exercise === "glute-bridge")!;
+    const row = circuit.items.find((i) => i.exercise === "door-row" || i.exercise === "table-row")!;
+    expect(bridge.tempo?.top).toBeUndefined();
+    expect(row.tempo?.top).toBeUndefined();
+    const a = ex("18-39岁-纯徒手版", 1, "A").course!;
+    expect(a.blocks[0].items.find((i) => i.exercise === "glute-bridge")!.tempo?.top).toBe(2);
+  });
+  it("括号里写“进阶”的不算平时的节奏；停半秒读成 0.5 秒", () => {
+    expect(baseTempo("呼气，屈膝弯起约 1 秒 → 顶点停半秒（进阶停 1 秒）→ 吸气，慢慢放下约 2 秒")).toEqual({ start: "up", up: 1, top: 0.5, down: 2 });
+  });
+  it("第 2 段第 1 周：难度级照上一段定下的接着用（18–39 岁第 4 周换的矮凳）", () => {
+    const p = profile("18-39岁-纯徒手版", 1, { progress: { "split-squat": { level: 2 } } });
+    p.segments = [1, 2, 3, 4].map((w, i) => ({ n: 1, type: "标准", week: w, start: DATES[i], product: p.product })).concat([{ n: 2, type: "标准", week: 1, start: "2026-11-09", product: p.product }]);
+    const r = exportCourse({ plans, rules, manifest, profile: p, week: 1, day: "A" });
+    expect(r.issues.filter((i) => i.level === "error")).toEqual([]);
+    expect(r.course!.blocks[0].items.map((i) => i.exercise)).toContain("split-squat-stool");
+  });
+  it("每次要确认的条件（家长在旁边）：导出时提醒", () => {
+    const r = ex("13-17岁-纯徒手版", 1, "C", { conditions: { 家长在旁边: true } });
+    expect(r.notes.join()).toMatch(/每次练之前确认/);
+  });
 });

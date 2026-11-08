@@ -270,11 +270,17 @@ export function checkCourse(raw: unknown, ctx: CheckContext): Issue[] {
       issues.push(...checkPlanCourse(course, ctx.plans, ctx.rules, m, profileObj));
       textLevel = isStartCourse(ctx.plans, ctx.rules, profileObj, course) ? "warning" : null;
     }
+  } else if (ctx.plans && ctx.rules && profileObj) {
+    // 带档案、模板有训练单：手写的课程不放行（原文核对管不了条件、进度和训练日）
+    err("source.plan", "这份课程不是用 course export 从训练单导出的：带档案检查时只认导出的课程，用 npm run course -- export 重新导出，不要手写处方");
   } else {
     warn("source.plan", "这份课程不是用 course export 从训练单导出的：用 npm run course -- export 重新导出，不要手写处方");
   }
   const textErr = (path: string, message: string) => {
-    if (textLevel) issues.push({ level: textLevel, path, message: textLevel === "warning" ? `原文核对（第二层）：${message}` : message });
+    if (!textLevel) return;
+    // 第二层里，"原文在成品里找不到"是真错（训练单给的出处原文必须逐字在成品里），其余是原文核对认不出的写法，记警告
+    const level = textLevel === "warning" && /^原文在「/.test(message) ? "error" : textLevel;
+    issues.push({ level, path, message: textLevel === "warning" ? `原文核对（第二层）：${message}` : message });
   };
 
   course.blocks.forEach((block, bi) => {
@@ -320,7 +326,7 @@ export function checkCourse(raw: unknown, ctx: CheckContext): Issue[] {
           // 行首写着本周的表格行（"| 第 4 周 | 3 组 | …把第 3 周做扎实"）就是本周的，行里提到别的周只是引用
           const rowIsWeek = lines.some((l) => l.trim().startsWith("|") && plain(l).includes(q) && ((r) => !!r && week >= r[0] && week <= r[1])(weekRange(cells(l)[0] ?? "")));
           const mixed = !rowIsWeek && ms.some((x) => !mentionCovers(x, week));
-          if (ms.length > 1 && textLevel) {
+          if (ms.length > 1 && textLevel === "error") {
             warn(`${p}.quote[${qi}]`, "这段原文同时写了几周的安排，请只摘本周那一句，否则核对不出数字是不是本周的");
           }
           // 同时写了别的周的句子不算本周的出处；说的是别的动作的那一行也不算

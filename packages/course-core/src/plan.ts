@@ -37,6 +37,8 @@ export interface PlanRow {
   note: string;
   /** 标准段每一周的出处原文（组数、次数、休息摘自正文哪几句）。 */
   evidence?: Record<string, string[]>;
+  /** 这个位置在正文里写的呼吸节奏（D 日循环用循环那里的）。 */
+  breathing?: string;
 }
 
 export interface LadderLevel {
@@ -44,7 +46,10 @@ export interface LadderLevel {
   name: string;
   exercise: string;
   start: boolean;
+  /** 第 1 段（这一轮）这份成品能不能用。 */
   usable: boolean;
+  /** 以后几段才能用：{成品代码: 从第几段起}。 */
+  later?: Record<string, number>;
   export: { ok: true } | { ok: false; reason: string };
   tempo: { down?: number; bottom?: number; top?: number };
 }
@@ -66,7 +71,7 @@ export interface PlansData {
 
 export interface RulesData {
   format: string;
-  conditions: Record<string, { ask: string; products: string[]; default: boolean; text: boolean; note: string }>;
+  conditions: Record<string, { ask: string; products: string[]; default: boolean; text: boolean; per_session?: boolean; note: string }>;
   progress: { rule: string; products: string[]; value: { min: number; max: number } | null | string; note: string }[];
   slowdown: { products: string[]; weeks: number[]; moves: string[] | null; down: number; circuits: boolean }[];
 }
@@ -84,8 +89,26 @@ export function currentSegment(profile: Obj): { product: string; type: string; n
 /** 条件取值：档案记了就用档案的，没记按规则层的"没确认时"。 */
 export function conditionValue(rules: RulesData, profile: Obj, name: string): boolean {
   const v = profile?.conditions?.[name];
-  return typeof v === "boolean" ? v : rules.conditions[name]?.default ?? true;
+  const c = rules.conditions[name];
+  // 没记的按规则层的"没确认时"；规则层也没有这个条件的，取正文以外的那一边（保守）
+  return typeof v === "boolean" ? v : c ? c.default : true;
 }
+
+/** 这一段（第 n 段）、这一周允许的难度级：第 1 段按训练单这一行的"级"；第 2 段起按阶梯表"成品 + 以后"放开（成品："下一轮第 1 周直接用最后定下的级"）。 */
+export function allowedLevels(p: ProductPlan, row: PlanRow | null, n: number): Set<number> {
+  const out = new Set<number>();
+  for (const mv of row?.moves ?? []) {
+    const ladder = p.ladders[mv];
+    if (!ladder) continue;
+    for (const lv of ladder) {
+      const later = lv.later?.[p.code];
+      if (n <= 1 ? lv.usable && (row?.levels ?? []).includes(lv.level) : lv.usable || (later !== undefined && later <= n)) out.add(lv.level);
+    }
+  }
+  return out;
+}
+
+
 
 /** 某一段、某一周、某一天的训练单行（条件按档案选好一边），按顺序。 */
 export function dayRows(p: ProductPlan, rules: RulesData, profile: Obj, type: string, week: number, day: string): PlanRow[] {
@@ -122,11 +145,12 @@ const DOWN = /放下|下放|下沉|下蹲|蹲下|往回|放回|送回|伸回|降
  * 读不出发力和下放各几秒就返回 null（课程不写节奏，编排器用默认节奏）。
  */
 export function baseTempo(breathing: string): Tempo | null {
-  // 括号里写着周次、"那一级"的是有条件的写法，不算平时的节奏；"（约 2 秒）"这类照常读
-  const first = plain(breathing).replace(/（[^（）]*）|\([^()]*\)/g, (s) => (/周|级/.test(s) ? "" : s)).split(/[。；;]/)[0] ?? "";
+  // 括号里写着周次、"那一级"、"进阶"的是有条件的写法，不算平时的节奏；"（约 2 秒）"这类照常读
+  const first = plain(breathing).replace(/（[^（）]*）|\([^()]*\)/g, (s) => (/周|级|进阶/.test(s) ? "" : s)).split(/[。；;]/)[0] ?? "";
   const segs = first.split("→").map((seg, i) => {
     const m = seg.match(/(\d+(?:\.\d+)?)(?:\s*[–-]\s*\d+(?:\.\d+)?)?\s*秒/);
-    return { i, seg, sec: m ? Number(m[1]) : null, hold: /停/.test(seg.replace(/不停|别把气停住/g, "")) };
+    const sec = m ? Number(m[1]) : /半秒/.test(seg) ? 0.5 : null;
+    return { i, seg, sec, hold: /停/.test(seg.replace(/不停|别把气停住/g, "")) };
   });
   // 发力：第一个"呼气"且写了秒数的一段；还原：第一个"吸气"、写了秒数、说的是往下 / 往回的一段（没有就取第一个吸气的一段）
   const up = segs.find((x) => !x.hold && x.sec !== null && /呼气/.test(x.seg));
@@ -242,6 +266,11 @@ export function exportCourse(input: ExportInput): ExportResult {
       move = hit;
     }
     if (r.trim.kind === "cut-if-late") out.notes.push(`时间不够先砍：${move}（第 ${r.trim.n} 个砍）`);
+    const cond = r.condition ? rules.conditions[r.condition.name] : null;
+    if (r.condition && cond?.per_session) {
+      const v = conditionValue(rules, profile, r.condition.name);
+      out.notes.push(`每次练之前确认：${cond.ask}？档案记的是${typeof profile?.conditions?.[r.condition.name] === "boolean" ? (v ? "是" : "否") : "没确认（按保守版本）"}；当天不一样就照成品原文换做法（${move}）`);
+    }
     if (move.startsWith("（")) {
       out.follow.push({ name: move.slice(1, -1), reason: r.export.ok ? "不在动作索引里" : r.export.reason });
       continue;
@@ -257,8 +286,9 @@ export function exportCourse(input: ExportInput): ExportResult {
     if (ladder) {
       const level = Number.isInteger(progress[move]?.level) ? progress[move].level : startLevel(ladder);
       lv = ladder.find((l) => l.level === level) ?? null;
-      if (!lv || !lv.usable || !(r.levels ?? []).includes(level)) {
-        err(`profile.progress.${move}.level`, `「${move}」第 ${level} 级第 ${week} 周不能用（这一周可以用第 ${(r.levels ?? []).join("、")} 级）`);
+      const ok = allowedLevels(p, { ...r, moves: [move] }, seg.n);
+      if (!lv || !ok.has(level)) {
+        err(`profile.progress.${move}.level`, `「${move}」第 ${level} 级第 ${seg.n} 段第 ${week} 周不能用（这一周可以用第 ${[...ok].join("、")} 级）`);
         continue;
       }
       if (!lv.export.ok) {
@@ -289,7 +319,9 @@ export function exportCourse(input: ExportInput): ExportResult {
       quote: quotesFor(r, week),
     };
     if (ex.mode === "reps") {
-      const breath = ex.used_in.filter((u) => u.product === productName).map((u) => u.breathing).join("。");
+      // 呼吸节奏：训练单这一行在正文里那个位置的（循环用循环那里写的）；难度级换了动作的，用那个动作的
+      const own = ex.used_in.filter((u) => u.product === productName).map((u) => u.breathing);
+      const breath = (lv && lv.exercise !== move ? own[0] : r.breathing) ?? own[0] ?? "";
       const base = baseTempo(breath);
       if (!base) {
         out.follow.push({ name: move, reason: "呼吸节奏原文没写发力、下放各几秒，课程格式要写节奏，照成品做" });
@@ -397,6 +429,7 @@ export function checkPlanCourse(course: Course, plans: PlansData, rules: RulesDa
     blk.items.forEach((it, ii) => {
       const w = wb.items[ii];
       const p = `blocks[${bi}].items[${ii}]`;
+      if (it.name !== w.name) err(`${p}.name`, `名称应该是「${w.name}」（难度级），课程写「${it.name}」`);
       for (const k of ["sets", "reps", "duration", "rest", "mode", "perSide"] as const) {
         const x = it[k] ?? (k === "sets" ? 1 : k === "perSide" ? false : undefined);
         const y = w[k] ?? (k === "sets" ? 1 : k === "perSide" ? false : undefined);

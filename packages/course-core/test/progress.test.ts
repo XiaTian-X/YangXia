@@ -119,15 +119,25 @@ describe("复盘数据的格式", () => {
 const BW = "18-39岁-纯徒手版";
 const BW40 = "40-64岁-纯徒手版";
 const GYM = "18-39岁-健身房版";
+const HOME = "18-39岁-居家版";
+const OLD = "65岁以上-椅子辅助版";
 type Log = Record<string, any>;
-function run(product: string, weeks: number[], log: Log[], progress: Record<string, any>, opts: { ns?: number[]; sessions?: any[]; reviews?: Record<string, any> } = {}) {
+function run(product: string, weeks: number[], log: Log[], progress: Record<string, any>, opts: { ns?: number[]; products?: string[]; sessions?: any[]; reviews?: Record<string, any> } = {}) {
   const p = profile(product, weeks, opts.ns);
+  if (opts.products) {
+    p.segments.forEach((s: any, i: number) => (s.product = opts.products![i]));
+    p.product = opts.products[opts.products.length - 1];
+  }
   p.progressLog = log;
   p.progress = progress;
   return msgs(checkProgressLog(p, plans, rules, opts.sessions ?? [], { ...reviewsFor(p), ...(opts.reviews ?? {}) }, NOW));
 }
 const up = FEELS[2];
 const down = FEELS[0];
+/** 第 week 周（DATES[week-1] 开始）的复盘数据，move 的表现。 */
+const rv = (week: number, moves: Record<string, any>[], extra: Record<string, any> = {}) =>
+  ({ [`${DATES[week - 1]}-第${week}周.json`]: review(DATES[week - 1], week, moves, extra) });
+const ev = (week: number) => `复盘/${DATES[week - 1]}-第${week}周.json`;
 
 describe("个人进度：建档", () => {
   it("放行：开始那天记起始级、区间下限", () => {
@@ -135,7 +145,7 @@ describe("个人进度：建档", () => {
       { date: "2026-11-09", move: "pushup", field: "reps", to: 8, rule: "建档" }], { pushup: { level: 3, reps: 8 } })).toBe("");
   });
   it("拦下：建档不在开始那天", () => {
-    expect(run(BW, [1, 2], [{ date: "2026-11-16", move: "pushup", field: "level", to: 3, rule: "建档" }], { pushup: { level: 3 } })).toMatch(/建档只能在开始那天/);
+    expect(run(BW, [1, 2], [{ date: "2026-11-16", move: "pushup", field: "level", to: 3, rule: "建档" }], { pushup: { level: 3 } })).toMatch(/建档只能在这份成品开始那天/);
   });
   it("拦下：建档次数不是区间下限", () => {
     expect(run(BW, [1], [{ date: "2026-11-09", move: "pushup", field: "reps", to: 12, rule: "建档" }], { pushup: { reps: 12 } })).toMatch(/区间下限 8/);
@@ -146,96 +156,122 @@ describe("个人进度：建档", () => {
   it("拦下：档案的 progress 和日志重放对不上（直接改了进度）", () => {
     expect(run(BW, [1], [], { pushup: { level: 4 } })).toMatch(/按 progressLog 重放应该是/);
   });
+  it("放行：换成品那天在新成品里重新建档；拦下：不重新建档就沿用别的成品的级号", () => {
+    const products = [BW, BW, BW, BW, HOME];
+    const opts = { ns: [1, 1, 1, 1, 2], products };
+    const base = [{ date: "2026-11-09", move: "pushup", field: "level", to: 3, rule: "建档" }];
+    expect(run(BW, [1, 2, 3, 4, 1], [...base, { date: "2026-12-07", move: "pushup", field: "level", to: 3, rule: "建档" }], { pushup: { level: 3 } }, opts)).toBe("");
+    expect(run(BW, [1, 2, 3, 4, 1], base, { pushup: { level: 3 } }, opts)).toMatch(/重新"建档"/);
+  });
 });
 
 describe("个人进度：找级（第 1–2 周，按练习记录的感受调一级）", () => {
-  const s = (feel: string) => session("2026-11-10", [{ exercise: "pushup", feel }]);
+  const s = (feel: string, date = "2026-11-10", extra: Record<string, any> = {}) => session(date, [{ exercise: "pushup", feel, ...extra }]);
+  const step = (date: string, to: number, evidence = "打卡/2026-11-10.json") => ({ date, move: "pushup", field: "level", to, rule: "找级", evidence });
   it("放行：做到上限还很轻松，下次升一级", () => {
-    expect(run(BW, [1], [{ date: "2026-11-11", move: "pushup", field: "level", to: 2, rule: "找级", evidence: "打卡/2026-11-10.json" }],
-      { pushup: { level: 2 } }, { sessions: [s(up)] })).toBe("");
+    expect(run(BW, [1], [step("2026-11-11", 2)], { pushup: { level: 2 } }, { sessions: [s(up)] })).toBe("");
   });
   it("放行：做不到下限，降一级", () => {
-    expect(run(BW, [1], [{ date: "2026-11-09", move: "pushup", field: "level", to: 3, rule: "建档" },
-      { date: "2026-11-11", move: "pushup", field: "level", to: 2, rule: "找级", evidence: "打卡/2026-11-10.json" }],
+    expect(run(BW, [1], [{ date: "2026-11-09", move: "pushup", field: "level", to: 3, rule: "建档" }, step("2026-11-11", 2)],
       { pushup: { level: 2 } }, { sessions: [s(down)] })).toBe("");
   });
+  it("放行：两次训练各自的感受，两次各升一级", () => {
+    expect(run(BW, [1], [step("2026-11-11", 2), step("2026-11-13", 3, "打卡/2026-11-12.json")], { pushup: { level: 3 } },
+      { sessions: [s(up), s(up, "2026-11-12")] })).toBe("");
+  });
   it("拦下：感受对不上", () => {
-    expect(run(BW, [1], [{ date: "2026-11-11", move: "pushup", field: "level", to: 2, rule: "找级", evidence: "打卡/2026-11-10.json" }],
-      { pushup: { level: 2 } }, { sessions: [s(FEELS[1])] })).toMatch(/升一级要"做到上限还很轻松"/);
+    expect(run(BW, [1], [step("2026-11-11", 2)], { pushup: { level: 2 } }, { sessions: [s(FEELS[1])] })).toMatch(/升一级要"做到上限还很轻松"/);
   });
   it("拦下：没写依据", () => {
-    expect(run(BW, [1], [{ date: "2026-11-11", move: "pushup", field: "level", to: 2, rule: "找级" }], { pushup: { level: 2 } })).toMatch(/找级要写依据/);
+    expect(run(BW, [1], [{ date: "2026-11-11", move: "pushup", field: "level", to: 2, rule: "找级" }], { pushup: { level: 2 } })).toMatch(/依据要写/);
+  });
+  it("拦下：同一份练习记录连着用（一份记录升好几级）", () => {
+    expect(run(BW, [1], [step("2026-11-11", 2), step("2026-11-12", 3)], { pushup: { level: 3 } }, { sessions: [s(up)] })).toMatch(/只能用一次/);
+  });
+  it("拦下：依据的练习记录在改动之后", () => {
+    expect(run(BW, [1], [step("2026-11-10", 2, "打卡/2026-11-12.json")], { pushup: { level: 2 } }, { sessions: [s(up, "2026-11-12")] })).toMatch(/早于这条改动/);
+  });
+  it("拦下：依据是手改过的课程、或者这个动作没练", () => {
+    expect(run(BW, [1], [step("2026-11-11", 2)], { pushup: { level: 2 } }, { sessions: [{ ...s(up), raw: { ...s(up).raw, edited: true } }] })).toMatch(/edited/);
+    expect(run(BW, [1], [step("2026-11-11", 2)], { pushup: { level: 2 } }, { sessions: [s(up, "2026-11-10", { setsDone: 0 })] })).toMatch(/没练/);
   });
   it("拦下：一次调两级", () => {
-    expect(run(BW, [1], [{ date: "2026-11-11", move: "pushup", field: "level", to: 3, rule: "找级", evidence: "打卡/2026-11-10.json" }],
-      { pushup: { level: 3 } }, { sessions: [s(up)] })).toMatch(/上下调一级/);
+    expect(run(BW, [1], [step("2026-11-11", 3)], { pushup: { level: 3 } }, { sessions: [s(up)] })).toMatch(/上下调一级/);
   });
   it("拦下：第 3 周不是找级的周", () => {
-    const s3 = session("2026-11-24", [{ exercise: "pushup", feel: up }]);
-    expect(run(BW, [1, 2, 3], [{ date: "2026-11-25", move: "pushup", field: "level", to: 2, rule: "找级", evidence: "打卡/2026-11-24.json" }],
-      { pushup: { level: 2 } }, { sessions: [s3] })).toMatch(/不是找级的周/);
+    expect(run(BW, [1, 2, 3], [step("2026-11-25", 2, "打卡/2026-11-24.json")], { pushup: { level: 2 } }, { sessions: [s(up, "2026-11-24")] })).toMatch(/不是找级的周/);
   });
   it("拦下：这一周有不适还往上调", () => {
     const sick = session("2026-11-10", [{ exercise: "pushup", feel: up }], true);
-    expect(run(BW, [1], [{ date: "2026-11-11", move: "pushup", field: "level", to: 2, rule: "找级", evidence: "打卡/2026-11-10.json" }],
-      { pushup: { level: 2 } }, { sessions: [sick] })).toMatch(/不加量、不升级/);
+    expect(run(BW, [1], [step("2026-11-11", 2)], { pushup: { level: 2 } }, { sessions: [sick] })).toMatch(/不加量、不升级/);
   });
 });
 
-describe("个人进度：升级（达标、允许的周、一次一样）", () => {
-  const toTop = { date: "2026-11-09", move: "pushup", field: "reps", to: 8, rule: "建档" };
-  const reps = (to: number, date: string, ev: string) => ({ date, move: "pushup", field: "reps", to, rule: "加次数", evidence: ev });
-  // 18–39 岁：第 1 周 8 次，之后按复盘每次加 2 次到 14，第 4 周到上限 15
-  const climb = [toTop, reps(10, "2026-11-16", "复盘/2026-11-09-第1周.json"), reps(12, "2026-11-23", "复盘/2026-11-16-第2周.json"),
-    reps(14, "2026-11-25", "复盘/2026-11-16-第2周.json")];
-  const easy = (start: string, week: number, allAtTop = false) => ({ [`${start}-第${week}周.json`]: review(start, week, [{ move: "pushup", allAtTop, spare: 2 }]) });
-  const reviews = { ...easy("2026-11-09", 1), ...easy("2026-11-16", 2), ...easy("2026-11-23", 3, true) };
-  it("放行：第 4 周，次数到上限、复盘里每组做满还有余力，升一级、次数回到下限", () => {
-    const log = [...climb, reps(15, "2026-11-30", "复盘/2026-11-23-第3周.json"),
-      { date: "2026-12-01", move: "pushup", field: "level", to: 2, rule: "升级", evidence: "复盘/2026-11-23-第3周.json" }];
-    expect(run(BW, [1, 2, 3, 4], log, { pushup: { level: 2, reps: 8 } }, { reviews })).toBe("");
-  });
-  it("拦下：复盘里没有每组做满", () => {
-    const log = [...climb, reps(15, "2026-11-30", "复盘/2026-11-23-第3周.json"),
-      { date: "2026-12-01", move: "pushup", field: "level", to: 2, rule: "升级", evidence: "复盘/2026-11-23-第3周.json" }];
-    expect(run(BW, [1, 2, 3, 4], log, { pushup: { level: 2, reps: 8 } }, { reviews: { ...reviews, ...easy("2026-11-23", 3, false) } })).toMatch(/每组都做到上限/);
-  });
-  it("放行：40–64 岁下一段从第 1 周起可以升", () => {
-    const log = [...climb, reps(15, "2026-11-30", "复盘/2026-11-23-第3周.json"),
-      { date: "2026-12-08", move: "pushup", field: "level", to: 2, rule: "升级", evidence: "复盘/2026-11-30-第4周.json" }];
-    expect(run(BW40, [1, 2, 3, 4, 1], log, { pushup: { level: 2, reps: 8 } }, { ns: [1, 1, 1, 1, 2], reviews: { ...reviews, ...easy("2026-11-30", 4, true) } })).toBe("");
+describe("个人进度：升级（达标、允许的周、紧挨着的上一周复盘）", () => {
+  const easy = (week: number, allAtTop = true) => rv(week, [{ move: "glute-bridge", allAtTop, spare: 2 }]);
+  const lvUp = (date: string, week: number) => ({ date, move: "glute-bridge", field: "level", to: 2, rule: "升级", evidence: ev(week) });
+  it("放行：第 4 周，次数在区间上限、上一周复盘每组做满还有余力，升一级、次数回到下限", () => {
+    // 臀桥是"3 组 × 20 次"，次数就是上限
+    expect(run(BW, [1, 2, 3, 4], [lvUp("2026-11-30", 3)], { "glute-bridge": { level: 2, reps: 20 } }, { reviews: easy(3) })).toBe("");
   });
   it("拦下：次数还没到区间上限就升级", () => {
-    const log = [...climb, { date: "2026-12-01", move: "pushup", field: "level", to: 2, rule: "升级", evidence: "复盘/2026-11-23-第3周.json" }];
-    expect(run(BW, [1, 2, 3, 4], log, { pushup: { level: 2, reps: 8 } }, { reviews })).toMatch(/要到区间上限 15/);
+    expect(run(BW, [1, 2, 3, 4], [{ date: "2026-11-30", move: "pushup", field: "level", to: 2, rule: "升级", evidence: ev(3) }],
+      { pushup: { level: 2, reps: 8 } }, { reviews: rv(3, [{ move: "pushup", allAtTop: true, spare: 2 }]) })).toMatch(/要到区间上限 15/);
   });
-  it("拦下：第 3 周升级（18–39 岁第 4 周起才升）", () => {
-    const log = [toTop, { date: "2026-11-24", move: "pushup", field: "level", to: 2, rule: "升级", evidence: "复盘/2026-11-16-第2周.json" }];
-    expect(run(BW, [1, 2, 3], log, { pushup: { level: 2, reps: 8 } }, { reviews })).toMatch(/不能升级/);
+  it("拦下：复盘里没有每组做满", () => {
+    expect(run(BW, [1, 2, 3, 4], [lvUp("2026-11-30", 3)], { "glute-bridge": { level: 2, reps: 20 } }, { reviews: easy(3, false) })).toMatch(/每组都做到上限/);
   });
-  it("拦下：40–64 岁这一轮第 4 周也不升级", () => {
-    const log = [{ ...toTop }, { date: "2026-12-01", move: "pushup", field: "level", to: 2, rule: "升级", evidence: "复盘/2026-11-23-第3周.json" }];
-    expect(run(BW40, [1, 2, 3, 4], log, { pushup: { level: 2, reps: 8 } }, { reviews })).toMatch(/这一轮不升级/);
+  it("拦下：依据不是紧挨着的上一周（拿第 1 周的复盘升级）", () => {
+    expect(run(BW, [1, 2, 3, 4], [lvUp("2026-11-30", 1)], { "glute-bridge": { level: 2, reps: 20 } }, { reviews: easy(1) })).toMatch(/紧挨着的上一周/);
   });
-  it("拦下：升级和加次数同一天（一次只改一样）", () => {
-    const log = [...climb, reps(15, "2026-12-02", "复盘/2026-11-23-第3周.json"),
-      { date: "2026-12-02", move: "pushup", field: "level", to: 2, rule: "升级", evidence: "复盘/2026-11-23-第3周.json" }];
-    expect(run(BW, [1, 2, 3, 4], log, { pushup: { level: 2, reps: 8 } }, { reviews })).toMatch(/一次只改一样/);
+  it("拦下：第 3 周升级（18–39 岁第 4 周才升）", () => {
+    expect(run(BW, [1, 2, 3], [lvUp("2026-11-23", 2)], { "glute-bridge": { level: 2, reps: 20 } }, { reviews: easy(2) })).toMatch(/不能升级/);
+  });
+  it("拦下：40–64 岁这一轮第 4 周也不升级；放行：下一段从第 1 周起", () => {
+    expect(run(BW40, [1, 2, 3, 4], [lvUp("2026-11-30", 3)], { "glute-bridge": { level: 2, reps: 20 } }, { reviews: easy(3) })).toMatch(/这一轮不升级/);
+    expect(run(BW40, [1, 2, 3, 4, 1], [lvUp("2026-12-07", 4)], { "glute-bridge": { level: 2, reps: 20 } }, { ns: [1, 1, 1, 1, 2], reviews: easy(4) })).toBe("");
+  });
+  it("拦下：上一周有不适，新开一段当天就升级", () => {
+    expect(run(BW40, [1, 2, 3, 4, 1], [lvUp("2026-12-07", 4)], { "glute-bridge": { level: 2, reps: 20 } },
+      { ns: [1, 1, 1, 1, 2], reviews: rv(4, [{ move: "glute-bridge", allAtTop: true, spare: 2 }], { symptoms: true }) })).toMatch(/不适|不加量/);
+  });
+  it("放行：第 2 段的难度级按成品 + 以后放开（18–39 岁第 2 段第 1 周能用保加利亚分腿蹲那一级）", () => {
+    expect(run(BW, [1, 2, 3, 4, 1], [{ date: "2026-12-07", move: "split-squat", field: "level", to: 2, rule: "找级", evidence: "打卡/2026-12-07.json" }],
+      { "split-squat": { level: 2 } }, { ns: [1, 1, 1, 1, 2], sessions: [session("2026-12-07", [{ exercise: "split-squat", feel: up }])] })).toBe("");
   });
 });
 
 describe("个人进度：加次数、退回、减量", () => {
   const base = { date: "2026-11-09", move: "pushup", field: "reps", to: 8, rule: "建档" };
-  const rv = { "2026-11-09-第1周.json": review("2026-11-09", 1, [{ move: "pushup", allAtTop: false, spare: 2 }]) };
-  it("放行：复盘里还有余力，加 2 次", () => {
-    expect(run(BW, [1, 2], [base, { date: "2026-11-16", move: "pushup", field: "reps", to: 10, rule: "加次数", evidence: "复盘/2026-11-09-第1周.json" }], { pushup: { reps: 10 } }, { reviews: rv })).toBe("");
+  const add = (date: string, to: number, week: number) => ({ date, move: "pushup", field: "reps", to, rule: "加次数", evidence: ev(week) });
+  const fine = (week: number, spare = 4, extra: Record<string, any> = {}) => rv(week, [{ move: "pushup", allAtTop: false, allDone: true, spare }], extra);
+  it("放行：上一周每组做满、余力比目标多，加 2 次", () => {
+    expect(run(BW, [1, 2], [base, add("2026-11-16", 10, 1)], { pushup: { reps: 10 } }, { reviews: fine(1) })).toBe("");
   });
   it("拦下：一次加 3 次", () => {
-    expect(run(BW, [1, 2], [base, { date: "2026-11-16", move: "pushup", field: "reps", to: 11, rule: "加次数", evidence: "复盘/2026-11-09-第1周.json" }], { pushup: { reps: 11 } }, { reviews: rv })).toMatch(/每次加 1–2 次/);
+    expect(run(BW, [1, 2], [base, add("2026-11-16", 11, 1)], { pushup: { reps: 11 } }, { reviews: fine(1) })).toMatch(/每次加 1–2 次/);
   });
-  it("拦下：复盘里没有余力", () => {
-    const tired = { "2026-11-09-第1周.json": review("2026-11-09", 1, [{ move: "pushup", allAtTop: false, spare: 0 }]) };
-    expect(run(BW, [1, 2], [base, { date: "2026-11-16", move: "pushup", field: "reps", to: 9, rule: "加次数", evidence: "复盘/2026-11-09-第1周.json" }], { pushup: { reps: 9 } }, { reviews: tired })).toMatch(/还有余力/);
+  it("拦下：余力只有目标那么多（2–3 次）就加", () => {
+    expect(run(BW, [1, 2], [base, add("2026-11-16", 10, 1)], { pushup: { reps: 10 } }, { reviews: fine(1, 2) })).toMatch(/余力/);
+  });
+  it("拦下：同一份复盘一周里连加两次", () => {
+    expect(run(BW, [1, 2], [base, add("2026-11-16", 10, 1), add("2026-11-18", 12, 1)], { pushup: { reps: 12 } }, { reviews: fine(1) })).toMatch(/每周最多|只能用一次/);
+  });
+  it("拦下：依据那一周有不适", () => {
+    expect(run(BW, [1, 1], [base, add("2026-11-16", 10, 1)], { pushup: { reps: 10 } }, { reviews: fine(1, 4, { symptoms: true }) })).toMatch(/不适|不加量/);
+  });
+  it("拦下：这一段早些时候有不适，后面还加", () => {
+    const sick = session("2026-11-10", [], true);
+    const p = { ...fine(2) };
+    expect(run(BW, [1, 1, 2], [base, { ...add("2026-11-23", 10, 2) }], { pushup: { reps: 10 } },
+      { sessions: [sick], reviews: { ...rv(1, [], { symptoms: true }), ...p } })).toMatch(/这一段里/);
+  });
+  it("65 岁以上：要连着两次训练都轻松才加", () => {
+    const b = { date: "2026-11-09", move: "a65-01-sit-to-stand", field: "reps", to: 8, rule: "建档" };
+    const a = { date: "2026-11-16", move: "a65-01-sit-to-stand", field: "reps", to: 10, rule: "加次数", evidence: ev(1) };
+    const r = (extra: Record<string, any>) => rv(1, [{ move: "a65-01-sit-to-stand", allAtTop: false, allDone: true, spare: 4, ...extra }]);
+    expect(run(OLD, [1, 2], [b, a], { "a65-01-sit-to-stand": { reps: 10 } }, { reviews: r({}) })).toMatch(/连着两次/);
+    expect(run(OLD, [1, 2], [b, a], { "a65-01-sit-to-stand": { reps: 10 } }, { reviews: r({ easyTwice: true }) })).toBe("");
   });
   it("拦下：周表定次数的动作（循环、健身房主项）不记次数", () => {
     expect(run(GYM, [1], [{ date: "2026-11-09", move: "gym-smith-squat", field: "reps", to: 12, rule: "建档" }], { "gym-smith-squat": { reps: 12 } })).toMatch(/周表/);
@@ -266,21 +302,27 @@ describe("个人进度：健身房重量", () => {
     expect(run(GYM, [1, 2], [start, { date: "2026-11-18", move: "gym-smith-squat", field: "weight", to: 25, rule: "调重量", evidence: "打卡/2026-11-17.json" }],
       { "gym-smith-squat": { weight: 25 } }, { sessions: [spare("2026-11-17", 7)] })).toBe("");
   });
-  it("拦下：第 1 周调重量", () => {
+  it("放行：起始重量在第一次练的那天记（不一定是开始那天）", () => {
+    expect(run(GYM, [1], [{ ...start, date: "2026-11-11" }], { "gym-smith-squat": { weight: 20 } })).toBe("");
+  });
+  it("拦下：第 1 周调重量；依据是第 1 周的记录", () => {
     expect(run(GYM, [1], [start, { date: "2026-11-11", move: "gym-smith-squat", field: "weight", to: 25, rule: "调重量", evidence: "打卡/2026-11-10.json" }],
       { "gym-smith-squat": { weight: 25 } }, { sessions: [spare("2026-11-10", 7)] })).toMatch(/不调重量/);
+    expect(run(GYM, [1, 2], [start, { date: "2026-11-17", move: "gym-smith-squat", field: "weight", to: 25, rule: "调重量", evidence: "打卡/2026-11-10.json" }],
+      { "gym-smith-squat": { weight: 25 } }, { sessions: [spare("2026-11-10", 7)] })).toMatch(/调重量的那几周/);
   });
   it("拦下：还能做的不到 6 下", () => {
     expect(run(GYM, [1, 2], [start, { date: "2026-11-18", move: "gym-smith-squat", field: "weight", to: 25, rule: "调重量", evidence: "打卡/2026-11-17.json" }],
       { "gym-smith-squat": { weight: 25 } }, { sessions: [spare("2026-11-17", 4)] })).toMatch(/6 下以上/);
   });
-  it("放行：第 3 周加重一次；拦下：第 4 周加重、同一段加两次", () => {
+  it("放行：第 3 周加重一次；拦下：第 4 周加重、同一段加两次、一档加太多", () => {
     const w3 = { date: "2026-11-23", move: "gym-smith-squat", field: "weight", to: 25, rule: "加重" };
     expect(run(GYM, [1, 2, 3], [start, w3], { "gym-smith-squat": { weight: 25 } })).toBe("");
     expect(run(GYM, [1, 2, 3, 4], [start, { ...w3, date: "2026-11-30" }], { "gym-smith-squat": { weight: 25 } })).toMatch(/不加重/);
-    expect(run(GYM, [1, 2, 3], [start, w3, { ...w3, date: "2026-11-25", to: 30 }], { "gym-smith-squat": { weight: 30 } })).toMatch(/已经加过重/);
+    expect(run(GYM, [1, 2, 3], [start, w3, { ...w3, date: "2026-11-25", to: 30 }], { "gym-smith-squat": { weight: 30 } })).toMatch(/已经往上改过|已经加过重/);
+    expect(run(GYM, [1, 2, 3], [start, { ...w3, to: 200 }], { "gym-smith-squat": { weight: 200 } })).toMatch(/最多加 25%/);
   });
-  it("拦下：还没记起始重量就加重", () => {
+  it("拦下：还没记过起始重量就加重", () => {
     expect(run(GYM, [1, 2, 3], [{ date: "2026-11-23", move: "gym-smith-squat", field: "weight", to: 25, rule: "加重" }], { "gym-smith-squat": { weight: 25 } })).toMatch(/还没记过起始重量/);
   });
 });

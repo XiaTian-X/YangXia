@@ -39,6 +39,10 @@ export function validateProfile(raw: unknown): Issue[] {
     });
     if (sc.doctorAdvice !== undefined && (typeof sc.doctorAdvice !== "string" || sc.doctorAdvice.length > 300)) err("screening.doctorAdvice", "医生意见最多 300 个字");
     const yes = sc.answers.some((a: Obj) => a?.answer === "是");
+    // 训练单的条件和筛查对不上：筛查里和高血压有关的那一项答了"是"，条件却记"没有高血压"
+    if (raw.conditions?.["高血压"] === false && sc.answers.some((a: Obj) => a?.answer === "是" && /高血压/.test(a?.item ?? ""))) {
+      out.push({ level: "warning", path: "conditions.高血压", message: "安全筛查里和高血压有关的一项答了\"是\"，条件却记了没有高血压：再和使用者确认一次" });
+    }
     if ((raw.age === "a65" || yes) && !sc.doctorCleared) {
       out.push({ level: "warning", path: "screening", message: raw.age === "a65"
         ? "65 岁以上开始前都要先问医生：医生同意之前不出课程" : "安全筛查有\"是\"：先问医生，医生同意之前不出课程" });
