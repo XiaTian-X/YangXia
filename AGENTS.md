@@ -25,11 +25,12 @@
 
 **不能做**：
 - 自己编组数、次数、强度、休息时间、官方数字。课程里每一项都必须带成品原文，由检查命令核对。
-- 跳过安全筛查。筛查有任何一项"是"的人，不出计划，只建议先问医生。
+- 跳过安全筛查。筛查有任何一项"是"、或者 65 岁以上的人，医生同意前不出计划，只建议先问医生；孕期、产后 6 个月内不出计划。
+- 不经周复盘放行就导出下一周的课程；导出档案没选的成品。
 - 对 6–12 岁、13–17 岁谈体重、热量、减肥、排名；给 65 岁以上安排跳跃、闭眼、憋气。
 - 区间取值不能挑：次数、组数、时长取下限，休息取上限。
 
-打卡或练习记录里出现**疼痛、头晕、胸闷**：停止加量，按成品里"疼了怎么办"处理，必要时建议就医。
+打卡或练习记录里出现**疼痛、头晕、胸闷**：停止加量，按成品里"疼了怎么办"处理，必要时建议就医。`npm run profile -- check` 按档案 `weeks` 的日期核对：有不适的那一段之后，周次不能往上走；每一段结束都要有周复盘。
 
 ## 隐私
 
@@ -40,7 +41,7 @@
 ## 提交规则
 
 - 新克隆先运行 `npm run setup`：主仓库和模板仓库的提交前检查都会启用。
-- **不准用 `git commit --no-verify` / `-n` 跳过检查**。检查没过就改，不绕。
+- **不准用 `git commit --no-verify` / `-n` 跳过检查**，也不准改 `core.hooksPath`。检查没过就改，不绕。Claude Code 里由 `.claude/hooks/guard-git.mjs` 拦这类命令（两个仓库各一份，内容相同）。
 - 只提交必要文件。临时文件、构建产物、导出的媒体、个人数据、密钥都不提交，规则见 `.gitignore`。
 - 依赖选发布超过两周的稳定版本，写死版本号，`package-lock.json` 一起提交。
 
@@ -63,10 +64,10 @@ npm test                                              # 单元测试（模板不
 npm run e2e                                           # 打包编排器并跑冒烟测试（Playwright）
 npm run course -- check <课程.json> --profile <档案.json>   # 导出课程后必须跑，0 个错误才能交给用户
 npm run course -- summary <课程.json>                 # 总时长、动作、组数
-npm run course -- intake [年龄段]                     # 入口问卷和这个年龄段的筛查项
+npm run course -- intake [年龄段]                     # 入口问卷、成品列表和这个年龄段的筛查项
 npm run course -- bedtime <阶段> <HH:MM>              # 算上床时间（不要心算）
 npm run course -- moves <成品名>                      # 这份成品能导出的动作、处方原文、呼吸节奏
-npm run profile -- check profiles/<代号>              # 档案、练习记录、课程、复盘和菜单的检查
+npm run profile -- check profiles/<代号>              # 档案（和模板核对）、周次推进、练习记录、课程、复盘和菜单的检查
 python3 templates/tpl.py all                          # 改了模板后构建 + 校验
 ```
 
@@ -86,8 +87,8 @@ apps/sequencer/        跟练编排器（npm run build → dist/养夏跟练编�
 packages/course-core/  课程核心库：格式、节奏、时间轴、字幕、课程检查（npm run course）
 contracts/             课程、练习记录、个人档案的数据格式和样例（说明见 docs/数据约定.md）
 profiles/              个人数据（不提交）
-docs/                  重构方案、历史文档
-.claude/               项目设置（Stop hook、禁止 --no-verify）、skills
+docs/                  数据约定、编排器功能清单、重构方案、全面审查、历史文档
+.claude/               项目设置（每轮结束的检查、git 命令拦截）、hooks/、skills
 ```
 
 ## 现在在做什么

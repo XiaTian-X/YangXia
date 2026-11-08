@@ -1,6 +1,6 @@
 // 导出：WAV 音频、SRT 字幕、WebM 跟练视频（WebCodecs 离线高速合成）、练习记录 JSON。
 // WebM 的流程照原版 exportWebmOfflineFast 移植：先离线渲染 48kHz 音轨，再按 60FPS 虚拟时钟逐帧画面、编码、封装。
-import { buildSrt, type Course, type Timeline } from "@yangxia/course-core";
+import { buildSession, buildSrt, type Course, type SessionInput, type Timeline } from "@yangxia/course-core";
 import { renderOffline, type RenderInput } from "../audio/render.ts";
 import { audioBufferToWav } from "../audio/sounds.ts";
 import { applyEvent, drawHud, HUD_HEIGHT, HUD_WIDTH, initialHud, stepHud, type HudState } from "../hud/draw.ts";
@@ -126,31 +126,12 @@ export async function exportWebm(input: RenderInput, opts: WebmOptions): Promise
   }
 }
 
-export type Feeling = "轻松" | "正好" | "吃力";
+export type { Feeling } from "@yangxia/course-core";
 
-/** 练习记录的格式标识（单独写成常量：提交前检查会拦"schema 键直接写这个值"的文件，防止有人把真实记录提交进来）。 */
-export const SESSION_FORMAT = "yangxia.session/1";
-
-/** 练习记录 yangxia.session/1（个人数据：只保存到本地，放进 profiles/<代号>/打卡/）。 */
-export function sessionRecord(course: Course, opts: { startedAt: Date; endedAt: Date; completed: boolean; feeling: Feeling;
-  symptoms: { pain: boolean; dizzy: boolean; chest: boolean }; note?: string; setsDone?: Record<number, number> }): Blob {
-  let index = 0;
-  const items = course.blocks.flatMap((b) => b.items.map((it) => {
-    const planned = b.kind === "circuit" ? b.rounds : it.sets ?? 1;
-    const done = opts.setsDone?.[index++] ?? (opts.completed ? planned : 0);
-    return { exercise: it.exercise, setsPlanned: planned, setsDone: done, skipped: done === 0 };
-  }));
-  const record = {
-    schema: SESSION_FORMAT,
-    course: { id: course.id, name: course.name, source: course.source },
-    startedAt: opts.startedAt.toISOString(),
-    endedAt: opts.endedAt.toISOString(),
-    items,
-    feeling: opts.feeling,
-    symptoms: opts.symptoms,
-    ...(opts.note ? { note: opts.note.slice(0, 500) } : {}),
-  };
-  return new Blob([JSON.stringify(record, null, 2) + "\n"], { type: "application/json" });
+/** 练习记录 yangxia.session/1（个人数据：只保存到本地，放进 profiles/<代号>/打卡/）。
+ *  内容由核心库 buildSession 生成：完成组数只数实际播放过的组。 */
+export function sessionRecord(course: Course, input: SessionInput): Blob {
+  return new Blob([JSON.stringify(buildSession(course, input), null, 2) + "\n"], { type: "application/json" });
 }
 
 export function download(blob: Blob, filename: string): void {

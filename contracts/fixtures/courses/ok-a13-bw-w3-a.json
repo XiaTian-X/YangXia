@@ -1,0 +1,37 @@
+{
+  "schema": "yangxia.course/1",
+  "id": "c_fixture11a",
+  "name": "13-17岁 · 第 3 周 · A 日（节选）",
+  "age": "a13",
+  "source": {
+    "product": "13-17岁-纯徒手版",
+    "templates": "v2.1",
+    "week": 3,
+    "day": "A"
+  },
+  "blocks": [
+    {
+      "kind": "sets",
+      "items": [
+        {
+          "exercise": "squat",
+          "name": "徒手深蹲",
+          "mode": "reps",
+          "sets": 3,
+          "reps": 12,
+          "tempo": {
+            "start": "down",
+            "down": 3,
+            "up": 1
+          },
+          "rest": 90,
+          "quote": [
+            "第 3 周 | 3 组",
+            "3 组 × 12–15 次",
+            "组间休息：大动作（深蹲、分腿蹲、俯卧撑、派克俯卧撑、划船）90 秒，其他 45–60 秒"
+          ]
+        }
+      ]
+    }
+  ]
+}

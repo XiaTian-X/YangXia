@@ -1,6 +1,6 @@
-// 冒烟测试：打开 dist/养夏跟练编排器.html → 导入短课程 → 跟练、停止、导出练习记录 → 导出 SRT / WAV / WebM，
+// 冒烟测试：打开 dist/养夏跟练编排器.html → 导入短课程 → 跟练（跳过第一个动作）、练完、导出练习记录 → 导出 SRT / WAV / WebM，
 // 并和核心库在 Node 里算出的时间轴对数（SRT 最后一条时间码、WAV 时长）。
-import { buildSrt, buildTimeline, type Course } from "@yangxia/course-core";
+import { buildSrt, buildTimeline, validateSession, type Course } from "@yangxia/course-core";
 import { expect, test, type Download, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -45,16 +45,19 @@ test("养夏跟练编排器：导入、跟练、导出", async ({ page }) => {
   await expect(page.locator('select[data-setting="voiceEngine"]')).toHaveValue("embedded");
   await page.getByRole("button", { name: "课程" }).click();
 
-  // 跟练一小段再停止 → 练习记录
+  // 跟练：一开始就从路线图跳到第二个动作（第一个动作整组跳过），练到结束 → 练习记录
   await page.getByRole("button", { name: "开始跟练" }).click();
-  await expect(page.getByText("跟练中")).toBeVisible();
-  await page.waitForTimeout(2500);
-  await page.getByRole("button", { name: "停止" }).click();
-  await expect(page.getByText("练习记录", { exact: true })).toBeVisible();
+  await expect(page.getByText("跟练中", { exact: true })).toBeVisible();
+  await expect(page.getByText("跟练中不能修改课程，先停止。")).toBeVisible();   // 跟练中锁住编辑，练习记录才对得上
+  await page.waitForTimeout(500);
+  await page.locator('[data-stage="ex-1-set-1"]').click();
+  await expect(page.getByText("练习记录", { exact: true })).toBeVisible({ timeout: 20_000 });
   const session = JSON.parse((await saved(page, () => page.getByRole("button", { name: "导出练习记录" }).click())).toString("utf8"));
   expect(session.schema).toBe("yangxia.session/1");
-  expect(session.items).toHaveLength(2);
   expect(session.feeling).toBe("正好");
+  expect(session.items.map((i: any) => [i.exercise, i.setsPlanned, i.setsDone, i.skipped]))
+    .toEqual([["squat", 1, 0, true], ["plank", 1, 1, false]]);
+  expect(validateSession(session)).toEqual([]);
 
   const tl = expected();
 

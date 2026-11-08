@@ -11,3 +11,6 @@ export { validateCourse } from "./validate.ts";
 export { checkCourse, numbersBefore, type CheckContext } from "./check.ts";
 export { MANIFEST_FORMAT, productCode, type Manifest, type ManifestExercise, type ManifestProduct } from "./manifest.ts";
 export { checkNotes, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
+export { bedtimeFor, checkProfileWithTemplates, notCoveredItems, screeningFor } from "./intake.ts";
+export { checkProgress, reviewName, validateWeeks, type WeekEntry } from "./progress.ts";
+export { buildSession, setsDoneFromPlayed, type Feeling, type SessionInput, type Symptoms } from "./session.ts";

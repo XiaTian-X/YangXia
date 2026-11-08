@@ -42,6 +42,7 @@
         "chest": { "type": "boolean", "description": "胸痛、胸闷、心慌" }
       }
     },
+    "edited": { "type": "boolean", "description": "练的课程在编排器里手动改过，和成品原文可能不一致" },
     "note": { "type": "string", "maxLength": 500 }
   }
 }

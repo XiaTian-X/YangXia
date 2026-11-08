@@ -1,0 +1,56 @@
+{
+  "schema": "yangxia.course/1",
+  "id": "c_fixture10a",
+  "name": "18-39 居家 · 第 3 周 · A 日（节选）",
+  "age": "a18",
+  "source": {
+    "product": "18-39岁-居家版",
+    "templates": "v2.1",
+    "week": 3,
+    "day": "A"
+  },
+  "blocks": [
+    {
+      "kind": "sets",
+      "items": [
+        {
+          "exercise": "squat",
+          "name": "徒手深蹲",
+          "mode": "reps",
+          "sets": 3,
+          "reps": 15,
+          "tempo": {
+            "start": "down",
+            "down": 3,
+            "up": 1
+          },
+          "rest": 90,
+          "quote": [
+            "第 3 周 | 3 组 | 下放放慢到 3 秒",
+            "3 组 × 15–20 次",
+            "大动作（深蹲、分腿蹲、俯卧撑、划船）休息 90 秒，小动作 45–60 秒"
+          ]
+        },
+        {
+          "exercise": "split-squat",
+          "name": "原地分腿蹲",
+          "mode": "reps",
+          "perSide": true,
+          "sets": 3,
+          "reps": 10,
+          "tempo": {
+            "start": "down",
+            "down": 3,
+            "up": 1
+          },
+          "rest": 90,
+          "quote": [
+            "第 3 周 | 3 组 | 下放放慢到 3 秒",
+            "每侧 3 组 × 10–12 次",
+            "大动作（深蹲、分腿蹲、俯卧撑、划船）休息 90 秒，小动作 45–60 秒"
+          ]
+        }
+      ]
+    }
+  ]
+}

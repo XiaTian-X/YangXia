@@ -1,6 +1,6 @@
 // 养夏 · 跟练编排器：导入课程 → 预览、跟练 → 导出 WAV / SRT / 视频 → 练完导出练习记录。
 import {
-  buildTimeline, DEFAULT_SETTINGS, itemSpec, settingsOf, validateCourse,
+  buildTimeline, DEFAULT_SETTINGS, itemSpec, setsDoneFromPlayed, settingsOf, validateCourse,
   type Course, type Issue, type PlaybackSettings, type TimelineEvent,
 } from "@yangxia/course-core";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -16,8 +16,12 @@ import { Recorder } from "./Recorder.tsx";
 import { Settings } from "./Settings.tsx";
 
 type Tab = "course" | "sound" | "screen" | "library" | "voice";
+/** 一次跟练：练的是哪份课程（开始时的快照）、开始结束时间、有没有练完、每个动作实际完成了几组（核心库 setsDoneFromPlayed 算）。 */
+type Session = { course: Course; edited: boolean; startedAt: Date; endedAt: Date; completed: boolean; setsDone: Record<number, number> };
 /** 本地日期 YYYY-MM-DD（toISOString 是 UTC，北京时间凌晨会差一天）。 */
 const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+/** 本地时分 HHMM：一天练两次，文件名也不会重名。 */
+const localTime = (d: Date) => `${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 
 export function App() {
@@ -36,13 +40,13 @@ export function App() {
   const [progress, setProgress] = useState(0);
   const [notice, setNotice] = useState("");
   const [dragOver, setDragOver] = useState(false);
-  const [session, setSession] = useState<{ startedAt: Date; endedAt: Date; completed: boolean; maxIdx: number } | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
 
   const canvas = useRef<HTMLCanvasElement>(null);
   const hud = useRef(initialHud());
   const player = useRef<LivePlayer | null>(null);
   const curIdx = useRef(-1);
-  const maxIdx = useRef(-1);
+  const played = useRef(new Set<number>());   // 这次跟练实际播到的事件（跳过的不算）
   const startedAt = useRef(new Date());
   const abort = useRef<AbortController | null>(null);
 
@@ -77,13 +81,16 @@ export function App() {
   }, [timeline]);
 
   const load = (raw: unknown, from: string) => {
+    if (player.current?.running) {
+      setNotice("跟练中不能换课程：先停止跟练（练习记录按这次练的课程记）。");
+      return;
+    }
     const { course: c, issues: is } = validateCourse(raw);
     setIssues(is);
     if (!c) {
       setNotice(`${from}不是合格的课程，见下面的错误。`);
       return;
     }
-    void stop();
     setCourse(c);
     setSettings(settingsOf(c));
     setEdited(false);
@@ -109,15 +116,17 @@ export function App() {
 
   const start = async () => {
     if (!timeline || !course) return;
+    const tl = timeline;
+    const snapshot = { course, edited };
     await stop();
     curIdx.current = -1;
-    maxIdx.current = -1;
+    played.current = new Set();
     startedAt.current = new Date();
     setSession(null);
     const p = new LivePlayer(input(), {
       onEvent: (ev: TimelineEvent, i: number) => {
         curIdx.current = i;
-        maxIdx.current = Math.max(maxIdx.current, i);
+        played.current.add(i);
         applyEvent(hud.current, ev);
         hud.current.voiceText = settings.voiceBake && ev.voice ? ev.voice : "";
         setActiveStage(ev.phaseGroup);
@@ -126,7 +135,7 @@ export function App() {
       onEnd: (completed) => {
         setPlaying(false);
         setPlayingItem(-1);
-        setSession({ startedAt: startedAt.current, endedAt: new Date(), completed, maxIdx: maxIdx.current });
+        setSession({ ...snapshot, startedAt: startedAt.current, endedAt: new Date(), completed, setsDone: setsDoneFromPlayed(tl.events, played.current) });
         hud.current.repText = completed ? "完成" : "已停止";
         hud.current.phaseText = completed ? "整套课程完成了，填一下下面的练习记录" : "已停止，可以继续调整或重新开始";
       },
@@ -228,7 +237,7 @@ export function App() {
           {timeline && (
             <div class="chips" aria-label="路线图">
               {timeline.stages.map((st) => (
-                <button key={st.id} class={`chip ${st.isRest ? "rest" : ""} ${activeStage === st.id ? "active" : ""}`}
+                <button key={st.id} data-stage={st.id} class={`chip ${st.isRest ? "rest" : ""} ${activeStage === st.id ? "active" : ""}`}
                   onClick={() => previewStage(st.id)}>{st.label}</button>
               ))}
             </div>
@@ -254,7 +263,7 @@ export function App() {
             </p>
           )}
           {notice && <p class="note" role="status">{notice}</p>}
-          {session && course && <SessionForm course={course} timeline={timeline!} session={session} onDone={() => setSession(null)} />}
+          {session && <SessionForm session={session} onDone={() => setSession(null)} />}
         </div>
 
         <div class="card">
@@ -276,13 +285,16 @@ export function App() {
               <p class="note">课程一般由 agent 从养夏计划模板导出（npm run course -- check 检查过）。在这里改过之后，就不再保证和成品原文一致。</p>
               {edited && <div class="issue warning">已手动修改：和成品原文可能不一致，交给 agent 前请重新检查。</div>}
               {issues.map((i, k) => <div key={k} class={`issue ${i.level}`}>{i.path || "课程"}：{i.message}</div>)}
+              {playing && <p class="note">跟练中不能修改课程，先停止。</p>}
               {course && (
-                <Editor course={course} playingItem={playingItem} onChange={(c) => {
-                  const r = validateCourse(c);
-                  setIssues(r.issues);
-                  setEdited(true);
-                  if (r.course) setCourse(r.course);
-                }} />
+                <fieldset disabled={playing} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+                  <Editor course={course} playingItem={playingItem} onChange={(c) => {
+                    const r = validateCourse(c);
+                    setIssues(r.issues);
+                    setEdited(true);
+                    if (r.course) setCourse(r.course);
+                  }} />
+                </fieldset>
               )}
               {course && <p class="note">{course.blocks.flatMap((b) => b.items.map((it) => `${it.name} ${itemSpec(it, b.kind === "circuit" ? b.rounds : it.sets ?? 1)}`)).join("；")}</p>}
             </div>
@@ -304,17 +316,10 @@ export function App() {
   );
 }
 
-function SessionForm({ course, timeline, session, onDone }: {
-  course: Course; timeline: NonNullable<ReturnType<typeof buildTimeline>>;
-  session: { startedAt: Date; endedAt: Date; completed: boolean; maxIdx: number }; onDone: () => void;
-}) {
+function SessionForm({ session, onDone }: { session: Session; onDone: () => void }) {
   const [feeling, setFeeling] = useState<Feeling>("正好");
   const [symptoms, setSymptoms] = useState({ pain: false, dizzy: false, chest: false });
   const [note, setNote] = useState("");
-  const setsDone: Record<number, number> = {};
-  timeline.events.forEach((e, i) => {
-    if (i <= session.maxIdx && e.isSetFinalRep) setsDone[e.itemIndex] = (setsDone[e.itemIndex] ?? 0) + 1;
-  });
   const anySymptom = symptoms.pain || symptoms.dizzy || symptoms.chest;
   return (
     <div class="item" style={{ marginTop: 12 }}>
@@ -336,8 +341,8 @@ function SessionForm({ course, timeline, session, onDone }: {
       <textarea rows={2} maxLength={500} placeholder="备注（可不填）" value={note} onInput={(e) => setNote(e.currentTarget.value)} />
       <div class="row" style={{ marginTop: 8 }}>
         <button class="btn primary" onClick={() => {
-          download(sessionRecord(course, { ...session, feeling, symptoms, note, setsDone }),
-            `养夏_练习记录_${localDate(session.startedAt)}.json`);
+          download(sessionRecord(session.course, { ...session, feeling, symptoms, note }),
+            `养夏_练习记录_${localDate(session.startedAt)}_${localTime(session.startedAt)}.json`);
           onDone();
         }}>导出练习记录</button>
         <button class="btn" onClick={onDone}>不记录</button>

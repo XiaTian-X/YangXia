@@ -11,14 +11,18 @@
 | **养夏计划模板** | 按年龄段和场地分的四周计划（运动、三餐、睡眠），10 份成品 + 菜谱手册 + 动作图解 | `templates/`（独立仓库 YangXia-templates），用法见 `templates/README.md` |
 | **养夏跟练编排器** | 把一天的训练编成带语音报数、呼吸提示的跟练音频、视频和字幕 | `npm run build` 生成 `apps/sequencer/dist/养夏跟练编排器.html`（单文件，双击打开、离线可用）；和原版的对照见 `docs/编排器功能清单.md` |
 | **养夏课程核心库** | 课程格式、时间轴、字幕、课程检查，编排器和别的项目共用 | `packages/course-core/`；数据格式见 `docs/数据约定.md` |
-| **agent 工作流** | 建档、导出跟练课程、周复盘、排菜单 | `AGENTS.md`、`.claude/skills/`（待建） |
+| **agent 工作流** | 建档、导出跟练课程、周复盘、排菜单 | `AGENTS.md`、`.claude/skills/` |
 
 ## 开始
 
 需要 Node 24 以上（命令行直接运行 TypeScript）、Python 3.9 以上、git。
 
 1. 把模板仓库放在 `templates/`，或者设置环境变量 `YANGXIA_TEMPLATES` 指向它。
-2. 启用两个仓库的提交前检查：
+2. 安装依赖，启用两个仓库的提交前检查：
+
+   ```bash
+   npm ci
+   ```
 
    ```bash
    npm run setup
@@ -26,9 +30,24 @@
 
 3. 只想看计划：直接打开 `templates/dist/` 里的成品，先读 `templates/README.md` 选对版本。
 
+## 和 agent 一起用
+
+在本仓库里打开 Claude Code，直接说要做什么，agent 会按 `.claude/skills/` 里的流程走，每一步都由检查命令把关：
+
+| 你说 | agent 做什么 | 写到哪 |
+|---|---|---|
+| "我想开始""给我家孩子建个档" | `onboard`：入口问卷、安全筛查、算上床时间、选成品 | `profiles/<代号>/档案.json` |
+| "导出今天的训练" | `course-export`：把成品里这一周这一天的训练原样导出成课程 | `profiles/<代号>/课程/` |
+| （用编排器跟练） | 练完点"导出练习记录"，把文件放进打卡目录 | `profiles/<代号>/打卡/` |
+| "这周练完了" | `weekly-review`：按成品的达标线和升级规则决定下周；第 4 周后做月度总结、开下一轮 | `profiles/<代号>/复盘/` |
+| "帮我排下周菜单" | `meal-plan`：按全家餐饮模板排菜单、算采购量 | `profiles/<代号>/菜单/` |
+
+安全筛查有"是"、或者 65 岁以上而医生还没同意的，不出课程；周复盘没放行，导不出下一周的课程。
+
 ## 文档
 
 - `AGENTS.md`：给 AI agent 看的总纲（安全底线、隐私、提交规则）。
+- `docs/数据约定.md`：课程、练习记录、个人档案的格式，课程检查和档案检查查什么。
 - `docs/重构方案-v3（agent驱动）.md`：现在的重构方案和进度。
 - `docs/history/`：历史方案。
 

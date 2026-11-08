@@ -1,5 +1,6 @@
 // 个人档案 yangxia.profile/1 和练习记录 yangxia.session/1 的结构校验（和 contracts/*.schema.json 对应），
 // 以及 agent 写进档案目录的文字（周复盘、菜单）的红线检查。
+import { validateWeeks } from "./progress.ts";
 import type { RedlineRules } from "./redlines.ts";
 import { redlineHits } from "./redlines.ts";
 import type { Issue } from "./types.ts";
@@ -26,6 +27,11 @@ export function validateProfile(raw: unknown): Issue[] {
   for (const k of ["wake", "bedtime"]) if (raw[k] !== undefined && !HHMM.test(raw[k])) err(k, `${k} 要写成 HH:MM`);
   if (typeof raw.startDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw.startDate)) err("startDate", "startDate 要写成 YYYY-MM-DD");
   if (raw.week !== undefined && !(Number.isInteger(raw.week) && raw.week >= 1 && raw.week <= 4)) err("week", "week 要是 1–4");
+  if (raw.round !== undefined && !(Number.isInteger(raw.round) && raw.round >= 1)) err("round", "round 要是从 1 开始的整数");
+  if (raw.household !== undefined && !(Array.isArray(raw.household) && raw.household.every((a: unknown) => AGES.includes(a as string)))) {
+    err("household", `household 是家庭成员的年龄段列表，只能写 ${AGES.join("、")}`);
+  }
+  out.push(...validateWeeks(raw));
   const sc = raw.screening;
   if (!isObj(sc) || !Array.isArray(sc.answers) || typeof sc.doctorCleared !== "boolean") {
     err("screening", "缺少安全筛查（answers、doctorCleared）");
@@ -54,9 +60,13 @@ export function validateSession(raw: unknown): Issue[] {
   else raw.items.forEach((it: unknown, i: number) => {
     if (!isObj(it) || typeof it.exercise !== "string" || !Number.isInteger(it.setsPlanned) || !Number.isInteger(it.setsDone)) {
       err(`items[${i}]`, "每项要有 exercise、setsPlanned、setsDone");
+    } else if (it.setsDone < 0 || it.setsDone > it.setsPlanned) {
+      err(`items[${i}].setsDone`, `完成 ${it.setsDone} 组，计划只有 ${it.setsPlanned} 组：完成组数要在 0 到计划组数之间`);
     }
   });
   if (!["轻松", "正好", "吃力"].includes(raw.feeling)) err("feeling", "feeling 只能是 轻松 / 正好 / 吃力");
+  if (raw.edited !== undefined && typeof raw.edited !== "boolean") err("edited", "edited 只能是 true / false");
+  else if (raw.edited) out.push({ level: "warning", path: "edited", message: "练的课程在编排器里手动改过，和成品原文可能不一致：周复盘按成品规则判断，不按这份记录加量" });
   const s = raw.symptoms;
   if (!isObj(s) || typeof s.pain !== "boolean" || typeof s.dizzy !== "boolean" || typeof s.chest !== "boolean") {
     err("symptoms", "symptoms 要有 pain、dizzy、chest（true / false）");

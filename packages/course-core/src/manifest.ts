@@ -17,6 +17,10 @@ export interface ExerciseUse {
   prescription: string;
   breathing: string;
   line: number;
+  /** 成品写明"第 N 周开始做"：这一周之前不能导出。 */
+  from_week?: number;
+  /** 成品写明"下一轮才用"（2）、"再下一轮才用"（3）：这一轮之前不能导出。 */
+  from_round?: number;
 }
 
 export interface ManifestExercise {

@@ -4,7 +4,7 @@
   "title": "养夏个人档案",
   "description": "放在 profiles/<代号>/档案.json，不提交。用代号不用真名；安全筛查只记是 / 否，不记病名和用药。",
   "type": "object",
-  "required": ["schema", "code", "stage", "age", "product", "screening", "startDate"],
+  "required": ["schema", "code", "stage", "age", "product", "screening", "startDate", "weeks"],
   "properties": {
     "schema": { "const": "yangxia.profile/1" },
     "code": { "type": "string", "pattern": "^[^/\\\\\\s]{1,20}$", "description": "代号，也是 profiles/ 下的目录名" },
@@ -31,6 +31,25 @@
       }
     },
     "startDate": { "type": "string", "format": "date" },
-    "week": { "type": "integer", "minimum": 1, "maximum": 4 }
+    "week": { "type": "integer", "minimum": 1, "maximum": 4, "description": "这一轮的第几周，默认 1；周复盘按成品规则放行后才改成下一周" },
+    "round": { "type": "integer", "minimum": 1, "description": "第几轮（四周一轮），默认 1；新一轮开始时上一轮的课程、打卡、复盘移进 历史/第R轮/" },
+    "household": {
+      "type": "array",
+      "description": "一起吃饭的家庭成员（含自己）的年龄段，排菜单时记；菜单按每个年龄段的红线检查。只记年龄段，不记名字",
+      "items": { "enum": ["a06", "a13", "a18", "a40", "a65"] }
+    },
+    "weeks": {
+      "type": "array",
+      "minItems": 1,
+      "description": "这一轮每一段练第几周、从哪天开始。建档写第一段；周复盘每次追加一段（放行就加 1，重复本周不变）。最后一段就是现在的 week",
+      "items": {
+        "type": "object",
+        "required": ["week", "start"],
+        "properties": {
+          "week": { "type": "integer", "minimum": 1, "maximum": 4 },
+          "start": { "type": "string", "format": "date" }
+        }
+      }
+    }
   }
 }

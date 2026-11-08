@@ -1,6 +1,6 @@
 # 养夏 v3 重构方案：agent 驱动（r6，已过独立审查）
 
-> **实施状态（2026-11-08）**：阶段 0–4 已完成，过程和结果见根目录 `CHANGELOG.md` 和 `templates/CHANGELOG.md`。经用户确认，模板仓库的 `v3-refactor` 已合并回 `main`，发版为 v2.1（CHANGELOG `## v2.1 · 2026-11-08`，打了 `v2.1` 标签）。阶段 5（对外联动）按需再开。
+> **实施状态（2026-11-08）**：阶段 0–4 已完成，过程和结果见根目录 `CHANGELOG.md` 和 `templates/CHANGELOG.md`。经用户确认，模板仓库的 `v3-refactor` 已合并回 `main`，发版为 v2.1（CHANGELOG `## v2.1 · 2026-11-08`，打了 `v2.1` 标签）。阶段 5（对外联动）按需再开；原计划的 `agent 工作流.md`、`联动接口.md` 没有单独写，工作流在 `.claude/skills/`，联动接口留到阶段 5。之后的全面审查和修订见 `docs/全面审查（2026-11-08）.md`。
 
 > 目标：把计划模板（现 `guilv-life/`）和课程编排器（现 `keep-course-sequencer.html`）合成一个由 agent 驱动的项目 **养夏**（英文名 YangXia），从**作息、锻炼、饮食**三方面帮人建立习惯。
 > 原则：先搭骨架，再扩展模板发布物，再做核心库和编排器，最后加 agent 工作流。每一步都做回归比对，**计划成品的正文不因结构调整而改变**。
@@ -209,7 +209,7 @@
 
 ### 3. 课程检查命令（防止 agent 自编处方）
 
-`npm run course -- check <课程.json> [--profile <档案目录>]`：
+`npm run course -- check <课程.json> --profile <档案.json>`（不带档案要显式写 `--no-profile`，只用于样例和开发）：
 - 格式、数值范围（按模板实际需要放宽，超出就报错，不悄悄改）；
 - 动作必须在 manifest 的动作索引里，而且适用于这个年龄段和场地；
 - **每项的 `quote` 必须逐字出现在这份成品里、而且出现在 `source` 指定的那一周（或不分周的动作库、训练流程章节）里**，课程里的组数、次数、秒数必须和原文一致（区间按上面的规则取）；不允许把第 4 周的处方抄进第 1 周；
@@ -304,8 +304,8 @@ YangXia/                              ← 主仓库
 ├── profiles/                         个人数据（不提交）
 ├── scripts/                          setup、templates-path、hook 脚本
 ├── docs/
-│   ├── agent 工作流.md  数据约定.md  联动接口.md  编排器功能清单.md
-│   ├── 重构方案-v3（agent驱动）.md
+│   ├── 数据约定.md  编排器功能清单.md
+│   ├── 重构方案-v3（agent驱动）.md  全面审查（2026-11-08）.md
 │   └── history/新项目架构方案（v2.0）.md
 └── .claude/settings.json  .claude/skills/
 ```

@@ -18,15 +18,16 @@ description: 给新使用者建档：按养夏计划模板的入口问卷选年�
 1. **看问卷**：`npm run course -- intake`（只看某个年龄段：`npm run course -- intake a13`）。
 2. **Q1 阶段**：学龄前、小学、初中、高中、18–39 岁、40–64 岁、65 岁以上。未成年人按学段选，不按年龄。
    - 学龄前、孕期产后 6 个月内、确诊慢性病、残障、最近一年跌倒过的老年人：**不出计划**，照 `intake` 里"不覆盖的人群"的说法建议先问医生，到此结束。
-3. **Q2 安全筛查**：用 `intake` 打出的**这个年龄段**的筛查项，逐项问"是 / 否"，原话照念，不改写、不合并。
+   - 筛查里"怀孕，或产后 6 个月内"答"是"的，同样不出计划（医生同意也一样，检查会拦下）。
+3. **Q2 安全筛查**：用 `intake` 打出的**这个年龄段**的筛查项，逐项问"是 / 否"，原话照念，不改写、不合并。每一项都要问到、原话记进档案，少答、改字检查都会报错。
    - 规则"任一项"：有任何一项"是"，先问医生。只有使用者明确说"医生同意了"，才把 `doctorCleared` 记为 true，并照原话记下医生意见（`doctorAdvice`）。
    - 规则"所有人"（65 岁以上）：开始前都要先问医生，医生同意前 `doctorCleared` 为 false。
    - 40–64 岁另外提醒：开始前先做一次体检、量一次血压（近一年内做过的不用再做）。
    - **不判断病情**，不说"这个没关系"。
-4. **Q3 场地**（只问 18–64 岁）：健身房 gym、家里有 2.5kg 哑铃和动感单车 home、什么器械都没有 bw。成品名见 `templates/content/products.md` 或 `templates/README.md` 第 2 步的表。
+4. **Q3 场地**（只问 18–64 岁）：健身房 gym、家里有 2.5kg 哑铃和动感单车 home、什么器械都没有 bw。成品名用 `npm run course -- intake <年龄段>` 打出来的"成品"列表。
 5. **Q4 起床时间**：`npm run course -- bedtime <阶段> <HH:MM>`，用它算出的上床时间，不自己心算。
-6. **写档案** `profiles/<代号>/档案.json`。格式见 `docs/数据约定.md` 第三节，样例见 `contracts/fixtures/profiles/ok-a18-home.json`。`startDate` 写开始日期，`week` 写 1。
-7. **检查**：`npm run profile -- check profiles/<代号>`，0 个错误才算建好。
+6. **写档案** `profiles/<代号>/档案.json`。格式见 `docs/数据约定.md` 第三节，样例见 `contracts/fixtures/profiles/ok-a18-home.json`。`startDate` 写开始日期，`week` 写 1，`round` 写 1，`weeks` 写 `[{ "week": 1, "start": 开始日期 }]`。
+7. **检查**：`npm run profile -- check profiles/<代号>`，0 个错误才算建好。它会和模板核对：阶段和年龄段、成品和场地、筛查逐项原话、上床时间公式。
 
 ## 告诉使用者
 
