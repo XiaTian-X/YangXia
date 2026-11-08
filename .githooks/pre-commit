@@ -26,6 +26,7 @@ BLOCK_PATH = [
     (re.compile(r"(^|/)\.(npmrc|netrc)$"), "可能含令牌的配置文件"),
     (re.compile(r"(^|/)\.claude/settings\.local\.json$"), "Claude Code 个人设置"),
     (re.compile(r"(^|/)CLAUDE\.local\.md$"), "Claude Code 个人说明"),
+    (re.compile(r"\.ics$"), "日历文件（训练安排属于个人数据）"),
 ]
 ALLOW_PATH = [re.compile(r"(^|/)\.env\.example$")]
 
@@ -36,8 +37,8 @@ CONTENT = [
     (re.compile(rb"\bgithub_pat_[A-Za-z0-9_]{30,}"), "GitHub 令牌（github_pat_…）"),
     (re.compile(rb"\bAKIA[0-9A-Z]{16}\b"), "AWS 访问密钥"),
 ]
-# 声明自己是个人档案 / 练习记录的数据文件（JSON 的 "schema": "…" 或 Markdown 开头的 schema: …）
-PERSONAL = re.compile(rb'(^|\n)\s*"?schema"?\s*:\s*"?yangxia\.(profile|session)/')
+# 声明自己是个人档案 / 练习记录的数据文件（JSON 的 "schema": "…"，含压成一行的 {"schema":…}；或 Markdown 开头的 schema: …）
+PERSONAL = re.compile(rb'(^|[\n{,])\s*"?schema"?\s*:\s*"?yangxia\.(profile|session)/')
 
 
 def git(*args):

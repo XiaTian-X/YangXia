@@ -39,6 +39,9 @@ secrets.*
 .claude/settings.local.json
 CLAUDE.local.md
 
+# 个人日历（训练安排导出的 .ics 属于个人数据）
+*.ics
+
 # 压缩包
 *.zip
 *.tar.gz
@@ -61,10 +64,16 @@ coverage/
 test-results/
 playwright-report/
 
-# 编排器导出的媒体；测试样例例外
+# 编排器导出的媒体；测试样例目录里的同类文件例外（只放开这四种，别的忽略规则照旧生效）
 *.webm
 *.wav
 *.mp4
 *.srt
-!contracts/fixtures/**
-!**/test/fixtures/**
+!contracts/fixtures/**/*.webm
+!contracts/fixtures/**/*.wav
+!contracts/fixtures/**/*.mp4
+!contracts/fixtures/**/*.srt
+!**/test/fixtures/**/*.webm
+!**/test/fixtures/**/*.wav
+!**/test/fixtures/**/*.mp4
+!**/test/fixtures/**/*.srt
