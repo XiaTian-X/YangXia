@@ -1,38 +1,98 @@
-# 养夏
+<p align="center">
+  <img src="https://raw.githubusercontent.com/XiaTian-X/xia-logo/main/yangxia/latest/yangxia-primary-latest.svg" alt="养夏 YǎngXià" width="360">
+</p>
 
-帮人从**作息、锻炼、饮食**三方面建立习惯的项目，由 AI agent 驱动。
+<h1 align="center">养夏 YǎngXià</h1>
 
-> 这些计划**不是医学建议，不能替代医生的判断**。有慢性病、伤病、怀孕等情况，先问医生。
+<p align="center">帮人从<b>作息、锻炼、饮食</b>三方面建立习惯，由 AI agent 驱动。</p>
+
+> **这些计划不是医学建议，不能替代医生的判断。** 有慢性病、伤病、怀孕等情况，先问医生。
+
+## 养夏 YǎngXià 是什么
+
+养夏 YǎngXià 把三样东西串起来：
+
+- **内容**来自**养夏计划模板**：按年龄段和场地分的四周计划，运动、三餐、睡眠都有；官方数字取自 WHO、国家卫健委等官方文件，出处写在每份计划末尾。
+- **跟练**用**养夏跟练编排器**：把一天的训练编成带语音报数、呼吸提示的跟练音频、视频和字幕。
+- **agent**（Claude Code）负责建档、选计划、导出跟练课程、周复盘、排菜单。它只在模板规则之内定制：课程里的组数、次数、休息都来自成品原文，由检查命令逐项核对。
 
 ## 由什么组成
 
 | 部分 | 是什么 | 在哪 |
 |---|---|---|
-| **养夏计划模板** | 按年龄段和场地分的四周计划（运动、三餐、睡眠），10 份成品 + 菜谱手册 + 动作图解 | `templates/`（独立仓库 YangXia-templates），用法见 `templates/README.md` |
-| **养夏跟练编排器** | 把一天的训练编成带语音报数、呼吸提示的跟练音频、视频和字幕 | `npm run build` 生成 `apps/sequencer/dist/养夏跟练编排器.html`（单文件，双击打开、离线可用）；和原版的对照见 `docs/编排器功能清单.md` |
-| **养夏课程核心库** | 课程格式、时间轴、字幕、课程检查，编排器和别的项目共用 | `packages/course-core/`；数据格式见 `docs/数据约定.md` |
-| **agent 工作流** | 建档、导出跟练课程、周复盘、排菜单 | `AGENTS.md`、`.claude/skills/` |
+| **养夏计划模板** | 9 份运动计划 + 1 份全家餐饮模板，另有三餐菜谱手册、动作图解手册（87 张动作示意图） | 独立仓库 `YangXia-templates`，放在 `templates/`；怎么选版本见 `templates/README.md` |
+| **养夏跟练编排器** | 把一天的训练编成跟练音频（WAV）、视频（WebM）和字幕（SRT），跟练完导出练习记录 | `apps/sequencer/`；`npm run build` 生成单文件 `apps/sequencer/dist/养夏跟练编排器.html`，双击打开、离线可用 |
+| **养夏课程核心库** | 课程格式、节奏、时间轴、字幕，课程导出和检查，档案检查（`npm run course`、`npm run profile`） | `packages/course-core/` |
+| **数据约定** | 课程、练习记录、个人档案、复盘数据的 JSON Schema 和离线样例 | `contracts/`；说明见 [docs/数据约定.md](docs/数据约定.md) |
+| **agent 工作流** | 建档、导出课程、周复盘、排菜单的流程，以及安全底线、隐私和提交规则 | [AGENTS.md](AGENTS.md)、[.claude/skills/](.claude/skills/) |
+
+## 覆盖哪些人
+
+| 使用者 | 场地 | 成品 | 能不能导出跟练课程 |
+|---|---|---|---|
+| 6–12 岁（小学生，家长使用） | 户外、家里、学校 | `6-12岁-户外与游戏版（家长版）` | 不导出，照成品原文做 |
+| 13–17 岁（初中生、高中生） | 家里或操场，零器械 | `13-17岁-纯徒手版` | 能 |
+| 18–39 岁 | 健身房 / 居家（2.5kg 哑铃 + 动感单车）/ 纯徒手 | `18-39岁-健身房版`、`18-39岁-居家版`、`18-39岁-纯徒手版` | 能 |
+| 40–64 岁 | 健身房 / 居家（2.5kg 哑铃 + 动感单车）/ 纯徒手 | `40-64岁-健身房版`、`40-64岁-居家版`、`40-64岁-纯徒手版` | 能 |
+| 65 岁以上、能自己走路 | 家里两把椅子 + 厨房台面 + 户外平路 | `65岁以上-椅子辅助版` | 能 |
+| 全家一起吃饭 | — | `全家餐饮模板`（配套的 `三餐菜谱手册` 只适用于 18–64 岁） | 不涉及，用来排菜单 |
+
+- 未成年人按**学段**选，不按年龄：12 岁已经上初中的用 13–17 岁版，13 岁还在读小学的用 6–12 岁版。
+- 能导出的成品里，也有一些动作暂时照成品原文做（交替动作、有氧和单车、65 岁以上的平衡动作等），导出时命令会逐条列出来。
+- **不覆盖**：学龄前儿童（0–5 岁）；孕期、产后 6 个月内。确诊慢性病的先问医生；残障人士在医生或康复治疗师指导下选择活动；最近一年跌倒过的老人先做一次正式的跌倒风险评估。
+
+## 安全底线
+
+能用代码查的都由代码查，不靠 agent 记忆：
+
+- **安全筛查**：有任何一项"是"、或者 65 岁以上的人，医生同意前不出计划，只建议先问医生；孕期、产后 6 个月内不出计划。
+- **不编处方**：组数、次数、强度、休息、官方数字都来自成品原文；区间取较轻松的一端（次数、组数、时长取下限，休息取上限）。课程由 `npm run course -- export` 从训练单导出，自带检查，0 错误才写文件。
+- **复盘放行**：每一周结束都要有周复盘，没放行导不出下一周的课程。个人进度（难度级、次数、重量）只能照成品规则改，每次改动写规则和依据，`npm run profile -- check` 重放核对。
+- **不适就停**：打卡或练习记录里出现疼痛、头晕、胸闷，停止加量，按成品里"疼了怎么办"处理，必要时建议就医；这一段里（或上一周）出现过，个人进度就不再往上加。
+- **年龄红线**：对 6–12 岁、13–17 岁不谈体重、热量、减肥、排名；不给 65 岁以上安排跳跃、闭眼、憋气。
+
+## 环境要求
+
+- Node.js 24 以上（命令行直接运行 TypeScript）
+- Python 3.9 以上（模板仓库的构建和校验只用标准库）
+- git
+- 跑冒烟测试还要装一次 Playwright 的 Chromium（见[开发](#开发)）
 
 ## 开始
 
-需要 Node 24 以上（命令行直接运行 TypeScript）、Python 3.9 以上、git。
+1. 把模板仓库 `YangXia-templates` 放在本仓库的 `templates/` 下（它是独立的 git 仓库，本仓库已忽略这个目录），或者设置环境变量 `YANGXIA_TEMPLATES` 指向它。用这条命令确认找到了（打印模板仓库的位置）：
 
-1. 把模板仓库放在 `templates/`，或者设置环境变量 `YANGXIA_TEMPLATES` 指向它。
-2. 安装依赖，启用两个仓库的提交前检查：
+   ```bash
+   npm run templates
+   ```
+
+   > `course export` 用到的训练单和规则参数（`templates/dist/data/`）目前只在模板仓库的 `v4-structure` 分支上，还没合并回 `main`、没发版；`main` 上的 v2.1 只有成品。
+
+2. 安装依赖：
 
    ```bash
    npm ci
    ```
 
+3. 启用两个仓库的提交前检查：
+
    ```bash
    npm run setup
    ```
 
-3. 只想看计划：直接打开 `templates/dist/` 里的成品，先读 `templates/README.md` 选对版本。
+4. 打包编排器，生成 `apps/sequencer/dist/养夏跟练编排器.html`（单文件，双击打开，不用联网）：
+
+   ```bash
+   npm run build
+   ```
+
+只想看计划：直接打开 `templates/dist/` 里的成品，先读 `templates/README.md` 选对版本。移动成品文件时要连 `img/` 文件夹一起移动。
 
 ## 和 agent 一起用
 
-在本仓库里打开 Claude Code，直接说要做什么，agent 会按 `.claude/skills/` 里的流程走，每一步都由检查命令把关：
+在本仓库里打开 Claude Code，直接说要做什么。agent 按 `.claude/skills/` 里的流程走，每一步都由检查命令把关。
+
+一轮的样子：建档 → 导出当天的课程 → 用编排器跟练、导出练习记录 → 周末复盘、决定下周 → 第 4 周结束后做月度总结、开下一段。
 
 | 你说 | agent 做什么 | 写到哪 |
 |---|---|---|
@@ -40,17 +100,120 @@
 | "导出今天的训练" | `course-export`：用 `npm run course -- export` 按训练单和个人进度导出这一天的课程 | `profiles/<代号>/课程/` |
 | （用编排器跟练） | 练完点"导出练习记录"，把文件放进打卡目录 | `profiles/<代号>/打卡/` |
 | "这周练完了" | `weekly-review`：按成品的达标线和升级规则决定下周、改个人进度；第 4 周后做月度总结、开下一段 | `profiles/<代号>/复盘/`（.md 和复盘数据 .json） |
-| "帮我排下周菜单" | `meal-plan`：按全家餐饮模板排菜单、算采购量 | `profiles/<代号>/菜单/` |
+| "帮我排下周菜单" | `meal-plan`：按全家餐饮模板排菜单、算份量和采购量 | `profiles/<代号>/菜单/` |
 
 安全筛查有"是"、或者 65 岁以上而医生还没同意的，不出课程；周复盘没放行，导不出下一周的课程。
 
+## 常用命令
+
+```bash
+npm run setup                                              # 新克隆后启用两个仓库的提交前检查
+npm run templates                                          # 打印模板仓库的位置，找不到时说明怎么放
+npm run course -- intake [年龄段]                          # 入口问卷、成品列表和这个年龄段的筛查项
+npm run course -- bedtime <阶段> <HH:MM>                   # 按公式算上床时间（如 初中 06:30），不要心算
+npm run course -- moves <成品名>                           # 这份成品能导出的动作、处方原文、呼吸节奏
+npm run course -- export profiles/<代号> <第几周> <哪天>   # 按训练单和档案导出一天的课程（可加 --out <文件>、--pick 组=动作）
+npm run course -- check <课程.json> --profile <档案.json>  # 检查课程：按训练单和档案进度逐项核对，连同安全筛查
+npm run course -- summary <课程.json>                      # 总时长、动作、组数
+npm run course -- srt <课程.json>                          # 打印 SRT 字幕
+npm run course -- cases                                    # 跑模板 manifest 里的红线校验样例
+npm run profile -- check profiles/<代号>                   # 档案、周次推进、进度日志、练习记录、课程、复盘和菜单的检查
+python3 templates/tpl.py all                               # 改了模板后构建 + 校验
+```
+
+`npm run course -- check <课程.json> --no-profile` 只检查课程本身，给样例和开发用，不能据此把课程交给使用者。
+
+## 个人数据和隐私
+
+```
+profiles/<代号>/
+  档案.json                              个人档案（onboard 写；weekly-review 追加 segments、改进度）
+  课程/第N段-第N周-X日.json              跟练课程（course export 写）
+  打卡/养夏_练习记录_<日期>_<时分>.json  练习记录（编排器导出后放进来）
+  复盘/<这一周的开始日期>-第N周.md       周复盘；第 4 周后还有 月度总结.md（weekly-review 写）
+  复盘/<这一周的开始日期>-第N周.json     复盘数据，和同名 .md 成对（weekly-review 写）
+  菜单/第N周.md                          一周菜单（meal-plan 写）
+  历史/第N段/                            新开一段时，上一段的 课程/ 打卡/ 复盘/ 可以整个移进来
+```
+
+- 个人数据（档案、打卡、练习记录、`.ics` 日历）只放在 `profiles/<代号>/`，不进 git，提交前检查也会拦；搜索工具搜不到这个目录，agent 只按文件名明确读取。
+- 用**代号**，不用真名。安全筛查只记"是 / 否"，不记诊断细节和用药。
+- 训练单用到的几项条件（有没有高血压、骨质疏松，家里有没有别人、有没有跳跃场地、有没有家长在旁边）每项只记"是 / 否"，建档时会如实告诉使用者；没记的一律按"没确认"导出保守版本。
+- agent 读档案时，内容会作为对话发给模型服务处理；除此之外不发往任何地址，也不放进链接参数。
+
+## 目录
+
+```
+AGENTS.md  CLAUDE.md     给 AI agent 看的总纲（CLAUDE.md 引用 AGENTS.md）
+README.md  CHANGELOG.md
+package.json             npm 工作区（packages/*、apps/*），package-lock.json 一起提交
+.githooks/pre-commit     提交前检查（和模板仓库是同一份脚本）
+.claude/                 项目设置、hooks（git 命令拦截、每轮结束的检查）、skills
+scripts/                 setup、找模板仓库、每轮结束的检查
+apps/sequencer/          养夏跟练编排器；reference/原版.html 是重构前的版本，只读
+packages/course-core/    养夏课程核心库
+contracts/               数据格式（JSON Schema）和离线样例 fixtures/
+docs/                    数据约定、编排器功能清单、重构方案、全面审查、历史文档
+templates/               模板仓库 YangXia-templates（独立 git，本仓库忽略）
+profiles/                个人数据（不提交）
+```
+
+## 开发
+
+### 测试
+
+```bash
+npm test             # 单元测试（模板不在时，安全相关测试照样跑）
+npm run typecheck    # 类型检查
+npm run e2e          # 打包编排器，用 Playwright 跑冒烟测试
+```
+
+第一次跑冒烟测试前装一次 Chromium：
+
+```bash
+npx playwright install chromium
+```
+
+### 改编排器或课程核心库
+
+- 按 `sequencer-dev` skill 的流程做。编排器的开发服务器：`npm run dev -w @yangxia/sequencer`。
+- `apps/sequencer/reference/原版.html` 只读；`npm run baseline` 从原版重建比对基线。和原版的功能对照、怎么验证没走样，见 [docs/编排器功能清单.md](docs/编排器功能清单.md)。
+
+### 改模板
+
+- 在模板仓库里按 `templates/AGENTS.md` 的规则改、在模板仓库里提交（`template-maintain` skill）。不直接改 `dist/`：改 `content/` 或 `figures/` 后运行 `python3 templates/tpl.py all`，要求 0 错误 0 警告。
+- 本仓库只读模板的发布物：`templates/dist/` 里的成品、`dist/manifest.json`、`dist/data/plans.json` 和 `rules.json`；不读 `content/`，不 import 模板的代码。
+
+### 提交规则
+
+- 新克隆先运行 `npm run setup`。**不准**用 `git commit --no-verify` / `-n` 跳过检查，也不准改 `core.hooksPath`；检查没过就改，不绕。
+- 在 Claude Code 里每轮结束会自动检查：模板有改动跑 `tpl.py all`，主仓库代码有改动跑单元测试，档案目录有改动跑 `profile check`；有错先修。
+- 只提交必要文件：临时文件、构建产物、导出的媒体、个人数据、密钥都不提交，规则见 `.gitignore`。
+- 依赖选发布超过两周的稳定版本，写死版本号，`package-lock.json` 一起提交。
+
+### 命名
+
+- 项目名称：**养夏 YǎngXià**。
+- 给人看的用中文「养夏」：显示名、页面标题、界面文字、文档和成品文件名（如「养夏跟练编排器」）。
+- 给程序读的用英文：目录、命令、npm 包名（`@yangxia/…`）、数据格式标识（`yangxia.course/1` 等）、git 标签、仓库名（`YangXia`、`YangXia-templates`）。
+
+## 进展
+
+- **v3（agent 驱动）**：阶段 0–4 已完成——骨架、课程核心库、跟练编排器、agent 工作流，以及之后的全面审查修订；模板发版 v2.1。
+- **v4（结构化模板与分阶段计划）**：
+  - 阶段 1「处方结构化」已实施：课程由命令从训练单导出，档案记段序列和个人进度。模板仓库的改动在 `v4-structure` 分支，还没合并、没发版。
+  - 阶段 2「评估和档案」：细化方案 r3 已过独立审查和复核，等用户定下第十节的事再开工。
+  - 之后的阶段（成人稳定期、成人目标模块、附册、其他年龄段）见 v4 方案第九节。
+- 每一次改了什么见 [CHANGELOG.md](CHANGELOG.md)；模板仓库的改动记在 `templates/CHANGELOG.md`。
+
 ## 文档
 
-- `AGENTS.md`：给 AI agent 看的总纲（安全底线、隐私、提交规则）。
-- `docs/数据约定.md`：课程、练习记录、个人档案、复盘数据的格式，课程导出、课程检查和档案检查查什么。
-- `docs/重构方案-v4（结构化模板与分阶段计划）.md`：现在的方案和进度（v3 已完成，见 `docs/重构方案-v3（agent驱动）.md`）。
-- `docs/history/`：历史方案。
-
-## 个人数据
-
-档案、打卡、练习记录只放在本地的 `profiles/`，不进 git；提交前检查也会拦截。
+- [AGENTS.md](AGENTS.md)：给 AI agent 看的总纲（安全底线、隐私、提交规则、常用命令）。
+- [docs/数据约定.md](docs/数据约定.md)：课程、练习记录、个人档案、复盘数据的格式，课程导出、课程检查和档案检查查什么。
+- [docs/编排器功能清单.md](docs/编排器功能清单.md)：编排器和原版的功能对照。
+- [docs/重构方案-v4（结构化模板与分阶段计划）.md](docs/重构方案-v4（结构化模板与分阶段计划）.md)：现在的方案、分阶段实施和需要用户决定的事。
+- [docs/v4 阶段 2 细化方案（评估和档案）.md](<docs/v4 阶段 2 细化方案（评估和档案）.md>)：阶段 2 的测试项、判定线、跨段和中断。
+- [docs/重构方案-v3（agent驱动）.md](docs/重构方案-v3（agent驱动）.md)：v3 方案（已完成）。
+- [docs/全面审查（2026-11-08）.md](docs/全面审查（2026-11-08）.md)：v3 完成后的全面审查记录。
+- [docs/history/](docs/history/)：历史方案。
+- `templates/README.md`：模板怎么选、怎么用（在模板仓库里）。
