@@ -55,6 +55,9 @@ CLAUDE.local.md
 # 个人健康数据：档案、打卡、练习记录（只存在本地）
 /profiles/
 
+# 重构前的原版编排器（带别人的商标），只在本地保留做比对，不提交
+apps/sequencer/reference/
+
 # 依赖和构建产物
 node_modules/
 apps/*/dist/

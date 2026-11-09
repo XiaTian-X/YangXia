@@ -87,7 +87,7 @@ AGENTS.md  CLAUDE.md  README.md  package.json
 .githooks/pre-commit   提交前检查（和模板仓库是同一份脚本）
 scripts/               setup、templates-path
 templates/             模板仓库（独立 git）
-apps/sequencer/        跟练编排器（npm run build → dist/养夏跟练编排器.html）；reference/原版.html 是重构前的版本，只读
+apps/sequencer/        跟练编排器（npm run build → dist/养夏跟练编排器.html）；reference/原版.html 是重构前的版本，只读，只在本地保留、不提交
 packages/course-core/  课程核心库：格式、节奏、时间轴、字幕、课程检查（npm run course）
 contracts/             课程、练习记录、个人档案的数据格式和样例（说明见 docs/数据约定.md）
 profiles/              个人数据（不提交）

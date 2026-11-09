@@ -150,7 +150,7 @@ package.json             npm 工作区（packages/*、apps/*），package-lock.j
 .githooks/pre-commit     提交前检查（和模板仓库是同一份脚本）
 .claude/                 项目设置、hooks（git 命令拦截、每轮结束的检查）、skills
 scripts/                 setup、找模板仓库、每轮结束的检查
-apps/sequencer/          养夏跟练编排器；reference/原版.html 是重构前的版本，只读
+apps/sequencer/          养夏跟练编排器；reference/原版.html 是重构前的版本，只在本地保留、不提交
 packages/course-core/    养夏课程核心库
 contracts/               数据格式（JSON Schema）和离线样例 fixtures/
 docs/                    数据约定、编排器功能清单、重构方案、全面审查、历史文档
@@ -177,7 +177,7 @@ npx playwright install chromium
 ### 改编排器或课程核心库
 
 - 按 `sequencer-dev` skill 的流程做。编排器的开发服务器：`npm run dev -w @yangxia/sequencer`。
-- `apps/sequencer/reference/原版.html` 只读；`npm run baseline` 从原版重建比对基线。和原版的功能对照、怎么验证没走样，见 [docs/编排器功能清单.md](docs/编排器功能清单.md)。
+- `apps/sequencer/reference/原版.html` 是重构前的原版，带别人的商标，只在本地保留、不提交；单元测试只用已提交的基线 `apps/sequencer/test/fixtures/original-baseline.json`，本地有原版时可以用 `npm run baseline` 重建基线。和原版的功能对照、怎么验证没走样，见 [docs/编排器功能清单.md](docs/编排器功能清单.md)。
 
 ### 改模板
 
