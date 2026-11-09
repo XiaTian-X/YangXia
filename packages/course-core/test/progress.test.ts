@@ -151,7 +151,7 @@ describe("个人进度：建档", () => {
     expect(run(BW, [1], [{ date: "2026-11-09", move: "pushup", field: "reps", to: 12, rule: "建档" }], { pushup: { reps: 12 } })).toMatch(/区间下限 8/);
   });
   it("拦下：第 1 周不能用的级（分腿蹲第 2 级）", () => {
-    expect(run(BW, [1], [{ date: "2026-11-09", move: "split-squat", field: "level", to: 2, rule: "建档" }], { "split-squat": { level: 2 } })).toMatch(/不能用/);
+    expect(run(BW, [1], [{ date: "2026-11-09", move: "split-squat", field: "level", to: 2, rule: "建档" }], { "split-squat": { level: 2 } })).toMatch(/起步能用的级/);
   });
   it("拦下：档案的 progress 和日志重放对不上（直接改了进度）", () => {
     expect(run(BW, [1], [], { pushup: { level: 4 } })).toMatch(/按 progressLog 重放应该是/);
@@ -185,6 +185,10 @@ describe("个人进度：找级（第 1–2 周，按练习记录的感受调一
   it("拦下：没写依据", () => {
     expect(run(BW, [1], [{ date: "2026-11-11", move: "pushup", field: "level", to: 2, rule: "找级" }], { pushup: { level: 2 } })).toMatch(/依据要写/);
   });
+  it("拦下：两份记录都在上一次改动之前（攒着连升两级）", () => {
+    expect(run(BW, [1], [step("2026-11-13", 2), step("2026-11-14", 3, "打卡/2026-11-12.json")], { pushup: { level: 3 } },
+      { sessions: [s(up), s(up, "2026-11-12")] })).toMatch(/上一次改动/);
+  });
   it("拦下：同一份练习记录连着用（一份记录升好几级）", () => {
     expect(run(BW, [1], [step("2026-11-11", 2), step("2026-11-12", 3)], { pushup: { level: 3 } }, { sessions: [s(up)] })).toMatch(/只能用一次/);
   });
@@ -214,12 +218,12 @@ describe("个人进度：升级（达标、允许的周、紧挨着的上一周�
     // 臀桥是"3 组 × 20 次"，次数就是上限
     expect(run(BW, [1, 2, 3, 4], [lvUp("2026-11-30", 3)], { "glute-bridge": { level: 2, reps: 20 } }, { reviews: easy(3) })).toBe("");
   });
-  it("拦下：次数还没到区间上限就升级", () => {
+  it("放行：俯卧撑 8–15 次，档案次数还没加到 15，上一周复盘每组都做到上限就能升（18–39 岁第 4 周的正常路径）", () => {
     expect(run(BW, [1, 2, 3, 4], [{ date: "2026-11-30", move: "pushup", field: "level", to: 2, rule: "升级", evidence: ev(3) }],
-      { pushup: { level: 2, reps: 8 } }, { reviews: rv(3, [{ move: "pushup", allAtTop: true, spare: 2 }]) })).toMatch(/要到区间上限 15/);
+      { pushup: { level: 2, reps: 8 } }, { reviews: rv(3, [{ move: "pushup", allAtTop: true, spare: 2 }]) })).toBe("");
   });
   it("拦下：复盘里没有每组做满", () => {
-    expect(run(BW, [1, 2, 3, 4], [lvUp("2026-11-30", 3)], { "glute-bridge": { level: 2, reps: 20 } }, { reviews: easy(3, false) })).toMatch(/每组都做到上限/);
+    expect(run(BW, [1, 2, 3, 4], [lvUp("2026-11-30", 3)], { "glute-bridge": { level: 2, reps: 20 } }, { reviews: easy(3, false) })).toMatch(/每组都做到区间上限/);
   });
   it("拦下：依据不是紧挨着的上一周（拿第 1 周的复盘升级）", () => {
     expect(run(BW, [1, 2, 3, 4], [lvUp("2026-11-30", 1)], { "glute-bridge": { level: 2, reps: 20 } }, { reviews: easy(1) })).toMatch(/紧挨着的上一周/);
@@ -324,5 +328,24 @@ describe("个人进度：健身房重量", () => {
   });
   it("拦下：还没记过起始重量就加重", () => {
     expect(run(GYM, [1, 2, 3], [{ date: "2026-11-23", move: "gym-smith-squat", field: "weight", to: 25, rule: "加重" }], { "gym-smith-squat": { weight: 25 } })).toMatch(/还没记过起始重量/);
+  });
+});
+
+describe("复核后补的拦截：轮次、条件变体的级、换成品", () => {
+  const lv = (date: string, to: number, file: string) => ({ date, move: "sl-rdl", field: "level", to, rule: "找级", evidence: file });
+  const ses = (date: string) => session(date, [{ exercise: "sl-rdl", feel: up }]);
+  it("拦下：第 2 段骨质疏松没确认，单腿硬拉仍然只到扶墙那一级", () => {
+    const p = profile(BW40, [1, 2, 3, 4, 1], [1, 1, 1, 1, 2]);
+    p.conditions = {};
+    p.progressLog = [lv("2026-12-08", 2, "打卡/2026-12-07.json"), lv("2026-12-10", 3, "打卡/2026-12-09.json")];
+    p.progress = { "sl-rdl": { level: 3 } };
+    expect(msgs(checkProgressLog(p, plans, rules, [ses("2026-12-07"), ses("2026-12-09")], reviewsFor(p), NOW))).toMatch(/第 3 级这一周不能用/);
+  });
+  it("拦下：练 1 周就换成品，不算第 2 轮；建档不能直接用以后几轮才放开的级", () => {
+    const p = profile(BW, [1, 1], [1, 2]);
+    p.segments[1].product = p.product = HOME;
+    p.progressLog = [{ date: "2026-11-16", move: "split-squat", field: "level", to: 3, rule: "建档" }];
+    p.progress = { "split-squat": { level: 3 } };
+    expect(msgs(checkProgressLog(p, plans, rules, [], reviewsFor(p), NOW))).toMatch(/起步能用的级/);
   });
 });

@@ -3,7 +3,7 @@
 // - 每一周结束都有周复盘（复盘/<开始日期>-第N周.md 和同名 .json），不复盘不能进下一周；
 // - 一周里有疼痛、头晕、胸闷，下一周不能往上走，这一周之后的进度也不能往上加；
 // - 进度只能照成品的规则改（找级、升级、加次数、加重各有允许的周和依据），一次只改一样，重放日志要等于档案的 progress。
-import { allowedLevels, currentSegment, type PlansData, progressRow, ruleValue, type RulesData, startLevel } from "./plan.ts";
+import { allowedLevels, currentSegment, type PlansData, progressRow, roundOf, ruleValue, type RulesData, startLevel } from "./plan.ts";
 import type { Issue } from "./types.ts";
 
 export interface SegmentEntry {
@@ -237,6 +237,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
   const upOnDate = new Map<string, number>();
   const oncePerWeek = new Set<string>();
   const usedEvidence = new Set<string>();
+  const lastChange = new Map<string, string>();   // 动作 → 上一次改动的日期（找级的依据要晚于它）
   const sessionAt = (name: string) => sessions.find((s) => s.name === name || s.name.endsWith(`/${name}`));
   const sessionPeriod = (s: SessionFile) => periodIndex(ss, Date.parse(s.raw?.startedAt));
   const sickPeriods = new Set<number>();
@@ -272,7 +273,10 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
     const field = e.field as Field;
     const to = e.to as number;
     const from = cur[field] !== undefined && cur.product[field] === period.product ? cur[field] : undefined;
-    const allowed = allowedLevels(p, row, period.n);
+    const round = roundOf(profile, plans, pi);
+    const allowed = allowedLevels(p, row, round, rules);
+    // 建档只能用第 1 轮这一周允许的级（换成品重新建档也一样）；以后几轮才放开的级要一级一级"升"上去
+    const startAllowed = allowedLevels(p, row, 1, rules);
     const productStart = ss.findIndex((x, k) => x.product === period.product && (k === 0 || ss[k - 1].product !== period.product));
     if (field === "level" && !ladder) { err(i, `「${e.move}」没有难度阶梯，不记 level`); continue; }
     if (field === "reps" && row && row.reps_from !== "progress") { err(i, `「${e.move}」的次数由当周的表定（周表），不记进度`); continue; }
@@ -316,7 +320,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       const okDay = field === "weight" ? pi === productStart : e.date === ss[productStart].start;
       if (from !== undefined) err(i, `「${e.move}」的 ${field} 在这份成品里已经有值，建档只能写一次（降、升按规则写）`);
       else if (!okDay) err(i, field === "weight" ? "起始重量在这份成品开始的那一周里记" : `建档只能在这份成品开始那天（${ss[productStart].start}）写`);
-      else if (field === "level" && !allowed.has(to)) err(i, `第 ${to} 级这一周不能用（可以用第 ${[...allowed].join("、")} 级）`);
+      else if (field === "level" && !startAllowed.has(to)) err(i, `建档只能用这一周起步能用的级（第 ${[...startAllowed].join("、")} 级），写的是第 ${to} 级`);
       else if (field === "reps" && row?.reps && to !== row.reps.min) err(i, `建档时次数取区间下限 ${row.reps.min}，写的是 ${to}`);
     } else if (before === undefined) {
       err(i, field === "weight" ? `「${e.move}」还没记过起始重量：先写一条"建档"` : `「${e.move}」没有起始值`);
@@ -351,6 +355,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         else if (Math.abs(to - before!) !== 1) err(i, `找级一次只能上下调一级（第 ${before} 级 → 第 ${to} 级）`);
         else if (!allowed.has(to)) err(i, `第 ${to} 级这一周不能用（可以用第 ${[...allowed].join("、")} 级）`);
         else if (problem) err(i, `找级：${problem}，记录里这个动作的感受要是"${want}"`);
+        else if (lastChange.has(e.move) && localDate(new Date(Date.parse(sess!.raw?.startedAt))) <= lastChange.get(e.move)!) err(i, `找级的依据要是上一次改动（${lastChange.get(e.move)}）之后练的那一次`);
         else if (it.feel !== want) err(i, `依据的练习记录里这个动作的感受是"${it.feel ?? "（没填）"}"，${to > before! ? "升" : "降"}一级要"${want}"`);
         break;
       }
@@ -365,15 +370,13 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         break;
       case "升级": {
         const nextRound = weeksOf("下一轮升级");
-        const okWeek = inWeeks("升级周") || (!!nextRound && period.n >= 2 && period.week >= nextRound.min);
-        const top = row?.reps?.max;
+        const okWeek = inWeeks("升级周") || (!!nextRound && round >= 2 && period.week >= nextRound.min);
         const rv = prevReview();
         if (field !== "level" || to !== before! + 1) err(i, "升级是难度级加一级");
-        else if (!okWeek) err(i, `第 ${period.n} 段第 ${period.week} 周不能升级（${weeksOf("升级周") === null ? "这一版这一轮不升级，下一轮从第 1 周起" : `升级周：${fmtWeeks(weeksOf("升级周"))}`}）`);
+        else if (!okWeek) err(i, `第 ${round} 轮（第 ${period.n} 段）第 ${period.week} 周不能升级（${weeksOf("升级周") === null ? "这一版这一轮不升级，下一轮从第 1 周起" : `升级周：${fmtWeeks(weeksOf("升级周"))}`}）`);
         else if (!allowed.has(to)) err(i, `第 ${to} 级这一周不能用（可以用第 ${[...allowed].join("、")} 级）`);
-        else if (top !== undefined && (cur.reps ?? row!.reps!.min) !== top) err(i, `升级要先达标：档案里这个动作的次数要到区间上限 ${top}，现在是 ${cur.reps ?? row!.reps!.min}`);
         else if ("error" in rv) err(i, `升级：${rv.error}`);
-        else if (!rv.m || rv.m.allAtTop !== true || !(rv.m.spare >= 1)) err(i, "升级要达标：上一周的复盘数据里这个动作每组都做到上限、最后一组还有余力");
+        else if (!rv.m || rv.m.allAtTop !== true || !(rv.m.spare >= 1)) err(i, "升级要达标：上一周的复盘数据里这个动作每组都做到区间上限、最后一组还有余力（成品的\"达标\"）");
         break;
       }
       case "加次数": {
@@ -410,6 +413,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
     }
     cur[field] = to;
     cur.product[field] = period.product;
+    if (field === "level") lastChange.set(e.move, e.date);
     if (e.rule === "升级" && row?.reps) {
       cur.reps = row.reps.min;   // 升级后次数回到区间下限
       cur.product.reps = period.product;
@@ -437,7 +441,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       if (!row) continue;
       if (v.level !== undefined && p.ladders[k] && state[k]?.level !== undefined && state[k]?.product?.level !== seg.product) {
         out.push({ level: "error", path: `progress.${k}.level`, message: `难度级是在别的成品里定的，换成「${seg.product}」后要重新"建档"（各成品的级号意思不同）` });
-      } else if (v.level !== undefined && p.ladders[k] && !allowedLevels(p, row, seg.n).has(v.level)) {
+      } else if (v.level !== undefined && p.ladders[k] && !allowedLevels(p, row, roundOf(profile, plans), rules).has(v.level)) {
         out.push({ level: "warning", path: `progress.${k}.level`, message: `第 ${v.level} 级这一周（第 ${seg.n} 段第 ${seg.week} 周）不能用，导出前要降回能用的级` });
       }
       if (v.reps !== undefined && row.reps && (v.reps < row.reps.min || v.reps > row.reps.max)) {

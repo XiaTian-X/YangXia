@@ -239,6 +239,15 @@ function courseIssues(t: Templates, profile: Record<string, any>, scan: ReturnTy
         return { day, progress: progressOn(profile, t.plans!, t.rules!, day) };
       });
       const hit = earlier.find((e) => !checkCourse(c.raw, ctx({ ...profile, progress: e.progress })).some((i) => i.level === "error"));
+      // 那之后往下调过（减量、退回、找级降级），或者有过不适：旧课程比现在的进度重，不能只提醒
+      const downAfter = hit && (profile.progressLog ?? []).some((e: any) => e?.date > hit.day && (e.rule === "减量" || e.rule === "退回"
+        || (e.rule === "找级" && Number(e.to) < Number(progressOn(profile, t.plans!, t.rules!, hit.day)?.[e.move]?.[e.field] ?? Infinity))));
+      const sickAfter = hit && scan.sessions.some((s) => { const st = Date.parse(s.raw?.startedAt); return !Number.isNaN(st) && st >= new Date(`${hit.day}T00:00:00`).getTime()
+        && !!(s.raw?.symptoms?.pain || s.raw?.symptoms?.dizzy || s.raw?.symptoms?.chest); });
+      if (hit && (downAfter || sickAfter)) {
+        out.push({ level: "error", path: c.name, message: `这份课程是按 ${hit.day} 的进度导出的，之后${sickAfter ? "有过疼痛、头晕或胸闷" : "进度往下调过"}：旧课程比现在重，删掉或者重新导出` });
+        continue;
+      }
       if (hit) {
         out.push({ level: "warning", path: c.name, message: `档案进度在这份课程导出之后改过（它对得上 ${hit.day} 的进度）：要再练就重新导出` });
         continue;
@@ -327,7 +336,7 @@ async function main(argv: string[]): Promise<number> {
       // 档案目录里的周复盘、进度日志也要过：不复盘、不按规则改进度，课程就不能交出去
       if (basename(rest[pi + 1]) === "档案.json") {
         issues.push(...progressIssues(t, profile, scanDir(dirname(rest[pi + 1]), t, profile)).filter((i) => i.level === "error"));
-      } else issues.push({ level: "warning", path: "", message: "--profile 给的不是档案目录里的 档案.json：没核对周复盘和个人进度，交给使用者前要 npm run profile -- check" });
+      } else issues.push({ level: "error", path: "", message: "--profile 要给档案目录里的 档案.json（profiles/<代号>/档案.json）：周复盘和个人进度要连同目录一起核对" });
     }
     if (pi < 0) issues.push({ level: "warning", path: "", message: "没有带档案：没核对安全筛查、成品和周次" });
     return print(issues);

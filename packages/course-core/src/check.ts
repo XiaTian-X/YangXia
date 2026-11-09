@@ -15,7 +15,7 @@ import { buildTimeline } from "./timeline.ts";
 import type { Course, CourseItem, Issue } from "./types.ts";
 import { validateCourse } from "./validate.ts";
 import { canSpeak } from "./voice.ts";
-import { checkPlanCourse, currentSegment, isStartCourse, type PlansData, type RulesData } from "./plan.ts";
+import { checkPlanCourse, currentSegment, isStartCourse, type PlansData, roundOf, type RulesData } from "./plan.ts";
 
 export interface CheckContext {
   manifest: Manifest;
@@ -336,7 +336,7 @@ export function checkCourse(raw: unknown, ctx: CheckContext): Issue[] {
       });
       // 成品写明"第 N 周开始做""下一轮才用"的动作，不能提前导出
       const uses = ex.used_in.filter((u) => u.product === product.name);
-      const round = currentSegment((ctx.profile ?? {}) as Record<string, any>)?.n ?? 1;
+      const round = ctx.plans ? roundOf((ctx.profile ?? {}) as Record<string, any>, ctx.plans) : currentSegment((ctx.profile ?? {}) as Record<string, any>)?.n ?? 1;
       if (uses.length && uses.every((u) => (u.from_week ?? 1) > week)) {
         err(`${p}.exercise`, `「${ex.name}」成品写明第 ${Math.min(...uses.map((u) => u.from_week ?? 1))} 周开始做，现在是第 ${week} 周`);
       }

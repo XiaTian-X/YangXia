@@ -95,17 +95,37 @@ export function conditionValue(rules: RulesData, profile: Obj, name: string): bo
 }
 
 /** 这一段（第 n 段）、这一周允许的难度级：第 1 段按训练单这一行的"级"；第 2 段起按阶梯表"成品 + 以后"放开（成品："下一轮第 1 周直接用最后定下的级"）。 */
-export function allowedLevels(p: ProductPlan, row: PlanRow | null, n: number): Set<number> {
+export function allowedLevels(p: ProductPlan, row: PlanRow | null, round: number, rules?: RulesData): Set<number> {
   const out = new Set<number>();
+  // 条件变体（不是正文那一边）写的级是上限，哪一轮都生效（如骨质疏松：单腿硬拉只到扶墙那一级）
+  const c = row?.condition;
+  const variant = !!c && !!rules && rules.conditions[c.name] && c.value !== rules.conditions[c.name].text;
   for (const mv of row?.moves ?? []) {
     const ladder = p.ladders[mv];
     if (!ladder) continue;
     for (const lv of ladder) {
       const later = lv.later?.[p.code];
-      if (n <= 1 ? lv.usable && (row?.levels ?? []).includes(lv.level) : lv.usable || (later !== undefined && later <= n)) out.add(lv.level);
+      const ok = round <= 1 ? lv.usable && (row?.levels ?? []).includes(lv.level) : lv.usable || (later !== undefined && later <= round);
+      if (ok && (!variant || (row?.levels ?? []).includes(lv.level))) out.add(lv.level);
     }
   }
   return out;
+}
+
+/**
+ * 第几轮：这一项之前，同一个年龄段已经练完第 4 周的段有几段，再加 1。
+ * 换成品、没练满 4 周就新开的段不算一轮（"下一轮才用"的级、40–64 岁推迟的升级要真的练完一轮）。
+ */
+export function roundOf(profile: Obj, plans: PlansData, index?: number): number {
+  const ss: Obj[] = Array.isArray(profile?.segments) ? profile.segments : [];
+  if (!ss.length) return 1;
+  const i = index ?? ss.length - 1;
+  const age = plans.products[ss[i].product]?.age;
+  const done = new Set<number>();
+  for (let k = 0; k < i; k++) {
+    if (ss[k].n < ss[i].n && ss[k].week === 4 && plans.products[ss[k].product]?.age === age) done.add(ss[k].n);
+  }
+  return 1 + done.size;
 }
 
 
@@ -286,7 +306,7 @@ export function exportCourse(input: ExportInput): ExportResult {
     if (ladder) {
       const level = Number.isInteger(progress[move]?.level) ? progress[move].level : startLevel(ladder);
       lv = ladder.find((l) => l.level === level) ?? null;
-      const ok = allowedLevels(p, { ...r, moves: [move] }, seg.n);
+      const ok = allowedLevels(p, { ...r, moves: [move] }, roundOf(profile, plans), rules);
       if (!lv || !ok.has(level)) {
         err(`profile.progress.${move}.level`, `「${move}」第 ${level} 级第 ${seg.n} 段第 ${week} 周不能用（这一周可以用第 ${[...ok].join("、")} 级）`);
         continue;
