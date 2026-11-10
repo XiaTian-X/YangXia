@@ -176,6 +176,11 @@ function progressIssues(t: Templates, profile: Record<string, any>, scan: Return
   return out;
 }
 
+/** 评估记录、复盘数据、练习记录本身的写法错误（导出、带档案的课程检查也要拦，不只是 profile check）。 */
+function recordIssues(scan: ReturnType<typeof scanDir>): Issue[] {
+  return scan.issues.filter((i) => /^(评估|复盘|打卡)[\\/]/.test(i.path) || /^历史[\\/]第\d+段[\\/](评估|复盘|打卡)[\\/]/.test(i.path));
+}
+
 function assessCtx(t: Templates, profile: Record<string, any>, scan: ReturnType<typeof scanDir>) {
   return { profile, manifest: t.manifest, plans: t.plans, rules: t.rules, sessions: scan.sessions, reviewData: scan.reviewData, assessments: scan.assessments };
 }
@@ -188,7 +193,7 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
   const scan = scanDir(dir, t, profile);
   const pre = [...validateProfile(profile).map((i) => ({ ...i, path: `档案.json ${i.path}` })),
     ...checkProfileWithTemplates(profile, t.manifest).map((i) => ({ ...i, path: `档案.json ${i.path}` })),
-    ...progressIssues(t, profile, scan)].filter((i) => i.level === "error");
+    ...progressIssues(t, profile, scan), ...recordIssues(scan)].filter((i) => i.level === "error");
   if (pre.length) {
     console.log("档案目录没通过检查（周复盘、个人进度、档案本身），先改好再导出（npm run profile -- check）：");
     return print(pre);
@@ -439,7 +444,7 @@ async function main(argv: string[]): Promise<number> {
       // 档案目录里的周复盘、进度日志也要过：不复盘、不按规则改进度，课程就不能交出去
       if (basename(rest[pi + 1]) === "档案.json") {
         const scan = scanDir(dirname(rest[pi + 1]), t, profile);
-        issues.push(...progressIssues(t, profile, scan).filter((i) => i.level === "error"));
+        issues.push(...[...progressIssues(t, profile, scan), ...recordIssues(scan)].filter((i) => i.level === "error"));
         const doc = doctorNeed(assessCtx(t, profile, scan));
         if (doc.needed && !doc.ok) issues.push({ level: "error", path: "screening", message: `医生同意之前不出课程（${doc.reason}：医生同意的日期 doctorDate 要不早于 ${doc.after}）` });
       } else issues.push({ level: "error", path: "", message: "--profile 要给档案目录里的 档案.json（profiles/<代号>/档案.json）：周复盘和个人进度要连同目录一起核对" });

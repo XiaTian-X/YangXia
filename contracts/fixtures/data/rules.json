@@ -1368,7 +1368,7 @@
      "text": "四周 ≥6 练算训练这条成功"
     }
    ],
-   "note": "设计值 REDUCED_END：达到减量段的成功线，下一段回到标准段"
+   "note": "设计值 REDUCED_END_YOUTH：达到减量段的成功线，下一段回到标准段"
   },
   {
    "products": [
@@ -1391,7 +1391,7 @@
    "next": "减量",
    "targets": [],
    "quotes": [],
-   "note": "设计值 REDUCED_END：没达到，再来一段减量段"
+   "note": "设计值 REDUCED_END_YOUTH：没达到，再来一段减量段"
   },
   {
    "products": [
@@ -1594,7 +1594,7 @@
      "text": "四周 ≥6 练算训练这条成功"
     }
    ],
-   "note": "设计值 REDUCED_END：达到减量段的成功线，下一段回到标准段"
+   "note": "设计值 REDUCED_END_SENIOR：达到减量段的成功线，下一段回到标准段"
   },
   {
    "products": [
@@ -1617,7 +1617,7 @@
    "next": "减量",
    "targets": [],
    "quotes": [],
-   "note": "设计值 REDUCED_END：没达到，再来一段减量段"
+   "note": "设计值 REDUCED_END_SENIOR：没达到，再来一段减量段"
   },
   {
    "products": [

@@ -483,3 +483,60 @@ describe("实施审查后的修订（拦下 / 放行）", () => {
     expect(e).toMatchObject({ result: "不评重来", habitTargets: { 按时上床: { line: 16 } } });
   });
 });
+
+describe("复核后的修订（拦下 / 放行）", () => {
+  const bwT = [{ id: "pushup-test", level: 2, value: 12 }, { id: "wallsit-test", value: 30 }];
+  const t65 = [{ id: "chair-stand-30s", value: 10, hands: "扶椅子", done: true }];
+  it("第 4 周换成品：段型照段末结论，习惯目标只留新成品也有的", () => {
+    const { p, rv } = twoSegs("18-39岁-纯徒手版", 2, {}, "标准");
+    p.segments[4].product = "18-39岁-居家版";
+    p.product = "18-39岁-居家版";
+    const end = endRec(p, 1, { result: "减量", next: "减量" }, { tests: bwT });
+    const sw = rec(p.segments[4].start, "触发", { reasons: ["换场地"], product: "18-39岁-居家版", tests: [{ id: "pushup-test", level: 2, value: 12 }], conclusion: {} });
+    expect(errs(ctx(p, rv, [entry(p, { tests: bwT, conclusion: {} }), end, sw])).join()).toMatch(/下一段要是减量段/);
+    p.segments[4].type = "减量";
+    p.segments[4].habitTargets = { 散步: { days: 1 } };
+    expect(errs(ctx(p, rv, [entry(p, { tests: bwT, conclusion: {} }), end, sw])).join()).toMatch(/习惯目标应该是 \{\}/);
+  });
+  it("拖长的周：没有练习记录时按开始后第 7 天算最后一次训练，长时间中断照样报", () => {
+    const p = profile("18-39岁-纯徒手版", [[1, 1], [1, 2]]);
+    p.segments[1].start = "2026-08-03";
+    p.segments.push({ n: 1, type: "标准", week: 3, start: "2026-11-10", product: p.product });
+    const rv = [review(p, 0), review(p, 1, { trainings: 2 })];
+    expect(errs(ctx(p, rv, [entry(p, { tests: bwT, conclusion: {} })], "2026-11-10")).join()).toMatch(/断了 \d+ 天/);
+  });
+  it("入学年份写成将来：拦下", () => {
+    const p = profile("13-17岁-纯徒手版");
+    p.school = { stage: "初中", entry: 2027 };
+    expect(errs(ctx(p, [], [entry(p, { conclusion: {} })])).join()).toMatch(/入学年份 2027 还没到/);
+  });
+  it("满 65 岁换版的正常顺序（先重做筛查、再看医生、再做换段评估和坐站测试）：放行", () => {
+    const p = profile("40-64岁-纯徒手版", [[1, 1], [1, 2], [2, 1]]);
+    p.segments[2].start = "2026-07-06";
+    p.segments[2].product = "65岁以上-椅子辅助版";
+    Object.assign(p, { product: "65岁以上-椅子辅助版", age: "a65", stage: "65 岁以上", venue: "chair", birth: "1961-07", habitBase: { 散步: 20 } });
+    delete p.body;
+    p.screening = { answers: manifest.intake.screening.find((s) => s.age === "a65")!.items.map((item) => ({ item, answer: "否" })), doctorCleared: true, date: "2026-07-01", doctorDate: "2026-07-02" };
+    const e40 = entry(p, { tests: bwT, prereqs: { checkup: true, bpOk: true }, conclusion: { needDoctor: false } });
+    const sw = rec("2026-07-03", "触发", { reasons: ["跨段"], product: "65岁以上-椅子辅助版", tests: t65, companion: true, doctorCleared: true, doctorDate: "2026-07-02", conclusion: {} });
+    expect(errs(ctx(p, [review(p, 0), review(p, 1)], [e40, sw]))).toEqual([]);
+    p.screening.date = "2026-06-20";   // 还没满 65 岁时做的筛查：要重做
+    expect(errs(ctx(p, [review(p, 0), review(p, 1)], [e40, sw])).join()).toMatch(/重新做安全筛查/);
+  });
+  it("体重下降只算一年内的；一周摔了两次只记了一次：按那一周最后一天算", () => {
+    const p = profile("65岁以上-椅子辅助版", [[1, 1], [1, 2]]);
+    const e0 = entry(p, { tests: t65, companion: true, doctorCleared: true, doctorDate: START, conclusion: {} });
+    const old = rec("2025-06-01", "段末", { segment: 9, weightDrop: true });
+    expect(errs(ctx(p, [review(p, 0, { trainings: 3 })], [e0, old])).join()).not.toMatch(/体重明显下降/);
+    const fall = rec(p.segments[0].start, "触发", { reasons: ["摔倒"], eventDate: p.segments[0].start, conclusion: {} });
+    p.screening.answers.find((a: any) => /摔倒/.test(a.item)).answer = "是";
+    p.screening.date = p.screening.doctorDate = plus(START, 2);
+    const c = ctx(p, [review(p, 0, { trainings: 3, falls: 2 })], [e0, fall]);
+    expect(doctorNeed(c)).toMatchObject({ ok: false, after: plus(START, 6) });
+  });
+  it("65 岁以上减量段的复盘记了放松：不报错（照做不考核）", () => {
+    const p = profile("65岁以上-椅子辅助版", [[1, 1, "减量"], [1, 2, "减量"]]);
+    const e0 = entry(p, { tests: t65, companion: true, doctorCleared: true, doctorDate: START, conclusion: {} });
+    expect(errs(ctx(p, [review(p, 0, { trainings: 2 })], [e0])).join()).not.toMatch(/打卡项/);
+  });
+});
