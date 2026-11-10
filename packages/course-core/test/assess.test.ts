@@ -540,3 +540,51 @@ describe("复核后的修订（拦下 / 放行）", () => {
     expect(errs(ctx(p, [review(p, 0, { trainings: 2 })], [e0])).join()).not.toMatch(/打卡项/);
   });
 });
+
+describe("用户定的 5 条（细化方案第十三节）", () => {
+  const bwT = [{ id: "pushup-test", level: 2, value: 12 }, { id: "wallsit-test", value: 30 }];
+  const t65 = [{ id: "chair-stand-30s", value: 10, hands: "扶椅子", done: true }];
+  it("1：65 岁以上先看医生、医生同意以后照后面几条走：训练 < 8 下一段要是减量段", () => {
+    const a65 = { habits: { 散步: 5, 放松: 5 }, falls: 0, nearFalls: 0, dizzy: 0 };
+    const { p, rv } = twoSegs("65岁以上-椅子辅助版", 1, { all: a65, 1: { ...a65, nearFalls: 1 } });
+    const dr = { doctorCleared: true, doctorDate: START };
+    const e0 = entry(p, { tests: t65, companion: true, ...dr, conclusion: {} });
+    const e = endRec(p, 1, { result: "先看医生", next: "不开" });
+    const back = rec(p.segments[4].start, "触发", { reasons: ["看完医生回来"], doctorCleared: true, doctorDate: p.segments[4].start, conclusion: {} });
+    p.screening.doctorDate = p.segments[4].start;
+    expect(errs(ctx(p, rv, [e0, e, back])).join()).toMatch(/医生同意以后照后面几条走.*下一段要是减量段/);
+    p.segments[4].type = "减量";
+    expect(errs(ctx(p, rv, [e0, e, back]))).toEqual([]);
+    // ≥ 10 练：只给"原样"，不给"加一项"
+    const end: any = segmentEnd(twoSegs("65岁以上-椅子辅助版", 3, { all: a65 }).p, 1, Object.fromEntries(twoSegs("65岁以上-椅子辅助版", 3, { all: a65 }).rv), ar, "a65·chair", { afterDoctor: true });
+    expect(end).toMatchObject({ result: "原样", downgraded: true });
+  });
+  it("2：停记以前记的身体数据保留，之后的新记录拦下；停记要写日期", () => {
+    const p = profile("18-39岁-纯徒手版", [...fullSeg(1), [2, 1]]);
+    const rv = [0, 1, 2, 3].map((i) => review(p, i));
+    p.body = "停记";
+    expect(validateProfile(p).map((i) => i.message).join()).toMatch(/bodyStopDate/);
+    p.bodyStopDate = p.segments[2].start;
+    const e0 = entry(p, { tests: bwT, body: { height: 170, weight: 70, waist: 80 }, conclusion: { bmi: 24.2, bmiClass: "超重" } });
+    const e1 = endRec(p, 1, { result: "添装备", next: "标准" }, { tests: bwT });
+    expect(errs(ctx(p, rv, [e0, e1]))).toEqual([]);
+    const e2 = endRec(p, 1, { bmi: 23.5, bmiClass: "正常", result: "添装备", next: "标准" }, { tests: bwT, body: { weight: 68, waist: 78 } });
+    expect(errs(ctx(p, rv, [e0, e2])).join()).toMatch(/停记/);
+  });
+  it("4：减量段里有过不适，回标准段算往上：再来一段减量段", () => {
+    const p = profile("18-39岁-纯徒手版", [...fullSeg(1, "减量"), [2, 1, "减量"]]);
+    const rv = [0, 1, 2, 3].map((i) => review(p, i, { trainings: 3, ...(i === 1 ? { symptoms: true } : {}) }));
+    const end: any = segmentEnd(p, 1, Object.fromEntries(rv), ar, "a18·bw");
+    expect(end).toMatchObject({ result: "减量", next: "减量", downgraded: true });
+  });
+  it("5：减量段一段中间换场地，新的一段还是减量段", () => {
+    const p = profile("18-39岁-纯徒手版", [[1, 1, "减量"], [1, 2, "减量"], [2, 1, "标准"]]);
+    p.segments[2].product = p.product = "18-39岁-居家版";
+    const rv = [review(p, 0, { trainings: 3 }), review(p, 1, { trainings: 3 })];
+    const sw = rec(p.segments[2].start, "触发", { reasons: ["换场地"], product: "18-39岁-居家版", tests: [{ id: "pushup-test", level: 2, value: 12 }], conclusion: {} });
+    const e0 = entry(p, { tests: bwT, conclusion: {} });
+    expect(errs(ctx(p, rv, [e0, sw])).join()).toMatch(/段型照原来那一段（减量段）/);
+    p.segments[2].type = "减量";
+    expect(errs(ctx(p, rv, [e0, sw]))).toEqual([]);
+  });
+});

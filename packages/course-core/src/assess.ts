@@ -159,6 +159,7 @@ export function validateAssessFields(p: Obj): Issue[] {
   }
   if (p.body !== undefined) {
     if (!["记", "不记", "停记"].includes(p.body)) err("body", "body 只能是 记 / 不记 / 停记");
+    else if (p.body === "停记" && !(typeof p.bodyStopDate === "string" && DATE.test(p.bodyStopDate))) err("bodyStopDate", "停记要写从哪天起 bodyStopDate（YYYY-MM-DD）：以前记的保留，之后不再记");
     else if (p.body === "记" && !BODY_AGES.includes(p.age)) err("body", "体重、腰围只给 18–64 岁记（6–17 岁、65 岁以上不记）");
   }
   if (p.habitBase !== undefined && !(isObj(p.habitBase) && Object.values(p.habitBase).every((v) => Number.isInteger(v) && (v as number) > 0))) {
@@ -310,7 +311,7 @@ export interface EndConclusion {
  * 段末结论：照 nextRound 从上往下取第一条符合的；这一段有不适，往上的结论降为"原样"（SYMPTOM_CARRY）；
  * 附加行符合就同时生效。下一段的习惯目标：先按 HABIT_RESTORE 恢复做到了的，再按附加行降没达标的。
  */
-export function segmentEnd(profile: Obj, n: number, reviewData: Record<string, Obj>, rules: NonNullable<ReturnType<typeof assessRules>>, code: string, extra?: { dizzy?: number }): EndConclusion | { error: string } {
+export function segmentEnd(profile: Obj, n: number, reviewData: Record<string, Obj>, rules: NonNullable<ReturnType<typeof assessRules>>, code: string, extra?: { dizzy?: number; afterDoctor?: boolean }): EndConclusion | { error: string } {
   const ss = (profile.segments as SegmentEntry[]).filter((s) => s.n === n);
   if (!ss.length) return { error: `没有第 ${n} 段` };
   const type = ss[0].type;
@@ -343,13 +344,16 @@ export function segmentEnd(profile: Obj, n: number, reviewData: Record<string, O
     }
   };
   const mine = rules.next.filter((r) => r.products.includes(code) && r.segments.includes(type));
-  const ordered = mine.filter((r) => !r.extra).sort((x, y) => (x.order ?? 0) - (y.order ?? 0));
+  // 65 岁以上"先看医生"、医生同意以后：跳过那一条照后面几条走，往上的同样降级（细化方案第十三节第 1 条）
+  const ordered = mine.filter((r) => !r.extra && !(extra?.afterDoctor && r.result === "先看医生")).sort((x, y) => (x.order ?? 0) - (y.order ?? 0));
   let hit = ordered.find((r) => r.when.every(test));
   if (!hit) return { error: `第 ${n} 段的数字（训练 ${nums.trainings}）对不上下一轮.md 的任何一条` };
   let downgraded = false;
-  if (hit.upward && nums.symptoms) {
-    const same = ordered.find((r) => r.result === "原样" && !r.upward);
-    if (!same) return { error: `第 ${n} 段有不适，往上的结论要降为"原样"，但下一轮.md 里这份成品这种段型没有不往上的"原样"那一条` };
+  if (hit.upward && (nums.symptoms || extra?.afterDoctor)) {
+    // 标准段降为"原样"；减量段再来一段减量段（"回标准段"也算往上，第十三节第 4 条）
+    const down = type === "减量" ? "减量" : "原样";
+    const same = ordered.find((r) => r.result === down && !r.upward);
+    if (!same) return { error: `第 ${n} 段往上的结论要降为"${down}"，但下一轮.md 里这份成品${type}段没有不往上的"${down}"那一条` };
     hit = same;
     downgraded = true;
   }
@@ -513,7 +517,9 @@ export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, 
   const b = r.body;
   if (b !== undefined) {
     if (!BODY_AGES.includes(info.age)) err("body", info.age === "a65" ? "65 岁以上不记身高、体重、腰围的数字（只问体重有没有明显下降）" : "6–17 岁不记身高、体重、腰围、BMI");
-    else if (ctx.profile.body !== "记") err("body", `档案选了${ctx.profile.body === "停记" ? "停记" : "不记"}体重腰围，评估里不能有身体数据`);
+    // 停记以前记的保留，只拦停记之后的新记录（第十三节第 2 条）
+    else if (ctx.profile.body === "停记" && typeof ctx.profile.bodyStopDate === "string" && r.date < ctx.profile.bodyStopDate) { /* 停记以前的 */ }
+    else if (ctx.profile.body !== "记") err("body", `档案选了${ctx.profile.body === "停记" ? `停记（${ctx.profile.bodyStopDate ?? "没写日期"} 起）` : "不记"}体重腰围，评估里不能有身体数据`);
     else if (!timing) err("body", "身体数据只在入门、段末评估里记");
   }
   if (timing && BODY_AGES.includes(info.age) && ctx.profile.body === "记") {
@@ -650,6 +656,13 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
         const back = A.find((a) => hasReason(a, "看完医生回来") && a.raw.date >= end.raw.date && a.raw.date <= s.start
           && a.raw.doctorCleared === true && typeof a.raw.doctorDate === "string" && a.raw.doctorDate >= end.raw.date);
         if (!back) err(`segments[${i}]`, `第 ${prev.n} 段段末的结论是"先看医生"：要有一份触发评估（看完医生回来，医生同意的日期在段末之后）才能开下一段`);
+        // 医生同意以后：跳过"先看医生"照后面几条走（往上的降级）
+        const c2 = prevInfo ? segmentEnd(p, prev.n, ctx.reviewData, ar, prevInfo.code, { dizzy, afterDoctor: true }) : null;
+        if (c2 && !("error" in c2)) {
+          const want = c2.next === "减量" ? "减量" : "标准";
+          if (s.type !== want) err(`segments[${i}].type`, `第 ${prev.n} 段段末"先看医生"、医生同意以后照后面几条走（"${c2.result}"），下一段要是${want}段，写的是${s.type}段`);
+          c.habitTargets = c2.habitTargets;
+        }
       } else {
         // 换成品也照段末结论（第十三节第 5 条用户定之前，按保守的一边）
         const want = c.next === "减量" ? "减量" : "标准";
@@ -665,6 +678,12 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       // 中途重来：段型、习惯目标照被中断的那一段
       if (s.type !== prevSeg[0].type) err(`segments[${i}].type`, `从第 1 周重来，段型照被中断的第 ${prev.n} 段（${prevSeg[0].type}段）`);
       if (!sameJson((s as Obj).habitTargets ?? {}, (prevSeg[0] as Obj).habitTargets ?? {})) err(`segments[${i}].habitTargets`, `从第 1 周重来，习惯目标照被中断的第 ${prev.n} 段：${JSON.stringify((prevSeg[0] as Obj).habitTargets ?? {})}`);
+    } else if (s.product !== prev.product) {
+      // 一段中间换场地、换成品：段型照被换掉的那一段（减量段换场地还是减量段，第十三节第 5 条），习惯目标只留新成品也有的
+      if (s.type !== prevSeg[0].type) err(`segments[${i}].type`, `一段中间换成品，段型照原来那一段（${prevSeg[0].type}段）`);
+      const newHabits = new Set(ar.habits.filter((h) => h.products.includes(info?.code ?? "") && h.segments.includes(s.type)).map((h) => h.habit));
+      const want = Object.fromEntries(Object.entries((prevSeg[0] as Obj).habitTargets ?? {}).filter(([h]) => newHabits.has(h)));
+      if (!sameJson((s as Obj).habitTargets ?? {}, want)) err(`segments[${i}].habitTargets`, `一段中间换成品，习惯目标照原来那一段（只留新成品也有的）：${JSON.stringify(want)}`);
     } else if ((s as Obj).habitTargets !== undefined) {
       err(`segments[${i}].habitTargets`, "习惯目标只能来自上一段的段末结论");
     }

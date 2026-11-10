@@ -346,6 +346,10 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
           end.numbers.symptoms ? "这一段有过不适" : ""].filter(Boolean).join("；"));
         console.log(`结论：${end.result}${end.downgraded ? "（有不适，往上的结论降为原样）" : ""}；下一段：${end.next}${end.extras.length ? `；附加：${end.extras.join("、")}` : ""}${Object.keys(end.habitTargets).length ? `；习惯目标 ${JSON.stringify(end.habitTargets)}` : ""}`);
         for (const q of end.quotes) console.log(`  原文：${q}`);
+        if (end.next === "不开") {
+          const after = segmentEnd(profile, n, scan.reviewData, ar, info.code, { afterDoctor: true });
+          if (!("error" in after)) console.log(`医生同意、做了"看完医生回来"的触发评估以后：照后面几条走——${after.result}${after.downgraded ? "（往上的降级）" : ""}；下一段：${after.next}${Object.keys(after.habitTargets).length ? `；习惯目标 ${JSON.stringify(after.habitTargets)}` : ""}`);
+        }
       }
     }
     return 0;

@@ -328,7 +328,12 @@
         "不记",
         "停记"
       ],
-      "description": "18–64 岁记不记体重、腰围（默认不记；出现节食、焦虑改停记）。6–17 岁、65 岁以上不能写记"
+      "description": "18–64 岁记不记体重、腰围（默认不记；出现节食、焦虑改停记，并写 bodyStopDate）。6–17 岁、65 岁以上不能写记"
+    },
+    "bodyStopDate": {
+      "type": "string",
+      "format": "date",
+      "description": "body 改成停记的那天（停记时必填）：以前评估里记的身体数据保留，之后不再记"
     },
     "habitBase": {
       "type": "object",

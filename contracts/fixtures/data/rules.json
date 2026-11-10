@@ -1204,7 +1204,7 @@
     }
    ],
    "result": "回标准段",
-   "upward": false,
+   "upward": true,
    "next": "标准",
    "targets": [],
    "quotes": [],
@@ -1359,7 +1359,7 @@
     }
    ],
    "result": "回标准段",
-   "upward": false,
+   "upward": true,
    "next": "标准",
    "targets": [],
    "quotes": [
@@ -1585,7 +1585,7 @@
     }
    ],
    "result": "回标准段",
-   "upward": false,
+   "upward": true,
    "next": "标准",
    "targets": [],
    "quotes": [
