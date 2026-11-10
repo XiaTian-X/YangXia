@@ -114,6 +114,7 @@ export function checkProgress(profile: Obj, sessions: SessionFile[], reviews: st
   const ss = profile.segments as SegmentEntry[];
   if (!Array.isArray(ss) || validateSegments(profile, now).some((i) => i.level === "error")) return out;
   const sick = new Set<number>();
+  const halfWeeks = new Set<number>();
   const count = new Map<number, number>();
   for (const s of sessions) {
     const t = Date.parse(s.raw?.startedAt);
@@ -125,6 +126,7 @@ export function checkProgress(profile: Obj, sessions: SessionFile[], reviews: st
     }
     // 历史/ 里的记录，日期落在这些周里的照样算数（不能靠挪进 历史/ 躲开不适记录）
     if (symptomatic(s.raw)) sick.add(i);
+    if (s.raw?.course?.source?.half === true) halfWeeks.add(i);
     count.set(i, (count.get(i) ?? 0) + 1);
     const cw = s.raw?.course?.source?.week;
     if (Number.isInteger(cw) && cw > ss[i].week) {
@@ -149,6 +151,9 @@ export function checkProgress(profile: Obj, sessions: SessionFile[], reviews: st
       }
       if (sick.has(i) && data.symptoms === false) {
         out.push({ level: "error", path: `复盘/${js}`, message: "这一周的练习记录里有疼痛、头晕或胸闷，复盘数据不能写没有不适" });
+      }
+      if (halfWeeks.has(i) && data.half !== true) {
+        out.push({ level: "error", path: `复盘/${js}`, message: "这一周练过半量课（练习记录的课程是 half），复盘数据要写 half: true：这一周不当加量依据" });
       }
       if (data.symptoms === true) sick.add(i);
     }
@@ -216,9 +221,9 @@ export function checkProgressLog(profile: Obj, plans: PlansData, rules: RulesDat
 }
 
 /** 重放到某一天为止的进度（不核对规则），给"档案进度变了，旧课程是按哪一天的进度导出的"用。 */
-export function progressOn(profile: Obj, plans: PlansData, rules: RulesData, date: string): Obj {
+export function progressOn(profile: Obj, plans: PlansData, rules: RulesData, date: string, now = new Date()): Obj {
   const p = { ...profile, progressLog: (profile.progressLog ?? []).filter((e: Obj) => typeof e?.date === "string" && e.date <= date) };
-  return replayProgress(p, plans, rules, [], {}, new Date(), true).state;
+  return replayProgress(p, plans, rules, [], {}, now, true).state;
 }
 
 function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessions: SessionFile[], reviewData: Record<string, Obj>, now: Date, quiet = false): { issues: Issue[]; state: Obj } {
@@ -445,6 +450,19 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
     }
   }
   if (quiet) return { issues: out, state: plainState() };
+  // 中途重来（A65_RESTART）：重来那一段开始那天，进度里高于起始值的每一项都要用"重来"改回去
+  ss.forEach((entry, k) => {
+    if (typeof (entry as Obj).restart !== "string") return;
+    const p = plans.products[entry.product];
+    if (!p) return;
+    const st = progressOn(profile, plans, rules, entry.start, now);
+    for (const [move, v] of Object.entries(st as Record<string, Obj>)) {
+      const ladder = p.ladders[move];
+      const row = progressRow(p, rules, profile, entry.type, 1, move);
+      if (ladder && v.level !== undefined && v.level > startLevel(ladder)) out.push({ level: "error", path: `segments[${k}]`, message: `${entry.start} 从第 1 周重来：「${move}」还是第 ${v.level} 级，要写一条"重来"改回起始级 ${startLevel(ladder)}` });
+      if (row?.reps && v.reps !== undefined && v.reps > row.reps.min) out.push({ level: "error", path: `segments[${k}]`, message: `${entry.start} 从第 1 周重来：「${move}」还是每组 ${v.reps} 次，要写一条"重来"改回区间下限 ${row.reps.min}` });
+    }
+  });
   // 重放结果要等于档案的 progress
   const prog: Obj = profile.progress ?? {};
   const keys = new Set([...Object.keys(prog), ...Object.keys(state)]);
@@ -498,6 +516,7 @@ export function validateReview(raw: unknown): Issue[] {
   for (const k of ["falls", "nearFalls", "dizzy"]) if (r[k] !== undefined && !(Number.isInteger(r[k]) && r[k] >= 0)) err(k, `${k} 是这一周的次数（65 岁以上：摔倒、差点摔倒、头晕）`);
   if (r.sickDays !== undefined && !(Number.isInteger(r.sickDays) && r.sickDays >= 0 && r.sickDays <= 7)) err("sickDays", "sickDays 是这一周生病几天（6–12 岁，0–7）");
   for (const k of ["sickOrMeds", "half", "weightDrop"]) if (r[k] !== undefined && typeof r[k] !== "boolean") err(k, `${k} 是 true / false`);
+  if (Number.isInteger(r.dizzy) && r.dizzy > 0 && r.symptoms === false) err("symptoms", "这一周头晕过（dizzy），symptoms 要写 true：头晕也是不适，下周不加量");
   if (!Array.isArray(r.moves)) err("moves", "moves 是逐个动作的表现：[{ move, allAtTop, spare }]");
   else r.moves.forEach((m: Obj, i: number) => {
     if (typeof m !== "object" || m === null || typeof m.move !== "string" || typeof m.allAtTop !== "boolean" || !(Number.isInteger(m.spare) && m.spare >= 0)

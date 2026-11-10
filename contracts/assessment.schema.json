@@ -174,5 +174,30 @@
       "type": "string",
       "maxLength": 500
     }
-  }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "reasons": {
+            "contains": {
+              "enum": [
+                "摔倒",
+                "生病住院"
+              ]
+            }
+          }
+        },
+        "required": [
+          "reasons"
+        ]
+      },
+      "then": {
+        "required": [
+          "eventDate"
+        ]
+      }
+    }
+  ]
 }

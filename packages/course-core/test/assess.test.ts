@@ -248,13 +248,19 @@ describe("档案目录的评估核对", () => {
     const t = [{ id: "chair-stand-30s", value: 10, hands: "扶椅子", done: true }];
     const dr = { doctorCleared: true, doctorDate: START };
     const e0 = entry(p, { tests: t, companion: true, ...dr, conclusion: {} });
-    const e = endRec(p, 1, { result: "先看医生", next: "不开" }, { tests: t, companion: true, ...dr });
+    // 这一段摔倒过：段末不测坐站（医生同意之前不测）
+    const e = endRec(p, 1, { result: "先看医生", next: "不开" });
     p.screening.answers.find((a: any) => /摔倒/.test(a.item)).answer = "是";
     p.screening.date = p.segments[2].start;
     p.screening.doctorDate = p.segments[2].start;
     expect(errs(ctx(p, rv, [e0, e])).join()).toMatch(/看完医生回来/);
     const back = rec(p.segments[4].start, "触发", { reasons: ["看完医生回来"], doctorCleared: true, doctorDate: p.segments[4].start, conclusion: {} });
+    expect(errs(ctx(p, rv, [e0, e, back])).join()).toMatch(/同步改/);
+    p.screening.doctorDate = p.segments[4].start;
     expect(errs(ctx(p, rv, [e0, e, back]))).toEqual([]);
+    // 摔倒以后段末还拿旧的医生同意去测：拦下
+    const e2 = endRec(p, 1, { result: "先看医生", next: "不开" }, { tests: t, companion: true, ...dr });
+    expect(errs(ctx(p, rv, [e0, e2, back])).join()).toMatch(/这次测试用的医生同意/);
   });
   it("65 岁以上摔倒以后：要重做筛查、医生同意在摔倒之后", () => {
     const p = profile("65岁以上-椅子辅助版", [[1, 1], [1, 2]]);
@@ -281,7 +287,8 @@ describe("档案目录的评估核对", () => {
     const rv = [review(p, 0, { trainings: 3 }), review(p, 1, { trainings: 3 })] as [string, Record<string, any>][];
     const e0 = entry(p, { tests: t, companion: true, doctorCleared: true, doctorDate: START, conclusion: {} });
     expect(validateProfile(p).map((i) => i.message).join()).toMatch(/restart/);
-    const tr = rec(p.segments[2].start, "触发", { reasons: ["生病住院"], doctorCleared: true, doctorDate: p.segments[2].start, conclusion: {} });
+    const tr = rec(p.segments[2].start, "触发", { reasons: ["生病住院"], eventDate: p.segments[1].start, doctorCleared: true, doctorDate: p.segments[2].start, conclusion: {} });
+    p.screening.doctorDate = p.segments[2].start;
     p.segments[2].restart = tr.name;
     expect(validateProfile(p).filter((i) => i.level === "error")).toEqual([]);
     expect(errs(ctx(p, rv, [e0]))).not.toEqual([]);
@@ -376,5 +383,103 @@ describe("评估记录的 schema 和核心库判断一致", () => {
   it.each(bad.map((x, i) => [i, x]))("不合格 %i", (_, x) => {
     expect(schema(x)).toBe(false);
     expect(validateAssessment(x).length).toBeGreaterThan(0);
+  });
+});
+
+describe("实施审查后的修订（拦下 / 放行）", () => {
+  const t65 = [{ id: "chair-stand-30s", value: 10, hands: "扶椅子", done: true }];
+  const e65 = (p: Record<string, any>, more: Record<string, any> = {}) => entry(p, { tests: t65, companion: true, doctorCleared: true, doctorDate: START, conclusion: {}, ...more });
+  const bwT = [{ id: "pushup-test", level: 2, value: 12 }, { id: "wallsit-test", value: 30 }];
+  it("restart 不能绕过段末评估：上一段练完了照样要段末", () => {
+    const p = profile("65岁以上-椅子辅助版", [...fullSeg(1), [2, 1]]);
+    const rv = [0, 1, 2, 3].map((i) => review(p, i, { trainings: 3 }));
+    const tr = rec(p.segments[4].start, "触发", { reasons: ["生病住院"], eventDate: p.segments[3].start, doctorCleared: true, doctorDate: p.segments[4].start, conclusion: {} });
+    p.segments[4].restart = tr.name;
+    p.screening.doctorDate = p.segments[4].start;
+    expect(errs(ctx(p, rv, [e65(p), tr])).join()).toMatch(/段末评估/);
+  });
+  it("中途重来：段型、习惯目标照被中断的那一段", () => {
+    const p = profile("65岁以上-椅子辅助版", [[1, 1, "减量"], [1, 2, "减量"], [2, 1, "标准"]]);
+    const rv = [review(p, 0, { trainings: 2 }), review(p, 1, { trainings: 2 })];
+    const tr = rec(p.segments[2].start, "触发", { reasons: ["生病住院"], eventDate: p.segments[1].start, doctorCleared: true, doctorDate: p.segments[2].start, conclusion: {} });
+    p.segments[2].restart = tr.name;
+    p.segments[2].habitTargets = { 散步: { minutes: 60 } };
+    p.screening.doctorDate = p.segments[2].start;
+    const out = errs(ctx(p, rv, [e65(p), tr])).join();
+    expect(out).toMatch(/段型照被中断/);
+    expect(out).toMatch(/习惯目标照被中断/);
+  });
+  it("生病住院的触发评估没写那天：拦下", () => {
+    expect(validateAssessment({ schema: ASSESS_FORMAT, date: START, kind: "触发", reasons: ["生病住院"] }).map((i) => i.message).join()).toMatch(/eventDate/);
+  });
+  it("日期写成将来：拦下", () => {
+    const p = profile("18-39岁-纯徒手版");
+    p.screening.date = "2099-01-01";
+    expect(errs(ctx(p, [], [entry(p, { tests: bwT, conclusion: {} })])).join()).toMatch(/还没到/);
+  });
+  it("重做筛查后没重新问医生：错误（不只是警告）", () => {
+    const p = profile("65岁以上-椅子辅助版", [[1, 1], [1, 2]]);
+    p.screening.date = p.segments[1].start;   // 重做了筛查，医生同意还是建档那天的
+    expect(errs(ctx(p, [review(p, 0, { trainings: 3 })], [e65(p)])).join()).toMatch(/重新问医生/);
+  });
+  it("触发评估里的摔倒也算：暂停平衡、医生同意要在摔倒之后", async () => {
+    const { balanceHold } = await import("../src/assess.ts");
+    const p = profile("65岁以上-椅子辅助版", [[1, 1], [1, 2]]);
+    const fall = rec(p.segments[1].start, "触发", { reasons: ["摔倒"], eventDate: p.segments[1].start, conclusion: {} });
+    const c = ctx(p, [review(p, 0, { trainings: 3 })], [e65(p), fall]);
+    expect(balanceHold(c)).toBe(true);
+    expect(doctorNeed(c)).toMatchObject({ ok: false });
+  });
+  it("换年龄段要重新筛查", () => {
+    const p = profile("40-64岁-纯徒手版", [[1, 1], [1, 2], [2, 1]]);
+    p.segments[2].product = "65岁以上-椅子辅助版";
+    p.product = "65岁以上-椅子辅助版";
+    Object.assign(p, { age: "a65", stage: "65 岁以上", venue: "chair", birth: "1961-07", habitBase: { 散步: 20 } });
+    p.segments[2].start = "2026-07-06";   // 2026-07 满 65 岁
+    delete p.body;
+    p.screening.answers = manifest.intake.screening.find((s) => s.age === "a65")!.items.map((item) => ({ item, answer: "否" }));
+    const e40 = entry(p, { tests: bwT, prereqs: { checkup: true, bpOk: true }, conclusion: { needDoctor: false } });
+    const sw = rec(p.segments[2].start, "触发", { reasons: ["跨段"], product: "65岁以上-椅子辅助版", tests: t65, companion: true, doctorCleared: true, doctorDate: p.segments[2].start, conclusion: {} });
+    const rv = [review(p, 0), review(p, 1)];
+    expect(errs(ctx(p, rv, [e40, sw])).join()).toMatch(/重新做安全筛查/);
+    p.screening.date = p.screening.doctorDate = p.segments[2].start;
+    expect(errs(ctx(p, rv, [e40, sw]))).toEqual([]);
+  });
+  it("评估记录顶层多写体重、BMI：拦下", () => {
+    expect(validateAssessment({ schema: ASSESS_FORMAT, date: START, kind: "入门", weight: 52, bmi: 19.5 }).map((i) => i.message).join()).toMatch(/只能有这些字段/);
+  });
+  it("选了记体重腰围：入门少了身高拦下", () => {
+    const p = profile("18-39岁-纯徒手版");
+    p.body = "记";
+    expect(errs(ctx(p, [], [entry(p, { tests: bwT, body: { weight: 110, waist: 110 }, conclusion: {} })])).join()).toMatch(/少了 height/);
+  });
+  it("BMI 只看最新一份：降下来以后不再报", () => {
+    const p = profile("18-39岁-纯徒手版", [...fullSeg(1), [2, 1]]);
+    p.body = "记";
+    const rv = [0, 1, 2, 3].map((i) => review(p, i));
+    const e0 = entry(p, { tests: bwT, body: { height: 170, weight: 84, waist: 95 }, conclusion: { bmi: 29.1, bmiClass: "肥胖" } });
+    const e1 = endRec(p, 1, { bmi: 27, bmiClass: "超重", result: "添装备", next: "标准" }, { tests: bwT, body: { weight: 78, waist: 90 } });
+    expect(errs(ctx(p, rv, [e0, e1]))).toEqual([]);
+    expect(errs(ctx(p, rv, [e0])).join()).toMatch(/BMI 29.1/);
+  });
+  it("65 岁以上体重明显下降：要重做筛查；生病换药：提醒做触发评估", () => {
+    const p = profile("65岁以上-椅子辅助版", [[1, 1], [1, 2]]);
+    const c = ctx(p, [review(p, 0, { trainings: 3 }), review(p, 1, { trainings: 3, weightDrop: true, sickOrMeds: true })], [e65(p)]);
+    expect(errs(c).join()).toMatch(/体重明显下降/);
+    expect(warns(c).join()).toMatch(/生病或换了药/);
+  });
+  it("65 岁以上没记散步时长：拦下；复盘里打卡项写错名字：拦下", () => {
+    const p = profile("65岁以上-椅子辅助版");
+    delete p.habitBase;
+    expect(validateProfile(p).map((i) => i.message).join()).toMatch(/散步时长/);
+    const q = profile("18-39岁-纯徒手版", [[1, 1], [1, 2]]);
+    expect(errs(ctx(q, [review(q, 0, { habits: { 散布: 5 } })], [entry(q, { tests: bwT, conclusion: {} })])).join()).toMatch(/不是这份成品/);
+  });
+  it("6–12 岁这一轮不评：习惯目标保持原样", () => {
+    const habits = { 动够60分钟: 6, 按时上床: 6, 视屏少于2小时: 6 };
+    const { p, rv } = twoSegs("6-12岁-户外与游戏版（家长版）", 0, { all: { habits, sickDays: 3 } });
+    p.segments.slice(0, 4).forEach((s: any) => (s.habitTargets = { 按时上床: { line: 16 } }));
+    const e: any = segmentEnd(p, 1, Object.fromEntries(rv), ar, "a06·play");
+    expect(e).toMatchObject({ result: "不评重来", habitTargets: { 按时上床: { line: 16 } } });
   });
 });

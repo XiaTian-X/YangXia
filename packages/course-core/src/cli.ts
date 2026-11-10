@@ -18,16 +18,16 @@ import { buildSrt } from "./srt.ts";
 import { buildTimeline, itemSpec } from "./timeline.ts";
 import { validateCourse } from "./validate.ts";
 import { bedtimeFor, checkProfileWithTemplates } from "./intake.ts";
-import { checkProgress, checkProgressLog, progressOn, REVIEW_FORMAT, type SessionFile, validateReview } from "./progress.ts";
+import { checkProgress, checkProgressLog, localDate, progressOn, REVIEW_FORMAT, type SessionFile, validateReview } from "./progress.ts";
 import { loadTemplates, requirePlans, type Templates } from "./node.ts";
 import { currentSegment, exportCourse } from "./plan.ts";
-import { ASSESS_FORMAT, type AssessFile, assessRules, balanceHold, checkAssessments, checkRecord, doctorNeed, gap, param, productInfo, recordConclusion, segmentEnd, validateAssessment } from "./assess.ts";
+import { ASSESS_FORMAT, type AssessFile, ageAt, assessRules, balanceHold, checkAssessments, checkRecord, doctorNeed, gap, param, productInfo, recordConclusion, segmentEnd, validateAssessment } from "./assess.ts";
 import { checkNotes, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
 import type { Issue } from "./types.ts";
 
 const USAGE = `用法：
   npm run course -- export <档案目录> <第几周> <哪天> [--out <文件>] [--pick 组=动作] [--half]
-  npm run course -- assess <档案目录> <入门|段末|触发> [记录.json]
+  npm run course -- assess <档案目录> <入门|段末|触发> [记录.json] [--product <成品名>]
   npm run course -- check <课程.json> --profile <档案.json>
   npm run course -- check <课程.json> --no-profile
   npm run course -- summary <课程.json>
@@ -212,8 +212,13 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
   }
   if (balanceHold(ctx)) r.notes.push("摔倒过：医生同意之前不练平衡动作（6–9 号），照成品第十二章；力量动作也先问医生");
   const info = productInfo(t.manifest, seg.product);
-  const g = info ? gap(ctx, info.code, new Date().toISOString().slice(0, 10)) : null;
-  if (g && g.days > g.remindDays && !half) r.notes.push(`最后一次训练是 ${g.last}，断了 ${g.days} 天：照成品，回来第一次只做一半的量——加 --half 重新导出半量课`);
+  const today = localDate(new Date());
+  const g = info ? gap(ctx, info.code, today) : null;
+  if (g && g.days > g.remindDays && !half) {
+    // 断了很久、做过"中断"触发评估之后的第一次：照成品"回来第一次只做一半的量"，必须半量
+    if (g.long) r.issues.push({ level: "error", path: "", message: `最后一次训练是 ${g.last}，断了 ${g.days} 天：回来第一次只做一半的量，加 --half 导出半量课` });
+    else r.notes.push(`最后一次训练是 ${g.last}，断了 ${g.days} 天：照成品，回来第一次只做一半的量——加 --half 重新导出半量课`);
+  }
   if (half && !(g && g.days > g.remindDays)) r.notes.push("没有发现中断：半量课只用在中断、生病回来的第一次（照样算训练次数，不当加量依据）");
   for (const f of r.follow) console.log(`照成品做：${f.name}（${f.reason}）`);
   for (const n of r.notes) console.log(n);
@@ -281,7 +286,10 @@ function courseIssues(t: Templates, profile: Record<string, any>, scan: ReturnTy
 }
 
 /** 评估：没给记录，列出这一种要问、要测的项（照规则层原文）；给了记录，重算结论、核对。 */
-async function assessCmd(dir: string, kind: string, file?: string): Promise<number> {
+async function assessCmd(dir: string, kind: string, args: string[]): Promise<number> {
+  const pi = args.indexOf("--product");
+  const productArg = pi >= 0 ? args[pi + 1] : undefined;
+  const file = args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--product");
   const t = await loadTemplates();
   const profile = readJson(join(dir, "档案.json")) as Record<string, any>;
   const scan = scanDir(dir, t, profile);
@@ -295,28 +303,42 @@ async function assessCmd(dir: string, kind: string, file?: string): Promise<numb
     return 2;
   }
   const seg = currentSegment(profile);
-  const product = (file ? (readJson(file) as Record<string, any>).product : undefined) ?? seg?.product ?? profile.product;
+  const product = productArg ?? (file ? (readJson(file) as Record<string, any>).product : undefined) ?? seg?.product ?? profile.product;
   const info = productInfo(t.manifest, product);
   if (!info) {
     console.log(`模板里没有成品「${product}」`);
     return 2;
   }
   if (!file) {
-    console.log(`${kind}评估 · ${product}（不是医学建议；65 岁以上的测试在医生同意以后、家人在场时做）`);
-    if (kind === "触发") console.log(`原因（reasons）：跨段 / 满一年 / 身体变化 / 生病住院 / 生病 / 摔倒 / 换场地 / 中断 / 看完医生回来；跨段、换场地写新成品 product，并带上新成品入门的项目`);
+    console.log(`${kind}评估 · ${product}（不是医学建议${info.age === "a65" ? "；65 岁以上的测试在医生同意以后、家人在场时做" : ""}）`);
+    if (kind === "触发") {
+      console.log(`原因（reasons）：跨段 / 满一年 / 身体变化 / 生病住院 / 生病 / 摔倒 / 换场地 / 中断 / 看完医生回来；摔倒、生病住院写那天 eventDate`);
+      console.log(`跨段、换场地：product 写新成品，带上新成品入门的项目（加 --product <新成品名> 列出来）${productArg ? "" : `；下面列的是「${product}」的`}`);
+      const at = ageAt(profile, localDate(new Date()), ar.assess);
+      if (at.age && at.age !== info.age) console.log(`现在推算是${at.stage}（${at.age}），「${product}」是 ${info.age}：跨段要换到 ${at.age} 的成品，用 --product 列它的项目`);
+    }
     const timing = kind === "段末" ? "段末" : "入门";
     for (const pr of ar.assess.prereqs.filter((x) => x.products.includes(info.code))) console.log(`开工前提 ${pr.id}：${pr.ask}（是 / 否；${pr.note}）`);
     if (kind === "入门" && ["a18", "a40", "a13"].includes(info.age)) console.log("训练基础 base：最近 3 个月平均每周几天力量练习（0、1、2 及以上；只记录）");
     for (const x of ar.assess.tests.filter((x) => x.products.includes(info.code) && x.timing.includes(timing))) {
       if (x.id === "body" && profile.body !== "记") continue;
       console.log(`测试 ${x.id}：记 ${x.fields.join("、")}；${x.judge}（${x.note}）`);
+      const cap = param(ar.assess, "高血压静蹲上限", info.code)?.number;
+      if (x.id === "wallsit-test" && cap !== undefined && profile.conditions?.["高血压"] !== false) console.log(`  这个人有高血压或没确认：静蹲最多 ${cap} 秒`);
     }
     if (info.age === "a65" && kind === "段末") console.log("weightDrop：体重有没有明显下降（是 / 否，不记数字）");
     if (kind === "段末" && seg) {
-      const end = segmentEnd(profile, seg.n, scan.reviewData, ar, info.code);
+      // 刚练完的那一段：现在这一段到了第 4 周就是它，否则是上一段（已经开了下一段的第 1 周）
+      const n = seg.week === 4 || seg.n === 1 ? seg.n : seg.n - 1;
+      if (n !== seg.n) console.log(`（第 ${seg.n} 段已经开了，这里算的是第 ${n} 段的段末）`);
+      const end = segmentEnd(profile, n, scan.reviewData, ar, info.code);
       if ("error" in end) console.log(`段末结论：${end.error}`);
       else {
-        console.log(`四周训练 ${end.numbers.trainings}（每周最多算 ${param(ar.assess, seg.type === "减量" ? "减量段每周排的训练" : "每周排的训练", info.code)?.value ?? "—"} 次）${end.numbers.falls ? `；摔倒、差点摔倒、头晕 ${end.numbers.falls} 次` : ""}${end.numbers.symptoms ? "；这一段有过不适" : ""}`);
+        const capW = param(ar.assess, seg.type === "减量" ? "减量段每周排的训练" : "每周排的训练", info.code)?.value;
+        const hab = Object.entries(end.numbers.habits).map(([h, xs]) => `${h} ${xs.map((x) => x.days).join("/")}`).join("；");
+        console.log([capW ? `四周训练 ${end.numbers.trainings}（每周最多算 ${capW} 次）` : "", hab ? `打卡：${hab}` : "",
+          end.numbers.sick ? `生病 ${end.numbers.sick} 天` : "", end.numbers.falls ? `摔倒、差点摔倒、头晕 ${end.numbers.falls} 次` : "",
+          end.numbers.symptoms ? "这一段有过不适" : ""].filter(Boolean).join("；"));
         console.log(`结论：${end.result}${end.downgraded ? "（有不适，往上的结论降为原样）" : ""}；下一段：${end.next}${end.extras.length ? `；附加：${end.extras.join("、")}` : ""}${Object.keys(end.habitTargets).length ? `；习惯目标 ${JSON.stringify(end.habitTargets)}` : ""}`);
         for (const q of end.quotes) console.log(`  原文：${q}`);
       }
@@ -379,7 +401,7 @@ async function main(argv: string[]): Promise<number> {
       console.log(USAGE);
       return 2;
     }
-    return assessCmd(file, rest[0], rest[1]);
+    return assessCmd(file, rest[0], rest.slice(1));
   }
   if (cmd === "moves") {
     if (!file) {
@@ -416,7 +438,10 @@ async function main(argv: string[]): Promise<number> {
     if (profile) {
       // 档案目录里的周复盘、进度日志也要过：不复盘、不按规则改进度，课程就不能交出去
       if (basename(rest[pi + 1]) === "档案.json") {
-        issues.push(...progressIssues(t, profile, scanDir(dirname(rest[pi + 1]), t, profile)).filter((i) => i.level === "error"));
+        const scan = scanDir(dirname(rest[pi + 1]), t, profile);
+        issues.push(...progressIssues(t, profile, scan).filter((i) => i.level === "error"));
+        const doc = doctorNeed(assessCtx(t, profile, scan));
+        if (doc.needed && !doc.ok) issues.push({ level: "error", path: "screening", message: `医生同意之前不出课程（${doc.reason}：医生同意的日期 doctorDate 要不早于 ${doc.after}）` });
       } else issues.push({ level: "error", path: "", message: "--profile 要给档案目录里的 档案.json（profiles/<代号>/档案.json）：周复盘和个人进度要连同目录一起核对" });
     }
     if (pi < 0) issues.push({ level: "warning", path: "", message: "没有带档案：没核对安全筛查、成品和周次" });

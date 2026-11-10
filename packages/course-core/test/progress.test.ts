@@ -349,3 +349,32 @@ describe("复核后补的拦截：轮次、条件变体的级、换成品", () =
     expect(msgs(checkProgressLog(p, plans, rules, [], reviewsFor(p), NOW))).toMatch(/起步能用的级/);
   });
 });
+
+describe("个人进度：重来（65 岁以上生病住院回来）、半量", () => {
+  const b = { date: DATES[0], move: "a65-01-sit-to-stand", field: "reps", to: 8, rule: "建档" };
+  const a = { date: DATES[1], move: "a65-01-sit-to-stand", field: "reps", to: 10, rule: "加次数", evidence: ev(1) };
+  const fine = rv(1, [{ move: "a65-01-sit-to-stand", allAtTop: false, allDone: true, spare: 4, easyTwice: true }]);
+  const build = (log: Record<string, any>[], reps: number) => {
+    const p = profile(OLD, [1, 2, 1], [1, 1, 2]);
+    p.segments[2].restart = "评估/x-触发.json";
+    p.progressLog = log;
+    p.progress = { "a65-01-sit-to-stand": { reps } };
+    return msgs(checkProgressLog(p, plans, rules, [], { ...reviewsFor(p), ...fine }, NOW));
+  };
+  it("拦下：重来那天没把加过的次数改回区间下限", () => expect(build([b, a], 10)).toMatch(/要写一条"重来"/));
+  it("放行：重来那天改回区间下限，依据那份触发评估", () =>
+    expect(build([b, a, { date: DATES[2], move: "a65-01-sit-to-stand", field: "reps", to: 8, rule: "重来", evidence: "评估/x-触发.json" }], 8)).toBe(""));
+  it("拦下：重来不在重来那一段开始那天、往上改", () => {
+    expect(build([b, a, { date: DATES[1], move: "a65-01-sit-to-stand", field: "reps", to: 8, rule: "重来", evidence: "评估/x-触发.json" }], 8)).toMatch(/重来只能写在/);
+  });
+  it("拦下：半量课那一周的复盘没写 half", () => {
+    const p = profile(BW, [1, 2]);
+    const s = session(DATES[0], [{ exercise: "pushup" }]).raw;
+    s.course.source = { ...s.course.source, half: true };
+    const out = checkProgress(p, [{ name: "打卡/a.json", raw: s }], [`${DATES[0]}-第1周.md`], NOW, reviewsFor(p));
+    expect(out.map((i) => i.message).join()).toMatch(/half: true/);
+  });
+  it("拦下：复盘写了头晕却说没有不适", () => {
+    expect(validateReview({ ...review(DATES[0], 1, []), dizzy: 1 }).map((i) => i.message).join()).toMatch(/头晕/);
+  });
+});

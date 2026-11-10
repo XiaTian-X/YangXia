@@ -12,6 +12,8 @@ export const ASSESS_FORMAT = "yangxia.assessment/1";
 export const KINDS = ["入门", "段末", "触发", "周期末"] as const;
 export const REASONS = ["跨段", "满一年", "身体变化", "生病住院", "生病", "摔倒", "换场地", "中断", "看完医生回来"] as const;
 const SWITCH_REASONS = ["跨段", "换场地"];
+const TOP_KEYS = ["schema", "date", "kind", "product", "segment", "reasons", "base", "prereqs", "body", "tests", "companion", "doctorCleared", "doctorDate",
+  "eventDate", "fallAssessDone", "weightDrop", "conclusion", "note"];
 const HANDS = ["不用手", "扶椅子", "手撑"];
 const STOPS = ["头晕", "腿软", "身体晃"];
 const BIKE = ["稳态分钟", "间歇轮数"];
@@ -105,7 +107,11 @@ export function ageAt(profile: Obj, date: string, a: AssessRules): { age: string
     let k = SCHOOL.indexOf(sc.stage);
     let left = schoolYear - Number(sc.entry);
     if (k < 0 || !Number.isInteger(sc.entry)) return { age: null, stage: null, problem: "school 要写 { stage: 小学 / 初中 / 高中, entry: 入学年份, system: 63 / 54 }" };
-    if (left < 0) left = 0;
+    // 入学之前的日期（升学后改了 school，以前几段的开始日）：按前一个学段算
+    if (left < 0) {
+      if (k === 0) return { age: STAGE_AGE[SCHOOL[0]], stage: SCHOOL[0] };
+      return { age: STAGE_AGE[SCHOOL[k - 1]], stage: SCHOOL[k - 1] };
+    }
     while (k < SCHOOL.length && left >= (lens[SCHOOL[k]] ?? 99)) {
       left -= lens[SCHOOL[k]];
       k++;
@@ -139,7 +145,7 @@ export function validateAssessFields(p: Obj): Issue[] {
   if (p.birth !== undefined && !MONTH.test(p.birth)) err("birth", "birth 只记到月：YYYY-MM");
   if (p.school !== undefined) {
     const s = p.school;
-    if (!isObj(s) || !SCHOOL.includes(s.stage) || !Number.isInteger(s.entry) || (s.system !== undefined && s.system !== "63" && s.system !== "54")) {
+    if (!isObj(s) || !SCHOOL.includes(s.stage) || !Number.isInteger(s.entry) || s.entry < 2000 || s.entry > 2100 || (s.system !== undefined && s.system !== "63" && s.system !== "54")) {
       err("school", "school 是 { stage: 小学 / 初中 / 高中, entry: 入学年份, system: \"63\" / \"54\"（默认 63） }");
     }
   }
@@ -157,8 +163,12 @@ export function validateAssessFields(p: Obj): Issue[] {
   }
   if (p.habitBase !== undefined && !(isObj(p.habitBase) && Object.values(p.habitBase).every((v) => Number.isInteger(v) && (v as number) > 0))) {
     err("habitBase", "habitBase 是 {打卡项: 分钟}，如 { \"散步\": 20 }");
+  } else if (p.age === "a65" && !Number.isInteger(p.habitBase?.["散步"])) {
+    err("habitBase", "65 岁以上要记建档时定的散步时长 habitBase（如 { \"散步\": 20 }）：\"散步减 5 分钟\"按它算");
   }
   (Array.isArray(p.segments) ? p.segments : []).forEach((s: Obj, i: number) => {
+    const firstOfSeg = i === 0 || p.segments[i - 1]?.n !== s?.n;
+    if (!firstOfSeg && (s?.habitTargets !== undefined || s?.restart !== undefined)) err(`segments[${i}]`, "habitTargets、restart 只写在一段的第一项（新开一段那一周）");
     if (s?.habitTargets !== undefined && !(isObj(s.habitTargets) && Object.values(s.habitTargets).every((t) => isObj(t)
       && Object.keys(t).every((k) => ["days", "minutes", "line"].includes(k) && Number.isInteger(t[k]) && t[k] > 0)))) {
       err(`segments[${i}].habitTargets`, "habitTargets 是 {打卡项: {days} / {minutes} / {line}}，只写上一段段末结论给的降法");
@@ -176,6 +186,8 @@ export function validateAssessment(raw: unknown): Issue[] {
   const err = (path: string, message: string) => out.push({ level: "error", path, message });
   if (!isObj(raw)) return [{ level: "error", path: "", message: "评估记录要是 JSON 对象" }];
   if (raw.schema !== ASSESS_FORMAT) err("schema", `格式标识要写 "${ASSESS_FORMAT}"`);
+  const extra = Object.keys(raw).filter((k) => !TOP_KEYS.includes(k));
+  if (extra.length) err("", `评估记录只能有这些字段：${TOP_KEYS.join("、")}；多了 ${extra.join("、")}（身体数据只能写在 body 里，6–17 岁、65 岁以上不记）`);
   if (typeof raw.date !== "string" || !DATE.test(raw.date)) err("date", "date 是评估的日期 YYYY-MM-DD");
   if (!(KINDS as readonly string[]).includes(raw.kind)) err("kind", `kind 只能是 ${KINDS.join(" / ")}`);
   else if (raw.kind === "周期末") err("kind", "周期末评估属于稳定期，阶段 3 才有");
@@ -184,6 +196,8 @@ export function validateAssessment(raw: unknown): Issue[] {
   if (raw.kind === "触发") {
     if (!Array.isArray(raw.reasons) || !raw.reasons.length || raw.reasons.some((x: unknown) => !(REASONS as readonly string[]).includes(x as string))) {
       err("reasons", `触发评估写原因 reasons：${REASONS.join("、")}`);
+    } else if (raw.reasons.some((x: string) => x === "摔倒" || x === "生病住院") && !(typeof raw.eventDate === "string" && DATE.test(raw.eventDate))) {
+      err("eventDate", "摔倒、生病住院的触发评估要写那天的日期 eventDate（医生同意要在它之后）");
     }
   }
   if (raw.base !== undefined && ![0, 1, 2].includes(raw.base)) err("base", "base 是最近 3 个月平均每周几天力量练习：0、1、2（2 及以上）");
@@ -334,10 +348,16 @@ export function segmentEnd(profile: Obj, n: number, reviewData: Record<string, O
   if (!hit) return { error: `第 ${n} 段的数字（训练 ${nums.trainings}）对不上下一轮.md 的任何一条` };
   let downgraded = false;
   if (hit.upward && nums.symptoms) {
-    const same = ordered.find((r) => r.result === "原样" && !r.upward) ?? ordered.find((r) => r.result === "原样");
-    if (same) { hit = same; downgraded = true; }
+    const same = ordered.find((r) => r.result === "原样" && !r.upward);
+    if (!same) return { error: `第 ${n} 段有不适，往上的结论要降为"原样"，但下一轮.md 里这份成品这种段型没有不往上的"原样"那一条` };
+    hit = same;
+    downgraded = true;
   }
   const extras = mine.filter((r) => r.extra && r.when.every(test));
+  // 这一轮不评（6–12 岁生病超过 7 天）：习惯目标保持原样，不恢复也不再降
+  if (hit.result === "不评重来") {
+    return { result: hit.result, next: hit.next, upward: false, downgraded, extras: [], habitTargets: { ...cur }, numbers: nums, quotes: hit.quotes.map((q) => q.text) };
+  }
   // 习惯目标：恢复做到了的（HABIT_RESTORE），再降这一次没达标的
   const targets: Record<string, Obj> = {};
   const base: Record<string, number> = profile.habitBase ?? {};
@@ -358,7 +378,8 @@ export function segmentEnd(profile: Obj, n: number, reviewData: Record<string, O
         else if (t.kind === "line") targets[h] = { line: t.days };
         else if (t.kind === "minutesDown" && t.habit === h) {
           const now = targets[h]?.minutes ?? cur[h]?.minutes ?? base[h];
-          if (now !== undefined) targets[h] = { minutes: Math.max(t.min, now - t.step) };
+          if (now === undefined) return { error: `"${h}减 ${t.step} 分钟"要有建档时定的时长：档案 habitBase 里记上 ${h} 的分钟数` };
+          targets[h] = { minutes: Math.max(t.min, now - t.step) };
         } else if (t.kind === "minutes" && t.habit === h) targets[h] = { minutes: t.value };
       }
     }
@@ -396,6 +417,62 @@ function sortKeys(v: unknown): unknown {
 }
 
 const screeningItem = (profile: Obj, re: RegExp) => (profile.screening?.answers ?? []).find((x: Obj) => re.test(x?.item ?? ""));
+const hasReason = (a: AssessFile, r: string) => a.raw?.kind === "触发" && Array.isArray(a.raw.reasons) && a.raw.reasons.includes(r);
+const isSwitch = (a: AssessFile) => a.raw?.kind === "触发" && Array.isArray(a.raw.reasons) && a.raw.reasons.some((x: string) => SWITCH_REASONS.includes(x)) && typeof a.raw.product === "string";
+const segCode = (m: Manifest, name: string) => productInfo(m, name)?.code ?? "";
+
+/** 摔倒的日期：周复盘里有 falls 的那一周——有同一周的"摔倒"触发评估就用它的 eventDate，没有就按那一周的最后一天；加上"摔倒"触发评估自己的 eventDate。 */
+function fallDates(ctx: AssessContext): string[] {
+  const ss = (ctx.profile.segments ?? []) as SegmentEntry[];
+  const trig = ctx.assessments.filter((a) => hasReason(a, "摔倒") && typeof a.raw.eventDate === "string").map((a) => a.raw.eventDate as string);
+  const out = [...trig];
+  for (const s of ss) {
+    if (productInfo(ctx.manifest, s.product)?.age !== "a65" || !((ctx.reviewData[reviewDataName(s)]?.falls ?? 0) > 0)) continue;
+    const end = addDays(s.start, 6);
+    const inWeek = trig.filter((d) => d >= s.start && d <= end).sort();
+    out.push(inWeek.length ? inWeek[inWeek.length - 1] : end);
+  }
+  return out.sort();
+}
+
+export interface DoctorEvent { date: string; reason: string }
+/**
+ * 要医生同意的事（带日期）：65 岁以上（筛查那天）、筛查有"是"（筛查那天）、40–64 岁开工前提没过（那次评估）、
+ * 65 岁以上摔倒、生病住院（那天）、段末"先看医生"（那次评估）、换到 65 岁以上版（换段的触发评估）。
+ */
+export function doctorEvents(ctx: AssessContext): DoctorEvent[] {
+  const p = ctx.profile;
+  const sc = p.screening ?? {};
+  const ss = (p.segments ?? []) as SegmentEntry[];
+  const cur = ss.length ? productInfo(ctx.manifest, ss[ss.length - 1].product) : null;
+  const age = cur?.age ?? p.age;
+  const ev: DoctorEvent[] = [];
+  const sd = typeof sc.date === "string" ? sc.date : "";
+  if (age === "a65") ev.push({ date: sd, reason: "65 岁以上开始前都要先问医生" });
+  if ((sc.answers ?? []).some((a: Obj) => a?.answer === "是")) ev.push({ date: sd, reason: "安全筛查有\"是\"" });
+  for (const a of ctx.assessments) {
+    if (a.raw?.prereqs && Object.values(a.raw.prereqs).some((v) => v === false)) ev.push({ date: a.raw.date, reason: "40–64 岁的体检或血压还没确认" });
+    if (hasReason(a, "生病住院") && typeof a.raw.eventDate === "string") ev.push({ date: a.raw.eventDate, reason: "生病、住院过" });
+    if (a.raw?.kind === "段末" && a.raw.conclusion?.next === "不开") ev.push({ date: a.raw.date, reason: "段末结论是\"先看医生\"" });
+    if (isSwitch(a) && productInfo(ctx.manifest, a.raw.product)?.age === "a65") ev.push({ date: a.raw.date, reason: "换到 65 岁以上版" });
+  }
+  if (age === "a65") for (const d of fallDates(ctx)) ev.push({ date: d, reason: "摔倒过" });
+  return ev.filter((e) => e.date).sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
+}
+
+/**
+ * 现在需不需要医生同意、同意了没有。有效的医生同意 = doctorCleared 而且 doctorDate 不早于最近一件要医生同意的事。
+ * stale：记了同意，但日期早于那件事（重做筛查、摔倒以后没重新问医生）。
+ */
+export function doctorNeed(ctx: AssessContext): { needed: boolean; ok: boolean; stale: boolean; after: string; reason: string } {
+  const sc = ctx.profile.screening ?? {};
+  const ev = doctorEvents(ctx);
+  if (!ev.length) return { needed: false, ok: true, stale: false, after: "", reason: "" };
+  const { date: after, reason } = ev[ev.length - 1];
+  const cleared = sc.doctorCleared === true && typeof sc.doctorDate === "string";
+  const ok = cleared && sc.doctorDate >= after;
+  return { needed: true, ok, stale: cleared && !ok, after, reason };
+}
 
 /** 一份评估记录按档案和规则核对：测试项属于成品和时机、身体数据只给 18–64 岁且选了"记"、65 岁以上有人在旁边和医生同意、高血压的静蹲上限、开工前提、结论。 */
 export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, asEntry: boolean): Issue[] {
@@ -419,42 +496,51 @@ export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, 
       if (cap !== undefined && hyper && t.value > cap) err(`tests[${i}].value`, `有高血压或没确认：静蹲最多 ${cap} 秒（成品"靠墙静蹲每组不超过 30–45 秒"，取下限），记的是 ${t.value} 秒`);
     }
   }
-  if (timing) {
+  // 这一段摔倒过、头晕过的 65 岁以上：医生同意之前不测，段末可以不记测试
+  let skipTests = false;
+  if (r.kind === "段末" && info.age === "a65" && Number.isInteger(r.segment)) {
+    skipTests = segmentNumbers(ctx.profile, r.segment, ctx.reviewData, ar.assess, info.code).falls > 0;
+  }
+  if (timing && !skipTests) {
     for (const def of ar.assess.tests.filter((x) => x.products.includes(info.code) && x.timing.includes(timing) && x.id !== "body" && x.id !== "gym-weights")) {
-      if (!tests.some((t) => t.id === def.id)) err("tests", `${timing === "入门" ? "入门" : "段末"}要记「${def.id}」（${def.note.split("；")[0]}）`);
+      if (!tests.some((t) => t.id === def.id)) err("tests", `${timing}要记「${def.id}」（${def.note.split("；")[0]}）`);
     }
   }
   // 身体数据
-  if (r.body !== undefined) {
+  const b = r.body;
+  if (b !== undefined) {
     if (!BODY_AGES.includes(info.age)) err("body", info.age === "a65" ? "65 岁以上不记身高、体重、腰围的数字（只问体重有没有明显下降）" : "6–17 岁不记身高、体重、腰围、BMI");
     else if (ctx.profile.body !== "记") err("body", `档案选了${ctx.profile.body === "停记" ? "停记" : "不记"}体重腰围，评估里不能有身体数据`);
     else if (!timing) err("body", "身体数据只在入门、段末评估里记");
-  } else if (asEntry && BODY_AGES.includes(info.age) && ctx.profile.body === "记") err("body", "档案选了记体重腰围：入门要记身高、体重、腰围");
+  }
+  if (timing && BODY_AGES.includes(info.age) && ctx.profile.body === "记") {
+    const want = timing === "入门" ? ["height", "weight", "waist"] : ["weight", "waist"];
+    const lack = want.filter((k) => typeof b?.[k] !== "number");
+    if (lack.length) err("body", `档案选了记体重腰围：${timing}要记 ${want.join("、")}，少了 ${lack.join("、")}`);
+  }
   if (r.weightDrop !== undefined && (info.age !== "a65" || typeof r.weightDrop !== "boolean")) err("weightDrop", "weightDrop（体重有没有明显下降，是 / 否）只给 65 岁以上");
-  // 65 岁以上：有人在旁边、医生同意之后才测
+  // 65 岁以上：有人在旁边、医生同意之后才测（同意的日期不早于测之前最近一件要医生同意的事）
   if (info.age === "a65" && tests.length) {
     if (param(ar.assess, "测试要有人在旁", info.code) && r.companion !== true) err("companion", "65 岁以上的测试要家人在场时做：companion 写 true");
-    // 档案只记最新一次医生同意，所以测的时候是哪一次医生同意，记在评估里
-    if (!(r.doctorCleared === true && typeof r.doctorDate === "string" && r.doctorDate <= r.date)) err("tests", "65 岁以上的测试要在医生同意之后做：评估里记 doctorCleared、doctorDate（不晚于评估日期）");
+    const before = doctorEvents(ctx).filter((e) => e.date <= r.date && !(e.reason === "段末结论是\"先看医生\"" && e.date === r.date)).pop();
+    if (!(r.doctorCleared === true && typeof r.doctorDate === "string" && r.doctorDate <= r.date)) {
+      err("tests", "65 岁以上的测试要在医生同意之后做：评估里记 doctorCleared、doctorDate（不晚于评估日期）");
+    } else if (before && r.doctorDate < before.date) {
+      err("doctorDate", `测之前${before.reason}（${before.date}）：这次测试用的医生同意（${r.doctorDate}）要在那之后`);
+    }
   }
   // 开工前提（40–64 岁）
   const pres = ar.assess.prereqs.filter((x) => x.products.includes(info.code));
   if (asEntry && pres.length) {
     for (const pr of pres) if (typeof r.prereqs?.[pr.id] !== "boolean") err(`prereqs.${pr.id}`, `${product}开始前要问：${pr.ask}（是 / 否）`);
-  } else if (r.prereqs !== undefined && !(asEntry && pres.length)) err("prereqs", "开工前提只在 40–64 岁的入门（或换到 40–64 岁版的触发）评估里记");
+  } else if (r.prereqs !== undefined) err("prereqs", "开工前提只在 40–64 岁的入门（或换到 40–64 岁版的触发）评估里记");
   if (r.base !== undefined && !(asEntry && ["a18", "a40", "a13"].includes(info.age))) err("base", "训练频率只在 18–64 岁、13–17 岁的入门评估里记");
+  if (hasReason(f, "满一年") && info.age === "a65" && typeof r.fallAssessDone !== "boolean") err("fallAssessDone", "65 岁以上满一年复评要问：这一年做过跌倒风险评估没有（是 / 否）");
   // 结论
   const want = recordConclusion(ctx, f, product, asEntry);
   if (r.conclusion !== undefined && want && !sameJson(r.conclusion, want)) {
     err("conclusion", `写的结论和按规则重算的不一致：应该是 ${JSON.stringify(want)}（用 npm run course -- assess 算）`);
   } else if (r.conclusion === undefined && want && Object.keys(want).length) err("conclusion", `缺结论：应该是 ${JSON.stringify(want)}`);
-  // BMI ≥ 28 和筛查第 8 项
-  const cuts = bmiCuts(ctx.manifest);
-  const bmi = bmiOf(r.body, entryHeight(ctx));
-  if (cuts && bmi !== null && bmi >= cuts.obese) {
-    const it = screeningItem(ctx.profile, /BMI/);
-    if (it && it.answer !== "是") err("body", `BMI ${bmi}（≥ ${cuts.obese}），安全筛查"${it.item}"却答了"否"：改成"是"，先问医生`);
-  }
   return out;
 }
 
@@ -493,7 +579,7 @@ export function recordConclusion(ctx: AssessContext, f: AssessFile, product: str
 }
 
 /**
- * 整个档案目录的评估核对（profile check、course export 之前都跑）：
+ * 整个档案目录的评估核对（profile check、course export、course check --profile 之前都跑）：
  * 入门评估、段末评估和下一段对得上、换成品和重来有依据、跨段、满一年复筛、医生同意的日期、摔倒、中断。
  */
 export function checkAssessments(ctx: AssessContext): Issue[] {
@@ -513,11 +599,17 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
   const A = ctx.assessments;
   const byKind = (k: string) => A.filter((a) => a.raw?.kind === k);
   const fileName = (a: AssessFile) => a.name.replace(/^.*[\\/]/, "");
+  const sc = p.screening ?? {};
+  const sd: string | undefined = typeof sc.date === "string" && DATE.test(sc.date) ? sc.date : undefined;
+
+  // 0. 日期不能是将来
   for (const a of A) {
     const want = `${a.raw?.date}-${a.raw?.kind}.json`;
-    if (fileName(a) !== want && !fileName(a).startsWith(`${a.raw?.date}-${a.raw?.kind}`)) err(a.name, `评估记录的文件名要是 评估/${want}`);
-    if (typeof a.raw?.date === "string" && a.raw.date > today) err(a.name, `评估日期 ${a.raw.date} 还没到`);
+    if (!fileName(a).startsWith(`${a.raw?.date}-${a.raw?.kind}`)) err(a.name, `评估记录的文件名要是 评估/${want}`);
+    for (const k of ["date", "doctorDate", "eventDate"]) if (typeof a.raw?.[k] === "string" && a.raw[k] > today) err(`${a.name} ${k}`, `${a.raw[k]} 还没到：日期照实写`);
   }
+  for (const k of ["date", "doctorDate"]) if (typeof sc[k] === "string" && sc[k] > today) err(`档案.json screening.${k}`, `${sc[k]} 还没到：日期照实写`);
+
   const segStarts = ss.map((s, i) => ({ s, i })).filter(({ s, i }) => i === 0 || ss[i - 1].n !== s.n);
   const segOf = (n: number) => ss.filter((x) => x.n === n);
 
@@ -530,7 +622,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
     out.push(...checkRecord(ctx, a, ss[0].product, true));
   }
 
-  // 2. 段末评估和下一段
+  // 2. 段末评估和下一段；换成品；中途重来
   const enders = byKind("段末");
   for (const a of enders) {
     const seg = segOf(a.raw.segment);
@@ -541,45 +633,54 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
     const prev = ss[i - 1];
     const prevSeg = segOf(prev.n);
     const info = productInfo(ctx.manifest, s.product);
-    if (prev.week === 4 && !(s as Obj).restart) {
+    const prevInfo = productInfo(ctx.manifest, prevSeg[0].product);
+    const rs = (s as Obj).restart;
+    if (prev.week === 4) {
+      // 上一段练完了：照样要段末评估、照结论开（写了 restart 也一样）
       const end = enders.find((a) => a.raw.segment === prev.n);
       if (!end) { err(`segments[${i}]`, `第 ${prev.n} 段练完了，开第 ${s.n} 段之前要做段末评估（评估/<日期>-段末.json）`); continue; }
       if (end.raw.date < prev.start || end.raw.date > s.start) err(end.name, `段末评估的日期要在第 4 周开始（${prev.start}）之后、下一段开始（${s.start}）之前`);
-      const pinfo = productInfo(ctx.manifest, prevSeg[0].product);
       const dizzy = ((end.raw.tests ?? []) as Obj[]).filter((t) => t.stopReason === "头晕").length;
-      const c = pinfo ? segmentEnd(p, prev.n, ctx.reviewData, ar, pinfo.code, { dizzy }) : null;
+      const c = prevInfo ? segmentEnd(p, prev.n, ctx.reviewData, ar, prevInfo.code, { dizzy }) : null;
       if (!c || "error" in c) { if (c) err(end.name, c.error); continue; }
       if (c.next === "不开") {
-        const back = A.find((a) => a.raw.kind === "触发" && (a.raw.reasons ?? []).includes("看完医生回来") && a.raw.date >= end.raw.date && a.raw.date <= s.start
+        const back = A.find((a) => hasReason(a, "看完医生回来") && a.raw.date >= end.raw.date && a.raw.date <= s.start
           && a.raw.doctorCleared === true && typeof a.raw.doctorDate === "string" && a.raw.doctorDate >= end.raw.date);
         if (!back) err(`segments[${i}]`, `第 ${prev.n} 段段末的结论是"先看医生"：要有一份触发评估（看完医生回来，医生同意的日期在段末之后）才能开下一段`);
-      } else if (c.next === "重来" || c.next === "标准" || c.next === "减量") {
+      } else if (s.product === prev.product || s.type !== "标准") {
         const want = c.next === "减量" ? "减量" : "标准";
         if (s.type !== want) err(`segments[${i}].type`, `第 ${prev.n} 段段末的结论是"${c.result}"，下一段要是${want}段，写的是${s.type}段`);
       }
-      if (!sameJson((s as Obj).habitTargets ?? {}, c.habitTargets)) {
+      if (s.product === prev.product && !sameJson((s as Obj).habitTargets ?? {}, c.habitTargets)) {
         err(`segments[${i}].habitTargets`, `按第 ${prev.n} 段段末，下一段的习惯目标应该是 ${JSON.stringify(c.habitTargets)}，写的是 ${JSON.stringify((s as Obj).habitTargets ?? {})}`);
       }
-    } else if ((s as Obj).habitTargets !== undefined && !(s as Obj).restart) {
+    } else if (rs) {
+      // 中途重来：段型、习惯目标照被中断的那一段
+      if (s.type !== prevSeg[0].type) err(`segments[${i}].type`, `从第 1 周重来，段型照被中断的第 ${prev.n} 段（${prevSeg[0].type}段）`);
+      if (!sameJson((s as Obj).habitTargets ?? {}, (prevSeg[0] as Obj).habitTargets ?? {})) err(`segments[${i}].habitTargets`, `从第 1 周重来，习惯目标照被中断的第 ${prev.n} 段：${JSON.stringify((prevSeg[0] as Obj).habitTargets ?? {})}`);
+    } else if ((s as Obj).habitTargets !== undefined) {
       err(`segments[${i}].habitTargets`, "习惯目标只能来自上一段的段末结论");
     }
-    // 换成品：触发评估（跨段、换场地），带上新成品入门的项目
+    // 换成品：触发评估（跨段、换场地），带上新成品入门的项目；换了年龄段还要重新筛查
     if (s.product !== prev.product) {
-      const sw = A.filter((a) => a.raw.kind === "触发" && (a.raw.reasons ?? []).some((x: string) => SWITCH_REASONS.includes(x))
-        && a.raw.product === s.product && a.raw.date <= s.start && a.raw.date >= prevSeg[0].start);
+      const sw = A.filter((a) => isSwitch(a) && a.raw.product === s.product && a.raw.date <= s.start && a.raw.date >= prevSeg[0].start);
       if (!sw.length) err(`segments[${i}]`, `换成「${s.product}」要有触发评估（跨段或换场地，product 写新成品），带上新成品入门要问、要测的项`);
+      else if (info && prevInfo && info.age !== prevInfo.age) {
+        const t = sw[sw.length - 1];
+        if (!sd || sd < t.raw.date) err(`segments[${i}]`, `从${prevInfo.age}换到${info.age}：要按新年龄段重新做安全筛查（档案 screening.date 不早于换段的触发评估 ${t.raw.date}）`);
+      }
     }
     // 同一成品中途重来：65 岁以上生病住院、6–12 岁生病超过 7 天
-    const rs = (s as Obj).restart;
     if (rs) {
-      const t = A.find((a) => a.name.replace(/\\/g, "/").endsWith(rs.replace(/^评估\//, "评估/")) || `评估/${fileName(a)}` === rs);
+      const t = A.find((a) => `评估/${fileName(a)}` === rs || a.name.replace(/\\/g, "/").endsWith(rs));
       const why = info?.age === "a65" ? "生病住院" : info?.age === "a06" ? "生病" : null;
       if (s.product !== prev.product) err(`segments[${i}].restart`, "重来是同一成品从第 1 周重新开始；换成品不写 restart");
       else if (!why) err(`segments[${i}].restart`, "只有 65 岁以上生病住院回来、6–12 岁生病超过 7 天才从第 1 周重来");
-      else if (!t || t.raw.kind !== "触发" || !(t.raw.reasons ?? []).includes(why) || t.raw.date > s.start) {
-        err(`segments[${i}].restart`, `依据要是这一段开始之前的触发评估（原因：${why}）：${rs}`);
-      } else if (why === "生病住院" && !(t.raw.doctorCleared === true && typeof t.raw.doctorDate === "string" && t.raw.doctorDate <= s.start)) {
-        err(`segments[${i}].restart`, "生病、住院回来：先问医生能不能练，触发评估要记医生同意（doctorCleared、doctorDate）");
+      else if (!t || !hasReason(t, why) || t.raw.date > s.start || t.raw.date < prevSeg[0].start) {
+        err(`segments[${i}].restart`, `依据要是被中断的这一段里、新一段开始之前的触发评估（原因：${why}）：${rs}`);
+      } else if (why === "生病住院" && !(t.raw.doctorCleared === true && typeof t.raw.doctorDate === "string" && typeof t.raw.eventDate === "string"
+        && t.raw.doctorDate >= t.raw.eventDate && t.raw.doctorDate <= s.start)) {
+        err(`segments[${i}].restart`, "生病、住院回来：先问医生能不能练，触发评估要记那天（eventDate）和之后的医生同意（doctorCleared、doctorDate）");
       } else if (why === "生病") {
         const sick = prevSeg.reduce((sum, x) => sum + (ctx.reviewData[reviewDataName(x)]?.sickDays ?? 0), 0);
         if (sick <= 7) err(`segments[${i}].restart`, `第 ${prev.n} 段加起来生病 ${sick} 天：超过 7 天才这一轮不评、从头开始`);
@@ -588,8 +689,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
   }
   for (const a of byKind("触发")) {
     // 跨段、换场地：按新成品的入门核对（开工前提、第〇章的测试、身体数据）
-    const sw = (a.raw.reasons ?? []).some((x: string) => SWITCH_REASONS.includes(x)) && typeof a.raw.product === "string";
-    out.push(...checkRecord(ctx, a, sw ? a.raw.product : productAt(ss, a.raw.date) ?? ss[0].product, sw));
+    out.push(...checkRecord(ctx, a, isSwitch(a) ? a.raw.product : productAt(ss, a.raw.date) ?? ss[0].product, isSwitch(a)));
   }
 
   // 3. 跨段
@@ -622,31 +722,67 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
     }
   }
 
-  // 4. 满一年复筛、医生同意
-  const code = curInfo ? `${curInfo.age}·${(ctx.manifest.products.find((x) => x.name === last.product)?.venue) ?? ""}` : "";
+  // 4. 满一年复筛、医生同意、摔倒、体重下降、生病换药
+  const code = segCode(ctx.manifest, last.product);
   const yearDays = param(ar.assess, "筛查有效天数", code)?.number;
-  const sd = p.screening?.date;
-  if (typeof sd === "string" && DATE.test(sd) && yearDays !== undefined && (dayStart(today) - dayStart(sd)) / DAY > yearDays) {
+  if (sd && yearDays !== undefined && (dayStart(today) - dayStart(sd)) / DAY > yearDays) {
     err("档案.json screening.date", `安全筛查是 ${sd} 做的，已经超过 ${yearDays} 天：做触发评估（满一年），重做筛查${curInfo?.age === "a65" ? "，也问医生做一次跌倒风险评估" : ""}`);
   }
-  // 摔倒：重做筛查、医生同意在摔倒之后
   if (curInfo?.age === "a65") {
-    const fallWeeks = ss.filter((s) => (ctx.reviewData[reviewDataName(s)]?.falls ?? 0) > 0).map((s) => addDays(s.start, 6));
-    const lastFall = [...fallWeeks, ...A.filter((a) => (a.raw.reasons ?? []).includes("摔倒") && typeof a.raw.eventDate === "string").map((a) => a.raw.eventDate)].sort().pop();
+    const recent = fallDates(ctx).filter((d) => (dayStart(today) - dayStart(d)) / DAY <= 365);
+    const lastFall = recent[recent.length - 1];
     if (lastFall) {
       const it = screeningItem(p, /摔倒/);
-      if (it && (it.answer !== "是" || !(typeof sd === "string" && sd >= lastFall))) err("档案.json screening", `${lastFall} 之前摔倒过：重做安全筛查（"${it.item}"现在是"是"），医生同意以后再练平衡动作`);
+      if (it && (it.answer !== "是" || !(sd && sd >= lastFall))) err("档案.json screening", `${lastFall} 前后摔倒过：重做安全筛查（"${it.item}"现在是"是"），医生同意以后再练平衡动作`);
     }
+    for (const a of A) if (hasReason(a, "满一年") && a.raw.fallAssessDone === false) warn(a.name, "这一年还没做过跌倒风险评估：提醒去医院或社区卫生服务中心做一次（每年至少一次）");
   }
   const need = doctorNeed(ctx);
-  if (need.needed && !need.ok) warn("档案.json screening", `${need.reason}：医生同意（doctorDate 不早于 ${need.after}）之前不出课程`);
+  if (need.needed && need.stale) err("档案.json screening.doctorDate", `${need.reason}（${need.after}）：档案记的医生同意（${sc.doctorDate}）早于这件事，要重新问医生，记新的 doctorDate`);
+  else if (need.needed && !need.ok) warn("档案.json screening", `${need.reason}：医生同意（doctorDate 不早于 ${need.after}）之前不出课程`);
+  const back = A.filter((a) => hasReason(a, "看完医生回来") && typeof a.raw.doctorDate === "string").map((a) => a.raw.doctorDate as string).sort().pop();
+  if (back && !(typeof sc.doctorDate === "string" && sc.doctorDate >= back)) err("档案.json screening.doctorDate", `看完医生回来的触发评估记了医生同意（${back}）：档案的 doctorCleared、doctorDate 要同步改`);
+  // 体重明显下降（65 岁以上）：重做筛查，"最近体重掉得明显"照实答
+  const drops = [
+    ...ss.filter((s) => ctx.reviewData[reviewDataName(s)]?.weightDrop === true).map((s) => s.start),
+    ...A.filter((a) => a.raw?.weightDrop === true).map((a) => a.raw.date as string),
+  ].sort();
+  if (drops.length && curInfo?.age === "a65") {
+    const it = screeningItem(p, /体重/);
+    const d = drops[drops.length - 1];
+    if (it && (it.answer !== "是" || !(sd && sd >= d))) err("档案.json screening", `${d} 那一周说体重明显下降：重做安全筛查（"${it.item}"照实答），先问医生`);
+  }
+  for (const s of ss) {
+    const rv = ctx.reviewData[reviewDataName(s)];
+    if (!rv) continue;
+    const sAge = productInfo(ctx.manifest, s.product)?.age;
+    if (rv.weightDrop !== undefined && sAge !== "a65") err(`复盘/${reviewDataName(s)} weightDrop`, "weightDrop 只给 65 岁以上");
+    if (rv.sickOrMeds === true && !(sd && sd >= s.start) && !A.some((a) => hasReason(a, "身体变化") && a.raw.date >= s.start)) {
+      warn(`复盘/${reviewDataName(s)}`, "这一周生病或换了药：做触发评估（身体变化），重做安全筛查");
+    }
+    // habits 的键要是这份成品这种段型的打卡项
+    const known = new Set(ar.habits.filter((h) => h.products.includes(segCode(ctx.manifest, s.product)) && h.segments.includes(s.type)).map((h) => h.habit));
+    for (const k of Object.keys(rv.habits ?? {})) if (!known.has(k)) err(`复盘/${reviewDataName(s)} habits.${k}`, `「${k}」不是这份成品${s.type}段的打卡项（有：${[...known].join("、") || "（没有）"}）`);
+  }
+  // BMI：只看最新一份身体数据
+  const bodies = A.filter((a) => typeof a.raw?.body?.weight === "number").sort((x, y) => (x.raw.date < y.raw.date ? -1 : 1));
+  if (bodies.length) {
+    const cuts = bmiCuts(ctx.manifest);
+    const lastBody = bodies[bodies.length - 1];
+    const bmi = bmiOf(lastBody.raw.body, entryHeight(ctx));
+    if (!cuts) warn(lastBody.name, "模板 manifest 里找不到 BMI 切点（BMI_CN、WEIGHT_LOW_CN）：BMI 没核对，先更新模板");
+    else if (bmi !== null && bmi >= cuts.obese) {
+      const it = screeningItem(p, /BMI/);
+      if (it && it.answer !== "是") err(`${lastBody.name} body`, `BMI ${bmi}（≥ ${cuts.obese}），安全筛查"${it.item}"却答了"否"：改成"是"，先问医生`);
+    } else if (bmi !== null && bmi < cuts.low) warn(`${lastBody.name} body`, `BMI ${bmi}（< ${cuts.low}，低体重）：不选减脂；饮食照成品，拿不准问医生`);
+  }
 
   // 5. 中断、连着两周疼
   if (curInfo && curInfo.age !== "a06") {
     const g = gap(ctx, code, today);
     if (g) {
-      const back = A.some((a) => a.raw.kind === "触发" && (a.raw.reasons ?? []).includes("中断") && a.raw.date >= g.last);
-      if (g.long && !back) err("档案.json", `最后一次训练是 ${g.last}，已经断了 ${g.days} 天（超过 ${g.longDays} 天）：先做触发评估（中断），问身体情况有没有变化`);
+      const backed = A.some((a) => hasReason(a, "中断") && a.raw.date >= g.last);
+      if (g.long && !backed) err("档案.json", `最后一次训练是 ${g.last}，已经断了 ${g.days} 天（超过 ${g.longDays} 天）：先做触发评估（中断），问身体情况有没有变化`);
       else if (g.days > g.remindDays) warn("档案.json", `最后一次训练是 ${g.last}，断了 ${g.days} 天：照成品"不补作业、不清零、不从头再来"，回来第一次只做一半的量（course export 加 --half）`);
     }
     ss.forEach((s) => {
@@ -671,33 +807,9 @@ function productAt(ss: SegmentEntry[], date: string): string | undefined {
 }
 
 /**
- * 现在需不需要医生同意、同意了没有：65 岁以上、筛查有"是"、40–64 岁开工前提没过、65 岁以上摔倒、段末"先看医生"；
- * 有效的医生同意 = doctorCleared 而且 doctorDate 不早于最近一件要医生同意的事（筛查日期、摔倒那一周、开工前提那天）。
+ * 最后一次训练：练习记录，和"训练数 > 0 的周复盘覆盖的那一周的最后一天"（下一项开始的前一天；拖长的周也算到那天）里较晚的；
+ * 还没练过就按第一段开始那天。
  */
-export function doctorNeed(ctx: AssessContext): { needed: boolean; ok: boolean; after: string; reason: string } {
-  const p = ctx.profile;
-  const sc = p.screening ?? {};
-  const ss = (p.segments ?? []) as SegmentEntry[];
-  const reasons: [string, string][] = [];
-  const cur = ss.length ? productInfo(ctx.manifest, ss[ss.length - 1].product) : null;
-  const age = cur?.age ?? p.age;
-  if (age === "a65") reasons.push([sc.date ?? "", "65 岁以上开始前都要先问医生"]);
-  if ((sc.answers ?? []).some((a: Obj) => a?.answer === "是")) reasons.push([sc.date ?? "", "安全筛查有\"是\""]);
-  for (const a of ctx.assessments) {
-    if (a.raw?.prereqs && Object.values(a.raw.prereqs).some((v) => v === false)) reasons.push([a.raw.date, "40–64 岁的体检或血压还没确认"]);
-  }
-  if (age === "a65") {
-    // 摔倒那一周的哪一天不知道：按那一周的最后一天算（医生同意要在这之后）
-    for (const s of ss) if ((ctx.reviewData[reviewDataName(s)]?.falls ?? 0) > 0) reasons.push([addDays(s.start, 6), "摔倒过"]);
-  }
-  if (!reasons.length) return { needed: false, ok: true, after: "", reason: "" };
-  reasons.sort((x, y) => (x[0] < y[0] ? -1 : 1));
-  const [after, reason] = reasons[reasons.length - 1];
-  const ok = sc.doctorCleared === true && typeof sc.doctorDate === "string" && sc.doctorDate >= after;
-  return { needed: true, ok, after, reason };
-}
-
-/** 最后一次训练：练习记录和"训练数 > 0 的周复盘覆盖的那一周的最后一天"里较晚的；还没练过就按第一段开始那天。 */
 export function gap(ctx: AssessContext, code: string, today: string): { last: string; days: number; remindDays: number; longDays: number; long: boolean } | null {
   const ar = assessRules(ctx.rules);
   if (!ar) return null;
@@ -710,10 +822,12 @@ export function gap(ctx: AssessContext, code: string, today: string): { last: st
     const t = Date.parse(s.raw?.startedAt);
     if (!Number.isNaN(t)) dates.push(localDate(new Date(t)));
   }
-  for (const s of ss) {
+  ss.forEach((s, i) => {
     const rv = ctx.reviewData[reviewDataName(s)];
-    if (rv && rv.trainings > 0) dates.push(addDays(s.start, 6) < today ? addDays(s.start, 6) : today);
-  }
+    if (!(rv && rv.trainings > 0)) return;
+    const end = i + 1 < ss.length ? addDays(ss[i + 1].start, -1) : addDays(s.start, 6);
+    dates.push(end < today ? end : today);
+  });
   const last = dates.sort().pop()!;
   const days = Math.round((dayStart(today) - dayStart(last)) / DAY);
   return { last, days, remindDays, longDays, long: days > longDays };
@@ -724,7 +838,7 @@ export function balanceHold(ctx: AssessContext): boolean {
   const ss = (ctx.profile.segments ?? []) as SegmentEntry[];
   const cur = ss.length ? productInfo(ctx.manifest, ss[ss.length - 1].product) : null;
   if (cur?.age !== "a65") return false;
-  const falls = ss.filter((s) => (ctx.reviewData[reviewDataName(s)]?.falls ?? 0) > 0).map((s) => addDays(s.start, 6)).sort();
+  const falls = fallDates(ctx);
   if (!falls.length) return false;
   const dd = ctx.profile.screening?.doctorDate;
   return !(ctx.profile.screening?.doctorCleared === true && typeof dd === "string" && dd >= falls[falls.length - 1]);

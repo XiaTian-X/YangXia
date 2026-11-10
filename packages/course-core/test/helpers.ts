@@ -37,5 +37,7 @@ export function fitAge(p: Record<string, any>, age: string, stage?: string): Rec
   else if (age === "a13") p.school = stage === "高中" ? { stage: "高中", entry: 2025 } : { stage: "初中", entry: 2025 };
   else p.birth = { a18: "1996-05", a40: "1976-05", a65: "1956-05" }[age];
   if (age !== "a18" && age !== "a40") delete p.body;
+  if (age === "a65") p.habitBase = { 散步: 20 };
+  else delete p.habitBase;
   return p;
 }
