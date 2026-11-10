@@ -62,3 +62,18 @@ describe.skipIf(!hasTemplates)("导出之前也拦评估记录的写法错误", 
     expect(r.stdout).toMatch(/只能有这些字段/);
   });
 });
+
+describe.skipIf(!hasTemplates)("profile check 查计划、菜单、复盘的声明", () => {
+  it("菜单没写声明：报错；写了：通过", () => {
+    const d = dir("menu", "18-39岁-纯徒手版", { birth: "1996-05", body: "不记", household: ["a18"] }, {
+      [`评估/${today}-入门.json`]: { schema: ASSESS_FORMAT, date: today, kind: "入门",
+        tests: [{ id: "pushup-test", level: 2, value: 12 }, { id: "wallsit-test", value: 30 }], conclusion: {} },
+    });
+    mkdirSync(join(d, "菜单"), { recursive: true });
+    writeFileSync(join(d, "菜单", "第1周.md"), "# 第 1 周菜单\n\n周一：米饭、青菜\n");
+    expect(run("profile", "check", d).stdout).toMatch(/开头要写声明/);
+    writeFileSync(join(d, "菜单", "第1周.md"), "# 第 1 周菜单\n\n> 本计划由养夏计划模板生成，未经专业审核，不是医学建议，不能替代医生的判断。\n\n周一：米饭、青菜\n");
+    expect(run("profile", "check", d).stdout).not.toMatch(/开头要写声明/);
+  });
+});
+

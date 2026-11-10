@@ -226,7 +226,7 @@ export function App() {
       <div class="top">
         <div>
           <h1>养夏 · 跟练编排器</h1>
-          <div class="sub">把一天的训练编成带语音报数、呼吸提示的跟练音频、视频和字幕。不是医学建议；练的时候疼、头晕、胸闷，马上停下。</div>
+          <div class="sub">把一天的训练编成带语音报数、呼吸提示的跟练音频、视频和字幕。课程按未经专业审核的计划模板生成，不是医学建议；练的时候疼、头晕、胸闷，马上停下。</div>
         </div>
         <span class={`status ${playing ? "live" : ""}`}>{playing ? "跟练中" : busy ? `正在导出 ${busy.toUpperCase()}…` : course ? "就绪" : "等待课程"}</span>
       </div>

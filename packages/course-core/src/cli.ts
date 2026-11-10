@@ -22,7 +22,7 @@ import { checkProgress, checkProgressLog, localDate, progressOn, REVIEW_FORMAT, 
 import { loadTemplates, requirePlans, type Templates } from "./node.ts";
 import { currentSegment, exportCourse } from "./plan.ts";
 import { ASSESS_FORMAT, type AssessFile, ageAt, assessRules, balanceHold, checkAssessments, checkRecord, doctorNeed, gap, param, productInfo, recordConclusion, segmentEnd, validateAssessment } from "./assess.ts";
-import { checkNotes, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
+import { checkDeclaration, checkNotes, DECLARATION, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
 import type { Issue } from "./types.ts";
 
 const USAGE = `用法：
@@ -159,7 +159,10 @@ function scanDir(dir: string, t: Templates, profile: Record<string, any>) {
         issues.push({ level: "error", path: name, message: "排菜单前要在档案里记下家庭成员的年龄段（household），菜单按每个人的红线检查" });
       }
       const ages = [...new Set(menu ? ["fam", profile.age, ...(profile.household ?? [])] : [profile.age])];
-      issues.push(...checkNotes(t.manifest.redlines, ages, name, readFileSync(f, "utf8")));
+      const text = readFileSync(f, "utf8");
+      issues.push(...checkNotes(t.manifest.redlines, ages, name, text));
+      // 计划、菜单、复盘都是生成的计划：开头要有声明（历史/ 里以前的不查）
+      if (!archived && /^(计划|菜单|复盘)[\\/]/.test(name)) issues.push(...checkDeclaration(name, text));
     } else if (!name.split(sep).some((s) => s.startsWith("."))) {
       issues.push({ level: "warning", path: name, message: "不认识的文件：复盘、菜单写成 .md，课程、练习记录是 .json；别的文件不检查" });
     }
@@ -236,6 +239,7 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
     mkdirSync(dirname(out), { recursive: true });
     writeFileSync(out, JSON.stringify(r.course, null, 2) + "\n");
     console.log(`已导出：${out}`);
+    console.log(DECLARATION.replace(/^> /, "声明："));
   }
   return print([...r.issues, ...issues]);
 }
@@ -315,7 +319,7 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
     return 2;
   }
   if (!file) {
-    console.log(`${kind}评估 · ${product}（不是医学建议${info.age === "a65" ? "；65 岁以上的测试在医生同意以后、家人在场时做" : ""}）`);
+    console.log(`${kind}评估 · ${product}（未经专业审核，不是医学建议${info.age === "a65" ? "；65 岁以上的测试在医生同意以后、家人在场时做" : ""}）`);
     if (kind === "触发") {
       console.log(`原因（reasons）：跨段 / 满一年 / 身体变化 / 生病住院 / 生病 / 摔倒 / 换场地 / 中断 / 看完医生回来；摔倒、生病住院写那天 eventDate`);
       console.log(`跨段、换场地：product 写新成品，带上新成品入门的项目（加 --product <新成品名> 列出来）${productArg ? "" : `；下面列的是「${product}」的`}`);

@@ -112,3 +112,11 @@ describe("写给人的文字过红线", () => {
   it("白名单里的否定说法放行", () => expect(checkNotes(rules, ["a13"], "复盘", "不称体重、不量腰围、不拍身材照")).toEqual([]));
   it("全家菜单不能写热量赤字", () => expect(errors(checkNotes(rules, ["fam"], "菜单", "控制热量赤字")).length).toBeGreaterThan(0));
 });
+
+describe("生成的计划要带声明（目前没有专业人员审核）", async () => {
+  const { checkDeclaration, DECLARATION } = await import("../src/profile.ts");
+  it("有声明：通过", () => expect(checkDeclaration("菜单/第1周.md", `# 菜单\n\n${DECLARATION}\n`)).toEqual([]));
+  it("只写了不是医学建议、没写未经专业审核：拦下", () => {
+    expect(checkDeclaration("复盘/x.md", "# 复盘\n\n> 不是医学建议。\n").map((i) => i.message).join()).toMatch(/未经专业审核/);
+  });
+});

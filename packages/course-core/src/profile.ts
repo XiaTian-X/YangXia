@@ -83,6 +83,15 @@ export function validateSession(raw: unknown): Issue[] {
   return out;
 }
 
+/** 所有生成的计划都要带的声明（目前没有专业人员审核，v4 方案第十一节第 6 条）。agent 写的计划、菜单、复盘开头写这一行。 */
+export const DECLARATION = "> 本计划由养夏计划模板生成，未经专业审核，不是医学建议，不能替代医生的判断。";
+
+/** 计划、菜单、复盘里有没有声明（"未经专业审核"和"不是医学建议"都要有）。 */
+export function checkDeclaration(name: string, text: string): Issue[] {
+  if (text.includes("未经专业审核") && text.includes("不是医学建议")) return [];
+  return [{ level: "error", path: name, message: `开头要写声明（目前没有专业人员审核）：${DECLARATION}` }];
+}
+
 /** agent 写给这个人的文字（周复盘、菜单）：按年龄段过红线（这是正文，用白名单）。全家菜单用 fam 的词表。 */
 export function checkNotes(rules: RedlineRules, ages: string[], name: string, text: string): Issue[] {
   const out: Issue[] = [];
