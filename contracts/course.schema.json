@@ -48,7 +48,7 @@
         },
         "templates": {
           "type": "string",
-          "description": "模板版本，如 v2.1"
+          "description": "模板版本，如 v3.0"
         },
         "week": {
           "type": "integer",
