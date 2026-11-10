@@ -87,6 +87,10 @@
             "type": "string"
           },
           "description": "轮换组这一次做哪一个：{组名: 动作 ID}"
+        },
+        "half": {
+          "const": true,
+          "description": "半量课：中断、生病回来的第一次，每个动作组数、循环轮数减半向上取整（设计值 HALF），不当加量依据"
         }
       }
     },

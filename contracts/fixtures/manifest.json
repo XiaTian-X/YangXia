@@ -611,11 +611,76 @@
     "ORAL_SEALANT"
    ],
    "params_related": []
+  },
+  {
+   "file": "6-12岁-户外与游戏版（家长版）.md",
+   "name": "6-12岁-户外与游戏版（家长版）",
+   "audience": "child",
+   "age": "a06",
+   "venue": "play",
+   "for": "小学生（由家长使用）",
+   "venue_note": "户外、家里、学校，不需要器械",
+   "version": "v2.1",
+   "review": "未经专业审核",
+   "figures": [],
+   "params_used": [
+    "PA_YOUTH_SCREEN_CN",
+    "EYE_SCREEN_LEISURE",
+    "BEDTIME_PRIMARY",
+    "SLEEP_PRIMARY",
+    "SLEEP_6_12",
+    "EYE_READ_40",
+    "HOMEWORK_BEDTIME",
+    "PA_YOUTH_SED_CN",
+    "EYE_202020",
+    "PA_YOUTH_MVPA",
+    "PA_YOUTH_BONE",
+    "PA_PRIMARY_OUTDOOR",
+    "PA_SCHOOL_TOTAL",
+    "EYE_DAYLIGHT_60",
+    "EYE_POSTURE",
+    "EYE_CHECK_SCHOOL",
+    "SPINE_SCREEN",
+    "PA_YOUTH_SCREEN_WHO",
+    "MH_HOTLINE",
+    "YOUTH_LINE",
+    "BREAKFAST_YOUTH_CN",
+    "MILK_YOUTH_CN",
+    "SALT_6_10",
+    "SSB_YOUTH_CN",
+    "WATER_6_10",
+    "WATER_11_13",
+    "ORAL_BRUSH",
+    "ORAL_BRUSH_HELP",
+    "ORAL_CHECK_CHILD",
+    "ORAL_SEALANT"
+   ],
+   "params_related": []
   }
  ],
  "documents": [
   {
    "file": "三餐菜谱手册.md"
+  }
+ ],
+ "params": [
+  {
+   "id": "BMI_CN",
+   "meaning": "成人 BMI 切点",
+   "value": "成人 BMI 24.0–27.9 为超重，28.0 及以上为肥胖",
+   "short": "BMI ≥ 28",
+   "applies_to": "a18、a40、a65",
+   "source": "体重管理指导原则（2024 年版），国卫办医急函〔2024〕469 号",
+   "verified": "✅"
+  },
+  {
+   "id": "WEIGHT_LOW_CN",
+   "meaning": "成人低体重",
+   "value": "成人 BMI < 18.5 为低体重，18.5–23.9 为正常体重",
+   "short": "BMI < 18.5",
+   "applies_to": "a18、a40",
+   "source": "WS/T 428—2013《成人体重判定》表 1（国家卫生健康委卫生标准网《健康体重管理相关标准》解读材料转载，2025）",
+   "verified": "☑️"
   }
  ],
  "intake": {

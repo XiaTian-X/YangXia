@@ -54,6 +54,8 @@ export interface CourseSource {
   phase?: string;
   /** 轮换组这一次做的是哪个：{组名: 动作 ID}。 */
   picks?: Record<string, string>;
+  /** 半量课（中断、生病回来的第一次）：组数、轮数减半向上取整，不当加量依据。 */
+  half?: true;
 }
 
 export interface Course {

@@ -55,6 +55,42 @@
       "type": "string",
       "description": "选用的成品名；等于 segments 最后一项的 product"
     },
+    "birth": {
+      "type": "string",
+      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+      "description": "出生年月（只记到月）。成年人必填，不在校的 13–17 岁也记；满 40 岁、满 65 岁换版靠它推算（按出生月份的 1 日算）"
+    },
+    "school": {
+      "type": "object",
+      "required": [
+        "stage",
+        "entry"
+      ],
+      "additionalProperties": false,
+      "description": "在校未成年人的学段（必填）：按 9 月 1 日升学推算；高中毕业而且满 18 岁才换成人版",
+      "properties": {
+        "stage": {
+          "enum": [
+            "小学",
+            "初中",
+            "高中"
+          ]
+        },
+        "entry": {
+          "type": "integer",
+          "minimum": 2000,
+          "maximum": 2100,
+          "description": "入学年份"
+        },
+        "system": {
+          "enum": [
+            "63",
+            "54"
+          ],
+          "description": "学制：六三制（默认）或五四制"
+        }
+      }
+    },
     "wake": {
       "type": "string",
       "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
@@ -67,7 +103,8 @@
       "type": "object",
       "required": [
         "answers",
-        "doctorCleared"
+        "doctorCleared",
+        "date"
       ],
       "properties": {
         "answers": {
@@ -99,6 +136,16 @@
           "type": "string",
           "maxLength": 300,
           "description": "医生的意见，照使用者说的记"
+        },
+        "date": {
+          "type": "string",
+          "format": "date",
+          "description": "做筛查的日期；超过 365 天要做触发评估、重做筛查"
+        },
+        "doctorDate": {
+          "type": "string",
+          "format": "date",
+          "description": "医生同意的日期（doctorCleared 为 true 时必填）；要不早于最近一件要医生同意的事（筛查日期、65 岁以上摔倒、40–64 岁开工前提没过）"
         }
       }
     },
@@ -144,6 +191,33 @@
           },
           "phase": {
             "const": "起始"
+          },
+          "habitTargets": {
+            "type": "object",
+            "description": "上一段段末结论给的习惯目标：{打卡项: {days} / {minutes} / {line}}",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "days": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "minutes": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "line": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "restart": {
+            "type": "string",
+            "pattern": "^评估/.+\\.json$",
+            "description": "同一成品中途从第 1 周重来（65 岁以上生病住院回来、6–12 岁生病超过 7 天）：依据的触发评估"
           }
         }
       }
@@ -224,7 +298,8 @@
               "升级",
               "加次数",
               "调重量",
-              "加重"
+              "加重",
+              "重来"
             ]
           },
           "evidence": {
@@ -246,6 +321,22 @@
           "a65"
         ]
       }
+    },
+    "body": {
+      "enum": [
+        "记",
+        "不记",
+        "停记"
+      ],
+      "description": "18–64 岁记不记体重、腰围（默认不记；出现节食、焦虑改停记）。6–17 岁、65 岁以上不能写记"
+    },
+    "habitBase": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "description": "65 岁以上建档时定的散步时长 {\"散步\": 分钟}"
     }
   }
 }

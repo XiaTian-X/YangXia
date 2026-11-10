@@ -1,5 +1,6 @@
 // 个人档案 yangxia.profile/1 和练习记录 yangxia.session/1 的结构校验（和 contracts/*.schema.json 对应），
 // 以及 agent 写进档案目录的文字（周复盘、菜单）的红线检查。
+import { validateAssessFields } from "./assess.ts";
 import { FEELS, validateProgressShape, validateSegments } from "./progress.ts";
 import type { RedlineRules } from "./redlines.ts";
 import { redlineHits } from "./redlines.ts";
@@ -29,7 +30,7 @@ export function validateProfile(raw: unknown): Issue[] {
   if (raw.household !== undefined && !(Array.isArray(raw.household) && raw.household.every((a: unknown) => AGES.includes(a as string)))) {
     err("household", `household 是家庭成员的年龄段列表，只能写 ${AGES.join("、")}`);
   }
-  out.push(...validateSegments(raw), ...validateProgressShape(raw));
+  out.push(...validateSegments(raw), ...validateProgressShape(raw), ...validateAssessFields(raw));
   const sc = raw.screening;
   if (!isObj(sc) || !Array.isArray(sc.answers) || typeof sc.doctorCleared !== "boolean") {
     err("screening", "缺少安全筛查（answers、doctorCleared）");

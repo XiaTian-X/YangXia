@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { checkCourse } from "../src/check.ts";
 import { baseTempo, checkPlanCourse, exportCourse, isStartCourse } from "../src/plan.ts";
 import type { Course } from "../src/types.ts";
-import { FIX, clone, fixtureManifest, fixturePlans, fixtureReadProduct, fixtureRules, readJson } from "./helpers.ts";
+import { FIX, clone, fitAge, fixtureManifest, fixturePlans, fixtureReadProduct, fixtureRules, readJson } from "./helpers.ts";
 
 const manifest = fixtureManifest();
 const plans = fixturePlans();
@@ -18,7 +18,8 @@ function profile(product: string, week = 1, extra: Record<string, any> = {}) {
   Object.assign(p, { age: prod.age, stage: STAGE[prod.age], product, venue: prod.venue, startDate: DATES[0] });
   delete p.wake;
   delete p.bedtime;
-  p.screening = { answers: manifest.intake.screening.find((s) => s.age === prod.age)!.items.map((item) => ({ item, answer: "否" })), doctorCleared: true };
+  p.screening = { answers: manifest.intake.screening.find((s) => s.age === prod.age)!.items.map((item) => ({ item, answer: "否" })), doctorCleared: true, date: DATES[0], doctorDate: DATES[0] };
+  fitAge(p, prod.age);
   p.segments = Array.from({ length: week }, (_, i) => ({ n: 1, type: "标准", week: i + 1, start: DATES[i], product }));
   p.conditions = Object.fromEntries(Object.entries(rules.conditions).map(([k, v]) => [k, v.text]));
   p.choices = ["table-row", "door-row", "a13-bar-row"];

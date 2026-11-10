@@ -76,7 +76,8 @@ export function validateSegments(p: Obj, now = new Date()): Issue[] {
       if (s.week < prev.week) err(`segments[${i}].week`, `同一段里周次不能往回走（第 ${prev.week} 周 → 第 ${s.week} 周）；要从头来就新开一段`);
     } else if (s.n === prev.n + 1) {
       if (s.week !== 1) err(`segments[${i}].week`, "新的一段从第 1 周开始");
-      if (prev.week !== 4 && s.product === prev.product) err(`segments[${i}].n`, `上一段才到第 ${prev.week} 周：练完第 4 周（段末）或者换成品，才能新开一段`);
+      // 同一成品中途重来（65 岁以上生病住院回来、6–12 岁生病超过 7 天）要写 restart：依据的触发评估，由评估核对
+      if (prev.week !== 4 && s.product === prev.product && typeof (s as Obj).restart !== "string") err(`segments[${i}].n`, `上一段才到第 ${prev.week} 周：练完第 4 周（段末）或者换成品，才能新开一段（生病住院回来从第 1 周重来的，写 restart）`);
     } else err(`segments[${i}].n`, `段号要连续：上一项是第 ${prev.n} 段，这一项是第 ${s.n} 段`);
   }
   const last = ss[ss.length - 1] as SegmentEntry;
@@ -162,7 +163,7 @@ export function checkProgress(profile: Obj, sessions: SessionFile[], reviews: st
 // ---------- 个人进度 ----------
 
 export const FEELS = ["做不到下限或后面几下变形", "能做到下限，最后两下有点难", "做到上限还很轻松"] as const;
-const RULES = ["建档", "找级", "退回", "减量", "升级", "加次数", "调重量", "加重"] as const;
+const RULES = ["建档", "找级", "退回", "减量", "升级", "加次数", "调重量", "加重", "重来"] as const;
 const FIELDS = ["level", "reps", "weight"] as const;
 type Field = (typeof FIELDS)[number];
 const UP = new Set(["找级", "升级", "加次数", "调重量", "加重"]);
@@ -296,6 +297,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         if (!v || ss[si].week < v.min || ss[si].week > v.max) return `依据的练习记录要在${weeksRule === "找级周" ? "找级" : "调重量"}的那几周里`;
       }
       if (sess.raw?.edited) return "依据的练习记录练的是手改过的课程（edited），不按它调";
+      if (sess.raw?.course?.source?.half === true) return "依据的练习记录练的是半量课（中断、生病回来的第一次），不当加量依据";
       const it = itemOf(sess.raw);
       if (!it || !(it.setsDone > 0)) return "依据的练习记录里这个动作没练（完成 0 组）";
       return null;
@@ -308,6 +310,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       const rv = reviewData[want];
       if (!rv) return { error: `依据的复盘数据 复盘/${want} 不存在` };
       if (rv.symptoms === true) return { error: "依据的那一周有疼痛、头晕或胸闷：不加、不升（可以降）" };
+      if (rv.half === true) return { error: "依据的那一周练过半量课（中断、生病回来），这一周的复盘不当加量依据" };
       return { rv, m: (rv.moves ?? []).find((x: Obj) => x.move === e.move) };
     };
     const weeksOf = (rule: string) => ruleValue(rules, p.code, rule);
@@ -315,7 +318,28 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       const v = weeksOf(rule);
       return !!v && period.week >= v.min && period.week <= v.max;
     };
+    const carryBlocked = (k: number) => {
+      const segStart = ss.findIndex((x) => x.n === period.n);
+      if (segStart < 1) return false;
+      const prevN = ss[segStart - 1].n;
+      const prevSick = ss.some((x, j) => x.n === prevN && (sickPeriods.has(j)));
+      if (!prevSick) return false;
+      return !ss.some((x, j) => j >= segStart && j < k && reviewData[reviewDataName(x)]?.symptoms === false);
+    };
     const before = from ?? (field === "level" && ladder ? startLevel(ladder) : field === "reps" && row?.reps ? row.reps.min : undefined);
+    if (e.rule === "重来") {
+      // 65 岁以上生病、住院回来从第 1 周重新开始（A65_RESTART）：只在重来那一段开始那天、依据那份触发评估，改回起始级、区间下限
+      const entry = ss[pi] as Obj;
+      const startTo = field === "level" && ladder ? startLevel(ladder) : field === "reps" && row?.reps ? row.reps.min : undefined;
+      if (typeof entry.restart !== "string" || e.date !== entry.start || entry.week !== 1) err(i, "重来只能写在从第 1 周重来的那一段开始那天（segments 那一项写了 restart）");
+      else if (ev.replace(/^.*?(评估\/)/, "评估/") !== entry.restart) err(i, `重来的依据要写那份触发评估：${entry.restart}`);
+      else if (startTo === undefined || to !== startTo) err(i, `重来改回训练单的起始值：${field === "level" ? "起始级" : "区间下限"} ${startTo ?? "（这一项没有起始值）"}`);
+      else if (before !== undefined && to > before) err(i, "重来只能往下改");
+      cur[field] = to;
+      cur.product[field] = period.product;
+      if (field === "level") lastChange.set(e.move, e.date);
+      continue;
+    }
     if (e.rule === "建档") {
       const okDay = field === "weight" ? pi === productStart : e.date === ss[productStart].start;
       if (from !== undefined) err(i, `「${e.move}」的 ${field} 在这份成品里已经有值，建档只能写一次（降、升按规则写）`);
@@ -377,6 +401,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         else if (!allowed.has(to)) err(i, `第 ${to} 级这一周不能用（可以用第 ${[...allowed].join("、")} 级）`);
         else if ("error" in rv) err(i, `升级：${rv.error}`);
         else if (!rv.m || rv.m.allAtTop !== true || !(rv.m.spare >= 1)) err(i, "升级要达标：上一周的复盘数据里这个动作每组都做到区间上限、最后一组还有余力（成品的\"达标\"）");
+        else if (!inWeeks("升级周") && carryBlocked(pi)) err(i, "上一段有过疼痛、头晕或胸闷：这一段要先有一周没有不适的复盘，才能按\"下一轮升级\"往上升（SYMPTOM_CARRY）");
         break;
       }
       case "加次数": {
@@ -468,6 +493,11 @@ export function validateReview(raw: unknown): Issue[] {
   if (!Number.isInteger(r.trainings) || r.trainings < 0) err("trainings", "trainings 是这一周练了几次（照使用者说的）");
   if (r.checkinDays !== undefined && !(Number.isInteger(r.checkinDays) && r.checkinDays >= 0 && r.checkinDays <= 7)) err("checkinDays", "checkinDays 是 0–7");
   if (typeof r.symptoms !== "boolean") err("symptoms", "symptoms：这一周有没有疼痛、头晕、胸闷（true / false）");
+  if (r.habits !== undefined && !(typeof r.habits === "object" && r.habits !== null && !Array.isArray(r.habits)
+    && Object.values(r.habits).every((v) => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 7))) err("habits", "habits 是 {打卡项: 这一周达标几天（0–7）}，打卡项见模板 打卡.md");
+  for (const k of ["falls", "nearFalls", "dizzy"]) if (r[k] !== undefined && !(Number.isInteger(r[k]) && r[k] >= 0)) err(k, `${k} 是这一周的次数（65 岁以上：摔倒、差点摔倒、头晕）`);
+  if (r.sickDays !== undefined && !(Number.isInteger(r.sickDays) && r.sickDays >= 0 && r.sickDays <= 7)) err("sickDays", "sickDays 是这一周生病几天（6–12 岁，0–7）");
+  for (const k of ["sickOrMeds", "half", "weightDrop"]) if (r[k] !== undefined && typeof r[k] !== "boolean") err(k, `${k} 是 true / false`);
   if (!Array.isArray(r.moves)) err("moves", "moves 是逐个动作的表现：[{ move, allAtTop, spare }]");
   else r.moves.forEach((m: Obj, i: number) => {
     if (typeof m !== "object" || m === null || typeof m.move !== "string" || typeof m.allAtTop !== "boolean" || !(Number.isInteger(m.spare) && m.spare >= 0)

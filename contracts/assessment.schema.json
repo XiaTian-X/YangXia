@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yangxia.assessment/1",
+  "title": "养夏评估记录",
+  "description": "放在 profiles/<代号>/评估/<日期>-<种类>.json，不提交。测试项、参数、下一轮的方向都来自模板规则层（rules.json 的 assess、nextRound、habits）；结论由 npm run course -- assess 重算，写的结论对不上就报错。6–17 岁不记身高、体重、腰围、BMI；65 岁以上不记这些数字；不记身材照片、血压数值、体检结果、跌倒风险等级。",
+  "type": "object",
+  "required": [
+    "schema",
+    "date",
+    "kind"
+  ],
+  "properties": {
+    "schema": {
+      "const": "yangxia.assessment/1"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "评估的日期"
+    },
+    "kind": {
+      "enum": [
+        "入门",
+        "段末",
+        "触发"
+      ],
+      "description": "周期末评估属于稳定期，阶段 3 才有"
+    },
+    "product": {
+      "type": "string",
+      "description": "评估针对的成品；跨段、换场地的触发评估写新成品"
+    },
+    "segment": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "段末评估：第几段"
+    },
+    "reasons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "跨段",
+          "满一年",
+          "身体变化",
+          "生病住院",
+          "生病",
+          "摔倒",
+          "换场地",
+          "中断",
+          "看完医生回来"
+        ]
+      },
+      "description": "触发评估的原因"
+    },
+    "base": {
+      "enum": [
+        0,
+        1,
+        2
+      ],
+      "description": "最近 3 个月平均每周几天力量练习（2 = 2 天及以上），只记录"
+    },
+    "prereqs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "description": "40–64 岁开工前提 {checkup, bpOk}，只记是 / 否"
+    },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "只限档案选了记的 18–64 岁",
+      "properties": {
+        "height": {
+          "type": "number",
+          "minimum": 100,
+          "maximum": 230
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 25,
+          "maximum": 300
+        },
+        "waist": {
+          "type": "number",
+          "minimum": 40,
+          "maximum": 200
+        }
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "value": {
+            "type": "number",
+            "minimum": 0
+          },
+          "depth": {
+            "type": "string",
+            "maxLength": 30
+          },
+          "mode": {
+            "enum": [
+              "稳态分钟",
+              "间歇轮数"
+            ]
+          },
+          "move": {
+            "type": "string"
+          },
+          "hands": {
+            "enum": [
+              "不用手",
+              "扶椅子",
+              "手撑"
+            ]
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "stopReason": {
+            "enum": [
+              "头晕",
+              "腿软",
+              "身体晃"
+            ]
+          }
+        }
+      }
+    },
+    "companion": {
+      "type": "boolean",
+      "description": "65 岁以上测试时家人在场"
+    },
+    "doctorCleared": {
+      "type": "boolean"
+    },
+    "doctorDate": {
+      "type": "string",
+      "format": "date"
+    },
+    "eventDate": {
+      "type": "string",
+      "format": "date",
+      "description": "摔倒、生病住院那天"
+    },
+    "fallAssessDone": {
+      "type": "boolean",
+      "description": "65 岁以上年度复评：这一年做过跌倒风险评估没有（不记等级）"
+    },
+    "weightDrop": {
+      "type": "boolean",
+      "description": "65 岁以上：体重有没有明显下降（不记数字）"
+    },
+    "conclusion": {
+      "type": "object",
+      "description": "照 course assess 的输出写"
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  }
+}

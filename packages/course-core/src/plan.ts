@@ -201,6 +201,8 @@ export interface ExportInput {
   sessionsDone?: number;
   /** 课程 id（不写按成品、周、日生成）。 */
   id?: string;
+  /** 半量（中断、生病回来的第一次，设计值 HALF）：每个动作组数、循环轮数减半向上取整，次数、秒数、休息不变。 */
+  half?: boolean;
 }
 
 export interface ExportResult {
@@ -332,7 +334,7 @@ export function exportCourse(input: ExportInput): ExportResult {
       exercise: ex.id,
       name: exName(ex, lv, ladder),
       mode: ex.mode,
-      ...(r.block === "sets" ? { sets: r.sets ?? 1 } : {}),
+      ...(r.block === "sets" ? { sets: input.half ? Math.ceil((r.sets ?? 1) / 2) : r.sets ?? 1 } : {}),
       ...(ex.mode === "reps" ? { reps: amount } : { duration: amount }),
       ...(ex.per_side ? { perSide: true } : {}),
       rest: r.block === "circuit" ? 0 : r.rest ?? 0,
@@ -359,7 +361,7 @@ export function exportCourse(input: ExportInput): ExportResult {
       }
     }
     if (r.block === "circuit") {
-      circuit ??= { rounds: r.sets ?? 1, rest: r.rest ?? 0, items: [] };
+      circuit ??= { rounds: input.half ? Math.ceil((r.sets ?? 1) / 2) : r.sets ?? 1, rest: r.rest ?? 0, items: [] };
       circuit.items.push(item);
     } else sets.push(item);
   }
@@ -373,13 +375,14 @@ export function exportCourse(input: ExportInput): ExportResult {
   const short = productName.replace(/岁-/, " ").replace(/版.*$/, "");
   out.course = {
     schema: "yangxia.course/1",
-    id: input.id ?? `c_${hash(`${productName}|${seg.n}|${seg.type}|${week}|${day}`)}`,
-    name: `${short} · 第 ${week} 周 · ${day} 日`.slice(0, 60),
+    id: input.id ?? `c_${hash(`${productName}|${seg.n}|${seg.type}|${week}|${day}${input.half ? "|half" : ""}`)}`,
+    name: `${short} · 第 ${week} 周 · ${day} 日${input.half ? " · 半量" : ""}`.slice(0, 60),
     age: prod.age as Course["age"],
     source: {
       product: productName, templates: plans.version, week, day,
       plan: PLANS_FORMAT, segment: seg.n, type: seg.type, phase: "起始",
       ...(Object.keys(picks).length ? { picks } : {}),
+      ...(input.half ? { half: true } : {}),
     } as Course["source"],
     blocks,
   };
@@ -405,7 +408,7 @@ function hash(s: string): string {
 export function isStartCourse(plans: PlansData, rules: RulesData, profile: Obj, course: Course): boolean {
   const seg = currentSegment(profile);
   const p = plans.products[course.source.product];
-  if (!seg || !p || (course.source as Obj).type !== "标准") return false;
+  if (!seg || !p || (course.source as Obj).type !== "标准" || (course.source as Obj).half === true) return false;
   const rows = dayRows(p, rules, profile, "标准", course.source.week, course.source.day ?? "");
   if (rows.some((r) => r.condition && conditionValue(rules, profile, r.condition.name) !== rules.conditions[r.condition.name]?.text)) return false;
   for (const r of rows) {
@@ -426,7 +429,7 @@ export function checkPlanCourse(course: Course, plans: PlansData, rules: RulesDa
   const seg = currentSegment(profile);
   if (seg && src.segment !== undefined && src.segment !== seg.n) err("source.segment", `课程是第 ${src.segment} 段的，档案现在是第 ${seg.n} 段：重新导出`);
   if (seg && src.type !== undefined && src.type !== seg.type) err("source.type", `课程是${src.type}段的，档案现在是${seg.type}段：重新导出`);
-  const want = exportCourse({ plans, rules, manifest, profile, week: course.source.week, day: course.source.day ?? "", picks: src.picks });
+  const want = exportCourse({ plans, rules, manifest, profile, week: course.source.week, day: course.source.day ?? "", picks: src.picks, half: src.half === true });
   for (const i of want.issues) issues.push({ ...i, path: `训练单 ${i.path}` });
   if (!want.course) return issues;
   const a = course.blocks;

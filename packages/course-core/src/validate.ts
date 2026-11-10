@@ -35,6 +35,7 @@ export function validateCourse(raw: unknown): { course: Course | null; issues: I
     if (src.segment !== undefined && !isInt(src.segment, 1, 99)) err("source.segment", "segment 是第几段，从 1 起的整数");
     if (src.type !== undefined && !["标准", "减量"].includes(src.type as string)) err("source.type", "type 只能是 标准 / 减量");
     if (src.phase !== undefined && src.phase !== "起始") err("source.phase", "phase 现在只有 起始");
+    if (src.half !== undefined && src.half !== true) err("source.half", "half 只能是 true（半量课：中断、生病回来的第一次）");
     if (src.picks !== undefined && !(isObj(src.picks) && Object.values(src.picks).every((v) => typeof v === "string"))) err("source.picks", "picks 是 {轮换组: 动作 ID}");
   }
   if (raw.presentation !== undefined && !isObj(raw.presentation)) err("presentation", "presentation 要是对象");

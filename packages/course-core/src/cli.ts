@@ -8,6 +8,7 @@
 //   npm run course -- intake [年龄段]                              入口问卷：问题、阶段和目标睡眠、这个年龄段的筛查项
 //   npm run course -- bedtime <阶段> <起床时间>                    按公式算上床时间（如 初中 06:30）
 //   npm run course -- moves <成品名>                               这份成品能导出的动作：ID、短名、处方原文、呼吸节奏
+//   npm run course -- assess <档案目录> <入门|段末|触发> [记录.json]  评估：列出要问、要测的项；给了记录就重算结论、核对
 //   npm run profile -- check <档案目录>                            检查档案（和模板核对）、练习记录、课程，以及写给这个人的复盘和菜单
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, sep } from "node:path";
@@ -20,11 +21,13 @@ import { bedtimeFor, checkProfileWithTemplates } from "./intake.ts";
 import { checkProgress, checkProgressLog, progressOn, REVIEW_FORMAT, type SessionFile, validateReview } from "./progress.ts";
 import { loadTemplates, requirePlans, type Templates } from "./node.ts";
 import { currentSegment, exportCourse } from "./plan.ts";
+import { ASSESS_FORMAT, type AssessFile, assessRules, balanceHold, checkAssessments, checkRecord, doctorNeed, gap, param, productInfo, recordConclusion, segmentEnd, validateAssessment } from "./assess.ts";
 import { checkNotes, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
 import type { Issue } from "./types.ts";
 
 const USAGE = `用法：
-  npm run course -- export <档案目录> <第几周> <哪天> [--out <文件>] [--pick 组=动作]
+  npm run course -- export <档案目录> <第几周> <哪天> [--out <文件>] [--pick 组=动作] [--half]
+  npm run course -- assess <档案目录> <入门|段末|触发> [记录.json]
   npm run course -- check <课程.json> --profile <档案.json>
   npm run course -- check <课程.json> --no-profile
   npm run course -- summary <课程.json>
@@ -114,6 +117,7 @@ function scanDir(dir: string, t: Templates, profile: Record<string, any>) {
   const reviews: string[] = [];
   const reviewData: Record<string, Record<string, any>> = {};
   const courses: { name: string; raw: Record<string, any>; archived: boolean }[] = [];
+  const assessments: AssessFile[] = [];
   const segN = currentSegment(profile)?.n ?? 1;
   for (const f of walk(dir)) {
     const name = relative(dir, f);
@@ -137,11 +141,17 @@ function scanDir(dir: string, t: Templates, profile: Record<string, any>) {
         sessions.push({ name: name.split(sep).join("/"), raw, archived });
       }
       else if (raw?.schema === "yangxia.course/1") courses.push({ name, raw, archived });
+      else if (raw?.schema === ASSESS_FORMAT) {
+        issues.push(...tag(validateAssessment(raw)));
+        if (!name.startsWith(`评估${sep}`) && !archived) issues.push({ level: "error", path: name, message: "评估记录放在 评估/ 下：评估/<日期>-<种类>.json" });
+        assessments.push({ name: name.split(sep).join("/"), raw });
+        if (typeof raw?.note === "string") issues.push(...checkNotes(t.manifest.redlines, [profile.age], name, raw.note));
+      }
       else if (raw?.schema === REVIEW_FORMAT) {
         issues.push(...tag(validateReview(raw)));
         if (rv) reviewData[rv[1]] = raw;
       }
-      else if (raw?.schema !== PROFILE_FORMAT) issues.push({ level: "warning", path: name, message: "不认识的 JSON 文件（不是课程、练习记录、复盘数据）" });
+      else if (raw?.schema !== PROFILE_FORMAT) issues.push({ level: "warning", path: name, message: "不认识的 JSON 文件（不是课程、练习记录、复盘数据、评估记录）" });
     } else if (f.endsWith(".md") || f.endsWith(".txt")) {
       // 菜单给全家吃：按全家餐饮的红线，加上每个家庭成员年龄段的红线（家里有孩子，就不能谈体重、减重）
       const menu = name.startsWith(`菜单${sep}`);
@@ -154,7 +164,7 @@ function scanDir(dir: string, t: Templates, profile: Record<string, any>) {
       issues.push({ level: "warning", path: name, message: "不认识的文件：复盘、菜单写成 .md，课程、练习记录是 .json；别的文件不检查" });
     }
   }
-  return { issues, sessions, reviews, reviewData, courses };
+  return { issues, sessions, reviews, reviewData, courses, assessments };
 }
 
 /** 周次推进和个人进度（不复盘不进下一周、进度只能按规则改）：导出、检查课程之前都要过。 */
@@ -162,7 +172,12 @@ function progressIssues(t: Templates, profile: Record<string, any>, scan: Return
   const out = [...checkProgress(profile, scan.sessions, scan.reviews, new Date(), scan.reviewData)];
   if (t.plans && t.rules) out.push(...checkProgressLog(profile, t.plans, t.rules, scan.sessions, scan.reviewData).map((i) => ({ ...i, path: `档案.json ${i.path}` })));
   else out.push({ level: "warning", path: "档案.json", message: "模板还没有训练单（dist/data/）：个人进度没核对，先更新模板" });
+  out.push(...checkAssessments(assessCtx(t, profile, scan)));
   return out;
+}
+
+function assessCtx(t: Templates, profile: Record<string, any>, scan: ReturnType<typeof scanDir>) {
+  return { profile, manifest: t.manifest, plans: t.plans, rules: t.rules, sessions: scan.sessions, reviewData: scan.reviewData, assessments: scan.assessments };
 }
 
 /** 按训练单和档案导出一天：agent 只选哪一天，组数、次数、级、节奏、休息都由训练单和个人进度定。 */
@@ -188,11 +203,18 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
   const seg = currentSegment(profile)!;
   // 每次轮换：这一段这一天已经练过几次（练习记录里的课程是同一段、同一天）
   const sessionsDone = scan.sessions.filter((s) => s.raw.course?.source?.day === day && s.raw.course?.source?.segment === seg.n).length;
-  const r = exportCourse({ plans, rules, manifest: t.manifest, profile, week: Number(weekArg), day, picks, sessionsDone });
-  const sc = profile.screening;
-  if (r.course && sc && (profile.age === "a65" || sc.answers?.some((a: any) => a?.answer === "是")) && !sc.doctorCleared) {
-    r.issues.push({ level: "error", path: "screening", message: "医生同意之前不出课程（65 岁以上都要先问医生；筛查有\"是\"的也要）" });
+  const half = rest.includes("--half");
+  const r = exportCourse({ plans, rules, manifest: t.manifest, profile, week: Number(weekArg), day, picks, sessionsDone, half });
+  const ctx = assessCtx(t, profile, scan);
+  const doc = doctorNeed(ctx);
+  if (r.course && doc.needed && !doc.ok) {
+    r.issues.push({ level: "error", path: "screening", message: `医生同意之前不出课程（${doc.reason}：医生同意的日期 doctorDate 要不早于 ${doc.after}）` });
   }
+  if (balanceHold(ctx)) r.notes.push("摔倒过：医生同意之前不练平衡动作（6–9 号），照成品第十二章；力量动作也先问医生");
+  const info = productInfo(t.manifest, seg.product);
+  const g = info ? gap(ctx, info.code, new Date().toISOString().slice(0, 10)) : null;
+  if (g && g.days > g.remindDays && !half) r.notes.push(`最后一次训练是 ${g.last}，断了 ${g.days} 天：照成品，回来第一次只做一半的量——加 --half 重新导出半量课`);
+  if (half && !(g && g.days > g.remindDays)) r.notes.push("没有发现中断：半量课只用在中断、生病回来的第一次（照样算训练次数，不当加量依据）");
   for (const f of r.follow) console.log(`照成品做：${f.name}（${f.reason}）`);
   for (const n of r.notes) console.log(n);
   const errors = r.issues.filter((i) => i.level === "error");
@@ -258,6 +280,58 @@ function courseIssues(t: Templates, profile: Record<string, any>, scan: ReturnTy
   return out;
 }
 
+/** 评估：没给记录，列出这一种要问、要测的项（照规则层原文）；给了记录，重算结论、核对。 */
+async function assessCmd(dir: string, kind: string, file?: string): Promise<number> {
+  const t = await loadTemplates();
+  const profile = readJson(join(dir, "档案.json")) as Record<string, any>;
+  const scan = scanDir(dir, t, profile);
+  const ar = assessRules(t.rules);
+  if (!ar) {
+    console.log("模板还没有评估规则（rules.json 的 assess）：先把模板仓库更新到 v4 阶段 2 之后");
+    return 2;
+  }
+  if (!["入门", "段末", "触发"].includes(kind)) {
+    console.log(kind === "周期末" ? "周期末评估属于稳定期，阶段 3 才有" : "种类写 入门 / 段末 / 触发");
+    return 2;
+  }
+  const seg = currentSegment(profile);
+  const product = (file ? (readJson(file) as Record<string, any>).product : undefined) ?? seg?.product ?? profile.product;
+  const info = productInfo(t.manifest, product);
+  if (!info) {
+    console.log(`模板里没有成品「${product}」`);
+    return 2;
+  }
+  if (!file) {
+    console.log(`${kind}评估 · ${product}（不是医学建议；65 岁以上的测试在医生同意以后、家人在场时做）`);
+    if (kind === "触发") console.log(`原因（reasons）：跨段 / 满一年 / 身体变化 / 生病住院 / 生病 / 摔倒 / 换场地 / 中断 / 看完医生回来；跨段、换场地写新成品 product，并带上新成品入门的项目`);
+    const timing = kind === "段末" ? "段末" : "入门";
+    for (const pr of ar.assess.prereqs.filter((x) => x.products.includes(info.code))) console.log(`开工前提 ${pr.id}：${pr.ask}（是 / 否；${pr.note}）`);
+    if (kind === "入门" && ["a18", "a40", "a13"].includes(info.age)) console.log("训练基础 base：最近 3 个月平均每周几天力量练习（0、1、2 及以上；只记录）");
+    for (const x of ar.assess.tests.filter((x) => x.products.includes(info.code) && x.timing.includes(timing))) {
+      if (x.id === "body" && profile.body !== "记") continue;
+      console.log(`测试 ${x.id}：记 ${x.fields.join("、")}；${x.judge}（${x.note}）`);
+    }
+    if (info.age === "a65" && kind === "段末") console.log("weightDrop：体重有没有明显下降（是 / 否，不记数字）");
+    if (kind === "段末" && seg) {
+      const end = segmentEnd(profile, seg.n, scan.reviewData, ar, info.code);
+      if ("error" in end) console.log(`段末结论：${end.error}`);
+      else {
+        console.log(`四周训练 ${end.numbers.trainings}（每周最多算 ${param(ar.assess, seg.type === "减量" ? "减量段每周排的训练" : "每周排的训练", info.code)?.value ?? "—"} 次）${end.numbers.falls ? `；摔倒、差点摔倒、头晕 ${end.numbers.falls} 次` : ""}${end.numbers.symptoms ? "；这一段有过不适" : ""}`);
+        console.log(`结论：${end.result}${end.downgraded ? "（有不适，往上的结论降为原样）" : ""}；下一段：${end.next}${end.extras.length ? `；附加：${end.extras.join("、")}` : ""}${Object.keys(end.habitTargets).length ? `；习惯目标 ${JSON.stringify(end.habitTargets)}` : ""}`);
+        for (const q of end.quotes) console.log(`  原文：${q}`);
+      }
+    }
+    return 0;
+  }
+  const raw = readJson(file) as Record<string, any>;
+  const f: AssessFile = { name: relative(dir, file).split(sep).join("/"), raw };
+  const ctx = { ...assessCtx(t, profile, scan), assessments: [...scan.assessments.filter((a) => a.name !== f.name), f] };
+  const asEntry = kind === "入门" || (kind === "触发" && (raw.reasons ?? []).some((x: string) => x === "跨段" || x === "换场地"));
+  const want = recordConclusion(ctx, f, product, asEntry);
+  console.log(`按规则重算的结论：${JSON.stringify(want ?? {})}`);
+  return print([...validateAssessment(raw), ...checkRecord(ctx, { ...f, raw: { ...raw, conclusion: raw.conclusion ?? want } }, product, asEntry)]);
+}
+
 async function profileCheck(dir: string): Promise<number> {
   const t = await loadTemplates();
   const profile = readJson(join(dir, "档案.json")) as Record<string, any>;
@@ -300,6 +374,13 @@ async function main(argv: string[]): Promise<number> {
     return exportCmd(file, rest[0], rest[1], rest.slice(2));
   }
   if (cmd === "bedtime") return bedtime(file, rest[0]);
+  if (cmd === "assess") {
+    if (!file || !rest[0]) {
+      console.log(USAGE);
+      return 2;
+    }
+    return assessCmd(file, rest[0], rest[1]);
+  }
   if (cmd === "moves") {
     if (!file) {
       console.log(USAGE);

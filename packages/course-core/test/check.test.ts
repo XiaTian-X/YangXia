@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { checkCourse } from "../src/check.ts";
 import { failedRedlineCases, redlineHits } from "../src/redlines.ts";
 import type { Course } from "../src/types.ts";
-import { FIX, clone, courseFixtures, fixtureManifest, fixtureReadProduct, okCourse, readJson } from "./helpers.ts";
+import { FIX, clone, courseFixtures, fitAge, fixtureManifest, fixtureReadProduct, okCourse, readJson } from "./helpers.ts";
 
 const manifest = fixtureManifest();
 const run = (c: unknown, profile?: unknown) =>
@@ -141,7 +141,8 @@ describe("档案", () => {
     p.screening.answers = manifest.intake.screening.find((s) => s.age === age)!.items.map((item) => ({ item, answer: "否" }));
     p.screening.answers[0].answer = answer;
     p.screening.doctorCleared = doctorCleared;
-    return p;
+    if (doctorCleared) p.screening.doctorDate = p.screening.date;
+    return fitAge(p, age);
   };
   it("筛查全是\"否\"：通过", () => expect(run(A(), profile("否", false))).toEqual([]));
   it("有\"是\"、医生没同意：拒绝", () => expect(run(A(), profile("是", false)).join()).toMatch(/先问医生/));

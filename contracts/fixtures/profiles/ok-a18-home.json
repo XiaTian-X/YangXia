@@ -5,6 +5,7 @@
   "age": "a18",
   "venue": "home",
   "product": "18-39岁-居家版",
+  "birth": "1996-05",
   "wake": "06:20",
   "bedtime": "22:00",
   "screening": {
@@ -42,7 +43,8 @@
         "answer": "否"
       }
     ],
-    "doctorCleared": false
+    "doctorCleared": false,
+    "date": "2026-11-09"
   },
   "startDate": "2026-11-09",
   "segments": [
@@ -61,5 +63,6 @@
     "table-row"
   ],
   "progress": {},
-  "progressLog": []
+  "progressLog": [],
+  "body": "不记"
 }

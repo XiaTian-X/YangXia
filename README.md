@@ -97,6 +97,7 @@
 | 你说 | agent 做什么 | 写到哪 |
 |---|---|---|
 | "我想开始""给我家孩子建个档" | `onboard`：入口问卷、安全筛查、算上床时间、选成品、问训练单用到的条件和器材 | `profiles/<代号>/档案.json` |
+| 建档的最后一步、"这一轮练完了"、换版本、断了很久 | `assess`：入门、段末、触发三种评估，结论由 `npm run course -- assess` 重算 | `profiles/<代号>/评估/` |
 | "导出今天的训练" | `course-export`：用 `npm run course -- export` 按训练单和个人进度导出这一天的课程 | `profiles/<代号>/课程/` |
 | （用编排器跟练） | 练完点"导出练习记录"，把文件放进打卡目录 | `profiles/<代号>/打卡/` |
 | "这周练完了" | `weekly-review`：按成品的达标线和升级规则决定下周、改个人进度；第 4 周后做月度总结、开下一段 | `profiles/<代号>/复盘/`（.md 和复盘数据 .json） |
@@ -112,7 +113,8 @@ npm run templates                                          # 打印模板仓库�
 npm run course -- intake [年龄段]                          # 入口问卷、成品列表和这个年龄段的筛查项
 npm run course -- bedtime <阶段> <HH:MM>                   # 按公式算上床时间（如 初中 06:30），不要心算
 npm run course -- moves <成品名>                           # 这份成品能导出的动作、处方原文、呼吸节奏
-npm run course -- export profiles/<代号> <第几周> <哪天>   # 按训练单和档案导出一天的课程（可加 --out <文件>、--pick 组=动作）
+npm run course -- export profiles/<代号> <第几周> <哪天>   # 按训练单和档案导出一天的课程（可加 --out <文件>、--pick 组=动作；中断、生病回来的第一次加 --half）
+npm run course -- assess profiles/<代号> <入门|段末|触发> [记录.json]   # 评估：列出要问、要测的项；给了记录就按规则重算结论、核对
 npm run course -- check <课程.json> --profile <档案.json>  # 检查课程：按训练单和档案进度逐项核对，连同安全筛查
 npm run course -- summary <课程.json>                      # 总时长、动作、组数
 npm run course -- srt <课程.json>                          # 打印 SRT 字幕
@@ -132,6 +134,7 @@ profiles/<代号>/
   打卡/养夏_练习记录_<日期>_<时分>.json  练习记录（编排器导出后放进来）
   复盘/<这一周的开始日期>-第N周.md       周复盘；第 4 周后还有 月度总结.md（weekly-review 写）
   复盘/<这一周的开始日期>-第N周.json     复盘数据，和同名 .md 成对（weekly-review 写）
+  评估/<日期>-<入门|段末|触发>.json       评估记录（assess 写，结论由命令重算）
   菜单/第N周.md                          一周菜单（meal-plan 写）
   历史/第N段/                            新开一段时，上一段的 课程/ 打卡/ 复盘/ 可以整个移进来
 ```

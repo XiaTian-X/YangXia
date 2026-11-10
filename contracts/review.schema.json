@@ -71,6 +71,48 @@
     "note": {
       "type": "string",
       "maxLength": 500
+    },
+    "habits": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 7
+      },
+      "description": "这一周每项打卡项达标几天，打卡项照模板 打卡.md"
+    },
+    "falls": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "65 岁以上：这一周摔倒几次"
+    },
+    "nearFalls": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "65 岁以上：差点摔倒几次"
+    },
+    "dizzy": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "65 岁以上：头晕几次"
+    },
+    "sickDays": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 7,
+      "description": "6–12 岁：这一周生病几天"
+    },
+    "sickOrMeds": {
+      "type": "boolean",
+      "description": "65 岁以上：这一周有没有生病、换药（是就做触发评估）"
+    },
+    "weightDrop": {
+      "type": "boolean",
+      "description": "65 岁以上：体重有没有明显下降（不记数字；是就提醒问医生）"
+    },
+    "half": {
+      "type": "boolean",
+      "description": "这一周练过半量课：这份复盘不当加量依据"
     }
   }
 }

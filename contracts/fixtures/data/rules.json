@@ -497,5 +497,1512 @@
    ],
    "note": "第 3 周起放下数 3 秒，第 4 周同第 3 周"
   }
+ ],
+ "assess": {
+  "tests": [
+   {
+    "id": "pushup-test",
+    "products": [
+     "a18·bw",
+     "a18·home"
+    ],
+    "timing": [
+     "入门",
+     "段末"
+    ],
+    "fields": [
+     "level",
+     "value"
+    ],
+    "judge": "前后比·同一级",
+    "quotes": [
+     {
+      "section": "开始前的一次性准备",
+      "text": "测出你俯卧撑的起始难度级"
+     },
+     {
+      "section": "开始前的一次性准备",
+      "text": "记下最大次数和用的是哪一级"
+     },
+     {
+      "section": "开始前的一次性准备",
+      "text": "月末用同一级、正常节奏复测对比"
+     }
+    ],
+    "note": "原文是做到\"再也做不出一个标准动作\"的一组，照原文记录"
+   },
+   {
+    "id": "pushup-test",
+    "products": [
+     "a40·bw",
+     "a40·home"
+    ],
+    "timing": [
+     "入门",
+     "段末"
+    ],
+    "fields": [
+     "level",
+     "value"
+    ],
+    "judge": "前后比·同一级",
+    "quotes": [
+     {
+      "section": "开始前的一次性准备",
+      "text": "测出你俯卧撑的起始难度级"
+     },
+     {
+      "section": "开始前的一次性准备",
+      "text": "做到还剩 1–2 次余力就停"
+     },
+     {
+      "section": "开始前的一次性准备",
+      "text": "月末用同一级、同样标准复测对比"
+     }
+    ],
+    "note": "40–64 岁版留 1–2 次余力"
+   },
+   {
+    "id": "wallsit-test",
+    "products": [
+     "a18·bw",
+     "a40·bw"
+    ],
+    "timing": [
+     "入门",
+     "段末"
+    ],
+    "fields": [
+     "value",
+     "depth"
+    ],
+    "judge": "前后比·同一深度",
+    "quotes": [
+     {
+      "section": "开始前的一次性准备",
+      "text": "做一次靠墙静蹲"
+     },
+     {
+      "section": "开始前的一次性准备",
+      "text": "记下蹲的深度"
+     }
+    ],
+    "note": "秒数；有高血压或没确认的，封顶见下面\"评估参数\""
+   },
+   {
+    "id": "bike-test",
+    "products": [
+     "a18·home",
+     "a40·home"
+    ],
+    "timing": [
+     "段末"
+    ],
+    "fields": [
+     "mode",
+     "value"
+    ],
+    "judge": "只记录",
+    "quotes": [
+     {
+      "section": "月度总结",
+      "text": "单车（稳态分钟 / 间歇轮数）｜起始 ____ → 现在 ____"
+     }
+    ],
+    "note": "起始值是第 1 周照处方骑的那一次，是训练记录不是测试，所以只在段末记"
+   },
+   {
+    "id": "gym-weights",
+    "products": [
+     "a18·gym",
+     "a40·gym"
+    ],
+    "timing": [
+     "段末"
+    ],
+    "fields": [
+     "move",
+     "value"
+    ],
+    "judge": "只记录",
+    "quotes": [
+     {
+      "section": "月度总结",
+      "text": "主要动作重量变化｜深蹲 ____｜器械推胸 ____｜高位下拉 ____"
+     }
+    ],
+    "note": "深蹲、器械推胸、高位下拉各一条，取自档案的个人进度；起始重量第 1 周才定，就是进度日志里的\"建档\""
+   },
+   {
+    "id": "chair-stand-30s",
+    "products": [
+     "a65·chair"
+    ],
+    "timing": [
+     "入门",
+     "段末"
+    ],
+    "fields": [
+     "value",
+     "hands",
+     "done",
+     "stopReason"
+    ],
+    "judge": "前后比·同一种用手的方式",
+    "quotes": [
+     {
+      "section": "开始前的一次性准备",
+      "text": "坐站测试（30 秒）"
+     },
+     {
+      "section": "开始前的一次性准备",
+      "text": "家人在场时做"
+     },
+     {
+      "section": "开始前的一次性准备",
+      "text": "记下是哪一种"
+     },
+     {
+      "section": "月度总结",
+      "text": "两次用手的方式一样吗"
+     }
+    ],
+    "note": "没做完时 value 是已经做了几次；停下的原因是头晕的，算进段末\"头晕\""
+   },
+   {
+    "id": "body",
+    "products": [
+     "a18·gym",
+     "a18·home",
+     "a18·bw",
+     "a40·gym",
+     "a40·home",
+     "a40·bw"
+    ],
+    "timing": [
+     "入门",
+     "段末"
+    ],
+    "fields": [
+     "height",
+     "weight",
+     "waist"
+    ],
+    "judge": "BMI 分档",
+    "quotes": [
+     {
+      "section": "开始前的一次性准备",
+      "text": "晨起空腹、如厕后称体重"
+     },
+     {
+      "section": "开始前的一次性准备",
+      "text": "记下当前腰围"
+     }
+    ],
+    "note": "只在档案选了\"记\"时记；身高只在入门记。分档用 BMI_CN、WEIGHT_LOW_CN；腰围不分档（档案不记性别），只看前后"
+   }
+  ],
+  "prereqs": [
+   {
+    "id": "checkup",
+    "products": [
+     "a40·gym",
+     "a40·home",
+     "a40·bw"
+    ],
+    "ask": "近一年内做过体检吗",
+    "quotes": [
+     {
+      "section": "开始前的一次性准备",
+      "text": "近一年内做过体检；没有的话，开始前 1–2 周先去预约，拿到结果再开始"
+     }
+    ],
+    "note": "没做过就先去做，拿到结果再开始"
+   },
+   {
+    "id": "bpOk",
+    "products": [
+     "a40·gym",
+     "a40·home",
+     "a40·bw"
+    ],
+    "ask": "量过血压，而且知道数值正常吗",
+    "quotes": [
+     {
+      "section": "开始前的一次性准备",
+      "text": "数值偏高，或者不知道自己的数值算不算正常，先问医生再开始"
+     }
+    ],
+    "note": "偏高或者不知道算不算正常，都算\"否\""
+   }
+  ],
+  "params": [
+   {
+    "name": "高血压静蹲上限",
+    "products": [
+     "a18·bw",
+     "a40·bw"
+    ],
+    "value": "30",
+    "quotes": [
+     {
+      "section": "动作库",
+      "text": "靠墙静蹲每组不超过 30–45 秒"
+     }
+    ],
+    "note": "有高血压或没确认的，静蹲测试最多 30 秒（时长取下限）",
+    "number": 30
+   },
+   {
+    "name": "测试要有人在旁",
+    "products": [
+     "a65·chair"
+    ],
+    "value": "是",
+    "quotes": [
+     {
+      "section": "开始前的一次性准备",
+      "text": "家人在场时做"
+     }
+    ],
+    "note": "65 岁以上的测试，评估里要写有人在旁边，而且医生已经同意"
+   },
+   {
+    "name": "中断提醒天数",
+    "products": [
+     "a18·gym",
+     "a18·home",
+     "a18·bw",
+     "a40·gym",
+     "a40·home",
+     "a40·bw",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "value": "5",
+    "quotes": [
+     {
+      "section": "常见问题与应急",
+      "text": "连着断了三天以上"
+     }
+    ],
+    "note": "设计值 GAP_DAYS：原文\"连着断了三天以上\"，加上排程里两练之间最长空 2 天",
+    "number": 5
+   },
+   {
+    "name": "长时间中断天数",
+    "products": [
+     "a18·gym",
+     "a18·home",
+     "a18·bw",
+     "a40·gym",
+     "a40·home",
+     "a40·bw",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "value": "28",
+    "quotes": [],
+    "note": "设计值 GAP_LONG：原文只说到\"断了一周、甚至半个月\"，超过 28 天先做触发评估",
+    "number": 28
+   },
+   {
+    "name": "半量",
+    "products": [
+     "a18·gym",
+     "a18·home",
+     "a18·bw",
+     "a40·gym",
+     "a40·home",
+     "a40·bw",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "value": "组数减半向上取整",
+    "quotes": [],
+    "note": "设计值 HALF：原文\"回来的第一次训练只做一半的量\"，次数、秒数、休息不变"
+   },
+   {
+    "name": "筛查有效天数",
+    "products": [
+     "a65·chair"
+    ],
+    "value": "365",
+    "quotes": [
+     {
+      "section": "下一轮的方向",
+      "text": "跌倒风险评估别忘了"
+     }
+    ],
+    "note": "设计值 SCREEN_YEAR：每年重做一次筛查；官方 FALL_ASSESS 每年至少做一次跌倒风险评估，年度复评同时问做过没有",
+    "number": 365
+   },
+   {
+    "name": "筛查有效天数",
+    "products": [
+     "a18·gym",
+     "a18·home",
+     "a18·bw",
+     "a40·gym",
+     "a40·home",
+     "a40·bw",
+     "a13·bw",
+     "a06·play"
+    ],
+    "value": "365",
+    "quotes": [],
+    "note": "设计值 SCREEN_YEAR：每年重做一次开始前的安全筛查",
+    "number": 365
+   },
+   {
+    "name": "一段的周数",
+    "products": [
+     "a18·gym",
+     "a18·home",
+     "a18·bw",
+     "a40·gym",
+     "a40·home",
+     "a40·bw",
+     "a13·bw",
+     "a65·chair",
+     "a06·play"
+    ],
+    "value": "4",
+    "quotes": [],
+    "note": "设计值 SEGMENT_COUNT：每个周次只取最后一份复盘，每周训练数不超过这一周排的次数",
+    "number": 4
+   },
+   {
+    "name": "每周排的训练",
+    "products": [
+     "a18·gym",
+     "a18·home",
+     "a18·bw",
+     "a40·gym",
+     "a40·home",
+     "a40·bw"
+    ],
+    "value": "4",
+    "quotes": [
+     {
+      "section": "使用说明",
+      "text": "一周 4 练完成"
+     }
+    ],
+    "note": "标准段；减量段每周 3 练",
+    "number": 4
+   },
+   {
+    "name": "每周排的训练",
+    "products": [
+     "a13·bw",
+     "a65·chair"
+    ],
+    "value": "3",
+    "quotes": [
+     {
+      "section": "使用说明",
+      "text": "一周 3 练完成"
+     }
+    ],
+    "note": "标准段；减量段每周 2 练",
+    "number": 3
+   },
+   {
+    "name": "减量段每周排的训练",
+    "products": [
+     "a18·gym",
+     "a18·home",
+     "a18·bw",
+     "a40·gym",
+     "a40·home",
+     "a40·bw"
+    ],
+    "value": "3",
+    "quotes": [
+     {
+      "section": "下一轮的方向",
+      "text": "降到每周 3 练"
+     }
+    ],
+    "note": "减量段",
+    "number": 3
+   },
+   {
+    "name": "减量段每周排的训练",
+    "products": [
+     "a13·bw",
+     "a65·chair"
+    ],
+    "value": "2",
+    "quotes": [
+     {
+      "section": "下一轮的方向",
+      "text": "每周 2 练"
+     }
+    ],
+    "note": "减量段",
+    "number": 2
+   }
+  ],
+  "crossing": [
+   {
+    "name": "换 40–64 岁版",
+    "value": "40",
+    "note": "设计值 AGE_BY_MONTH：年龄按出生月份的 1 日算；设计值 AGE_SWITCH：一段中间跨段，这一段练完再换",
+    "number": 40
+   },
+   {
+    "name": "换 65 岁以上版",
+    "value": "65",
+    "note": "设计值 A65_SWITCH：从满 65 岁那个月起就要换（重新筛查、医生同意），不等这一段练完；新开一段时 4 周内会满 65 岁的给警告",
+    "number": 65
+   },
+   {
+    "name": "换成人版",
+    "value": "18",
+    "note": "设计值 GRAD_18：高中毕业而且满 18 岁才换成人版；不在校的满 18 岁换",
+    "number": 18
+   },
+   {
+    "name": "升学日期",
+    "value": "09-01",
+    "note": "设计值 SCHOOL_SEP1：按 9 月 1 日升学"
+   },
+   {
+    "name": "六三制",
+    "value": "小学 6、初中 3、高中 3",
+    "note": "设计值 SCHOOL_SEP1"
+   },
+   {
+    "name": "五四制",
+    "value": "小学 5、初中 4、高中 3",
+    "note": "设计值 SCHOOL_SEP1"
+   },
+   {
+    "name": "不在校按年龄",
+    "value": "初中 13–15、高中 16–17",
+    "note": "设计值 SCHOOL_BY_AGE：不在校的 13–17 岁，作息照同龄人的学段"
+   },
+   {
+    "name": "跨段提前警告天数",
+    "value": "28",
+    "note": "设计值 A65_SWITCH",
+    "number": 28
+   }
+  ]
+ },
+ "nextRound": [
+  {
+   "products": [
+    "a18·gym",
+    "a40·gym"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 1,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 14,
+     "max": null
+    }
+   ],
+   "result": "进入下一阶段",
+   "upward": true,
+   "next": "标准",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "进入下一阶段：明确选减脂或增肌"
+    }
+   ],
+   "note": "双进阶和热量调整属于稳定期和目标模块（阶段 3、4），现在没有训练单；下一段先原样再跑，第 1 周接着用第 4 周的重量；40–64 岁每次只加最小的一档，加重后那一周关节不舒服就退回"
+  },
+  {
+   "products": [
+    "a18·home",
+    "a40·home"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 1,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 14,
+     "max": null
+    }
+   ],
+   "result": "添装备",
+   "upward": true,
+   "next": "标准",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "加装备：一根门上单杠"
+    },
+    {
+     "section": "下一轮的方向",
+     "text": "不添装备也行"
+    }
+   ],
+   "note": "添的装备记进档案的器材选择，训练单有对应选项才导出"
+  },
+  {
+   "products": [
+    "a18·bw",
+    "a40·bw"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 1,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 14,
+     "max": null
+    }
+   ],
+   "result": "添装备",
+   "upward": true,
+   "next": "标准",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "可以开始添装备了"
+    },
+    {
+     "section": "下一轮的方向",
+     "text": "不添装备也行"
+    }
+   ],
+   "note": "原文也说可以换居家版或健身房版：换成品走触发评估\"换场地\""
+  },
+  {
+   "products": [
+    "a18·gym",
+    "a18·home",
+    "a18·bw",
+    "a40·gym",
+    "a40·home",
+    "a40·bw"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 2,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 12,
+     "max": 13
+    }
+   ],
+   "result": "原样",
+   "upward": false,
+   "next": "标准",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "这一轮已经算成功"
+    },
+    {
+     "section": "下一轮的方向",
+     "text": "原样再跑一轮"
+    }
+   ],
+   "note": "没到进阶线，原样再跑"
+  },
+  {
+   "products": [
+    "a18·gym",
+    "a18·home",
+    "a18·bw",
+    "a40·gym",
+    "a40·home",
+    "a40·bw"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 3,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 0,
+     "max": 11
+    }
+   ],
+   "result": "减量",
+   "upward": false,
+   "next": "减量",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "计划设计得太重了，不是你的问题"
+    },
+    {
+     "section": "下一轮的方向",
+     "text": "降到每周 3 练"
+    }
+   ],
+   "note": "下一段是减量段，打卡项砍到 4 项"
+  },
+  {
+   "products": [
+    "a18·gym",
+    "a18·home",
+    "a18·bw",
+    "a40·gym",
+    "a40·home",
+    "a40·bw"
+   ],
+   "segments": [
+    "减量"
+   ],
+   "order": 1,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 9,
+     "max": null
+    }
+   ],
+   "result": "回标准段",
+   "upward": false,
+   "next": "标准",
+   "targets": [],
+   "quotes": [],
+   "note": "设计值 REDUCED_END：减量段达到它的成功线（按 12/16 等比例 ≥ 9 练），下一段回到标准段"
+  },
+  {
+   "products": [
+    "a18·gym",
+    "a18·home",
+    "a18·bw",
+    "a40·gym",
+    "a40·home",
+    "a40·bw"
+   ],
+   "segments": [
+    "减量"
+   ],
+   "order": 2,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 0,
+     "max": 8
+    }
+   ],
+   "result": "减量",
+   "upward": false,
+   "next": "减量",
+   "targets": [],
+   "quotes": [],
+   "note": "设计值 REDUCED_END：没达到，再来一段减量段"
+  },
+  {
+   "products": [
+    "a13·bw"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 1,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 10,
+     "max": null
+    }
+   ],
+   "result": "原样",
+   "upward": true,
+   "next": "标准",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "做得稳的动作继续升级"
+    }
+   ],
+   "note": "往上：继续升级，有不适时冻结"
+  },
+  {
+   "products": [
+    "a13·bw"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 2,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 8,
+     "max": 9
+    }
+   ],
+   "result": "原样",
+   "upward": false,
+   "next": "标准",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "训练这一条已经达标"
+    },
+    {
+     "section": "下一轮的方向",
+     "text": "原样再跑一轮"
+    }
+   ],
+   "note": "原样再跑"
+  },
+  {
+   "products": [
+    "a13·bw"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 3,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 0,
+     "max": 7
+    }
+   ],
+   "result": "减量",
+   "upward": false,
+   "next": "减量",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "计划定得太重了，不是你的问题"
+    },
+    {
+     "section": "下一轮的方向",
+     "text": "下一轮每周 2 练"
+    }
+   ],
+   "note": "下一段是减量段，每日习惯只留前 3 项"
+  },
+  {
+   "products": [
+    "a13·bw"
+   ],
+   "segments": [
+    "减量"
+   ],
+   "order": 1,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 6,
+     "max": null
+    }
+   ],
+   "result": "回标准段",
+   "upward": false,
+   "next": "标准",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "四周 ≥6 练算训练这条成功"
+    }
+   ],
+   "note": "设计值 REDUCED_END：达到减量段的成功线，下一段回到标准段"
+  },
+  {
+   "products": [
+    "a13·bw"
+   ],
+   "segments": [
+    "减量"
+   ],
+   "order": 2,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 0,
+     "max": 5
+    }
+   ],
+   "result": "减量",
+   "upward": false,
+   "next": "减量",
+   "targets": [],
+   "quotes": [],
+   "note": "设计值 REDUCED_END：没达到，再来一段减量段"
+  },
+  {
+   "products": [
+    "a13·bw"
+   ],
+   "segments": [
+    "标准",
+    "减量"
+   ],
+   "order": null,
+   "extra": true,
+   "when": [
+    {
+     "kind": "habitWeekMiss",
+     "habits": [
+      "动够60分钟",
+      "按时上床"
+     ]
+    }
+   ],
+   "result": "降那一项",
+   "upward": false,
+   "next": "—",
+   "targets": [
+    {
+     "kind": "weekDays",
+     "days": 4
+    }
+   ],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "下一轮先把那一项的周达标降到每周 4 天"
+    },
+    {
+     "section": "下一轮的方向",
+     "text": "60 分钟和上床时间本身不放宽"
+    }
+   ],
+   "note": "只降一次，不叠着降；做到了下一段改回（设计值 HABIT_RESTORE）"
+  },
+  {
+   "products": [
+    "a65·chair"
+   ],
+   "segments": [
+    "标准",
+    "减量"
+   ],
+   "order": 1,
+   "extra": false,
+   "when": [
+    {
+     "kind": "fallsOrDizzy"
+    }
+   ],
+   "result": "先看医生",
+   "upward": false,
+   "next": "不开",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "本轮摔倒过，或者出现过头晕、差点摔倒"
+    },
+    {
+     "section": "下一轮的方向",
+     "text": "先去看医生，做一次跌倒风险评估"
+    }
+   ],
+   "note": "医生同意（触发评估\"看完医生回来\"）之前不开下一段"
+  },
+  {
+   "products": [
+    "a65·chair"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 2,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 10,
+     "max": null
+    }
+   ],
+   "result": "加一项",
+   "upward": true,
+   "next": "标准",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "平衡动作继续减少扶的力气"
+    }
+   ],
+   "note": "医生同意后一次只加一项（A65_NEXT_ROUND），个人进度里没有组数这一项，照成品做；新一段第 1 周回到训练单的扶法"
+  },
+  {
+   "products": [
+    "a65·chair"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 3,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 8,
+     "max": 9
+    }
+   ],
+   "result": "原样",
+   "upward": false,
+   "next": "标准",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "训练这一条已经达标"
+    },
+    {
+     "section": "下一轮的方向",
+     "text": "原样再跑一轮"
+    }
+   ],
+   "note": "原样再跑"
+  },
+  {
+   "products": [
+    "a65·chair"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 4,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 0,
+     "max": 7
+    }
+   ],
+   "result": "减量",
+   "upward": false,
+   "next": "减量",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "计划定得太重了，不是你的问题"
+    },
+    {
+     "section": "下一轮的方向",
+     "text": "下一轮改成每周 2 练"
+    }
+   ],
+   "note": "下一段是减量段：每个动作 1 组，每日习惯只留前 3 项，放松照做不考核"
+  },
+  {
+   "products": [
+    "a65·chair"
+   ],
+   "segments": [
+    "减量"
+   ],
+   "order": 2,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 6,
+     "max": null
+    }
+   ],
+   "result": "回标准段",
+   "upward": false,
+   "next": "标准",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "四周 ≥6 练算训练这条成功"
+    }
+   ],
+   "note": "设计值 REDUCED_END：达到减量段的成功线，下一段回到标准段"
+  },
+  {
+   "products": [
+    "a65·chair"
+   ],
+   "segments": [
+    "减量"
+   ],
+   "order": 3,
+   "extra": false,
+   "when": [
+    {
+     "kind": "trainings",
+     "min": 0,
+     "max": 5
+    }
+   ],
+   "result": "减量",
+   "upward": false,
+   "next": "减量",
+   "targets": [],
+   "quotes": [],
+   "note": "设计值 REDUCED_END：没达到，再来一段减量段"
+  },
+  {
+   "products": [
+    "a65·chair"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": null,
+   "extra": true,
+   "when": [
+    {
+     "kind": "habitWeekMiss",
+     "habits": [
+      "散步",
+      "放松"
+     ]
+    }
+   ],
+   "result": "降那一项",
+   "upward": false,
+   "next": "—",
+   "targets": [
+    {
+     "kind": "minutesDown",
+     "habit": "散步",
+     "step": 5,
+     "min": 5
+    },
+    {
+     "kind": "minutes",
+     "habit": "放松",
+     "value": 3
+    }
+   ],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "下一轮先把那一项降小"
+    },
+    {
+     "section": "下一轮的方向",
+     "text": "散步时长减 5 分钟，最少 5 分钟；放松先做 3 分钟"
+    }
+   ],
+   "note": "散步可以连着降，最少 5 分钟；做到了下一段加回 5 分钟（设计值 HABIT_RESTORE）"
+  },
+  {
+   "products": [
+    "a65·chair"
+   ],
+   "segments": [
+    "减量"
+   ],
+   "order": null,
+   "extra": true,
+   "when": [
+    {
+     "kind": "habitWeekMiss",
+     "habits": [
+      "散步"
+     ]
+    }
+   ],
+   "result": "降那一项",
+   "upward": false,
+   "next": "—",
+   "targets": [
+    {
+     "kind": "minutesDown",
+     "habit": "散步",
+     "step": 5,
+     "min": 5
+    }
+   ],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "散步时长减 5 分钟，最少 5 分钟"
+    }
+   ],
+   "note": "减量段放松不考核"
+  },
+  {
+   "products": [
+    "a06·play"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 0,
+   "extra": false,
+   "when": [
+    {
+     "kind": "sickOver",
+     "value": 7
+    }
+   ],
+   "result": "不评重来",
+   "upward": false,
+   "next": "重来",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "使用说明",
+     "text": "生病超过 7 天，这一轮不评，养好了从头开始"
+    }
+   ],
+   "note": "任何一周加起来超过 7 天就不评，走触发评估\"生病\"，同一成品第 1 周重来"
+  },
+  {
+   "products": [
+    "a06·play"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 1,
+   "extra": false,
+   "when": [
+    {
+     "kind": "allAtLine"
+    },
+    {
+     "kind": "habitAboveLine",
+     "habit": "动够60分钟",
+     "plus": 4
+    }
+   ],
+   "result": "原样",
+   "upward": false,
+   "next": "标准",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "三条都达到成功线，而且动够的天数比成功线多 4 天以上"
+    }
+   ],
+   "note": "可以试一项喜欢的运动"
+  },
+  {
+   "products": [
+    "a06·play"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 2,
+   "extra": false,
+   "when": [
+    {
+     "kind": "allAtLine"
+    }
+   ],
+   "result": "原样",
+   "upward": false,
+   "next": "标准",
+   "targets": [],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "这一轮完全成功，原样再跑一轮"
+    }
+   ],
+   "note": "原样再跑"
+  },
+  {
+   "products": [
+    "a06·play"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "order": 3,
+   "extra": false,
+   "when": [
+    {
+     "kind": "anyBelowLine"
+    }
+   ],
+   "result": "降那一项",
+   "upward": false,
+   "next": "标准",
+   "targets": [
+    {
+     "kind": "line",
+     "days": 16
+    }
+   ],
+   "quotes": [
+    {
+     "section": "下一轮的方向",
+     "text": "先把那一条的成功线降到 16 天"
+    }
+   ],
+   "note": "成功线按 SICK_A06_16 折算生病天数；做到了下一段改回 20 天（设计值 HABIT_RESTORE）"
+  }
+ ],
+ "habits": [
+  {
+   "products": [
+    "a18·gym",
+    "a18·home",
+    "a18·bw",
+    "a40·gym",
+    "a40·home",
+    "a40·bw"
+   ],
+   "segments": [
+    "标准",
+    "减量"
+   ],
+   "habit": "散步",
+   "per": "week",
+   "days": 5,
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "quotes": [
+    {
+     "section": "月度总结",
+     "text": "散步达标周数（≥5 天）｜___/4"
+    }
+   ],
+   "note": "减量段打卡项砍到 4 项，散步、冥想还在"
+  },
+  {
+   "products": [
+    "a18·gym",
+    "a18·home",
+    "a18·bw",
+    "a40·gym",
+    "a40·home",
+    "a40·bw"
+   ],
+   "segments": [
+    "标准",
+    "减量"
+   ],
+   "habit": "冥想",
+   "per": "week",
+   "days": 5,
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "quotes": [
+    {
+     "section": "月度总结",
+     "text": "冥想达标周数（≥5 天）｜___/4"
+    }
+   ],
+   "note": "同上"
+  },
+  {
+   "products": [
+    "a13·bw"
+   ],
+   "segments": [
+    "标准",
+    "减量"
+   ],
+   "habit": "动够60分钟",
+   "per": "week",
+   "days": 5,
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "quotes": [
+    {
+     "section": "月度总结",
+     "text": "动够 60 分钟达标的周数 ___/4（每周 ≥5 天算达标，4 周都达标算这条成功）"
+    }
+   ],
+   "note": "降过的按下一轮的方向改成每周 4 天"
+  },
+  {
+   "products": [
+    "a13·bw"
+   ],
+   "segments": [
+    "标准",
+    "减量"
+   ],
+   "habit": "按时上床",
+   "per": "week",
+   "days": 5,
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "quotes": [
+    {
+     "section": "月度总结",
+     "text": "按时上床达标的周数 ___/4（每周 ≥5 天算达标，4 周都达标算这条成功）"
+    }
+   ],
+   "note": "同上"
+  },
+  {
+   "products": [
+    "a65·chair"
+   ],
+   "segments": [
+    "标准",
+    "减量"
+   ],
+   "habit": "散步",
+   "per": "week",
+   "days": 5,
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "quotes": [
+    {
+     "section": "月度总结",
+     "text": "散步达标的周数 ___/4（每周 ≥5 天算达标，4 周都达标算这条成功）"
+    }
+   ],
+   "note": "降小的是散步时长，达标天数不变"
+  },
+  {
+   "products": [
+    "a65·chair"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "habit": "放松",
+   "per": "week",
+   "days": 5,
+   "weeks": [
+    2,
+    3,
+    4
+   ],
+   "quotes": [
+    {
+     "section": "月度总结",
+     "text": "放松达标的周数 ___/3（只算第 2–4 周"
+    }
+   ],
+   "note": "减量段放松照做不考核：《下一轮的方向》\"睡前放松照样做，但不再考核\""
+  },
+  {
+   "products": [
+    "a06·play"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "habit": "动够60分钟",
+   "per": "segment",
+   "days": 20,
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "quotes": [
+    {
+     "section": "月度总结",
+     "text": "动够 60 分钟 ___/28 天（≥ 成功线，这条成功）"
+    }
+   ],
+   "note": "成功线按生病天数折算"
+  },
+  {
+   "products": [
+    "a06·play"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "habit": "按时上床",
+   "per": "segment",
+   "days": 20,
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "quotes": [
+    {
+     "section": "月度总结",
+     "text": "按时上床 ___/28 天（≥ 成功线，这条成功）"
+    }
+   ],
+   "note": "同上"
+  },
+  {
+   "products": [
+    "a06·play"
+   ],
+   "segments": [
+    "标准"
+   ],
+   "habit": "视屏少于2小时",
+   "per": "segment",
+   "days": 20,
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "quotes": [
+    {
+     "section": "月度总结",
+     "text": "视屏少于 2 小时 ___/28 天（≥ 成功线，这条成功）"
+    }
+   ],
+   "note": "同上"
+  }
  ]
 }

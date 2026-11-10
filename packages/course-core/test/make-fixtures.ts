@@ -19,7 +19,9 @@ const courses = readdirSync(join(FIX, "courses"))
 // 训练单的离线样例只留这几份（导出、进度规则的测试用）；成品正文同时摘出训练单的出处原文
 const PLAN_PRODUCTS = ["18-39岁-居家版", "18-39岁-纯徒手版", "40-64岁-纯徒手版", "18-39岁-健身房版", "13-17岁-纯徒手版", "65岁以上-椅子辅助版"];
 const { plans, rules } = requirePlans(t);
-const products = new Set([...courses.map((c) => c.source.product), ...PLAN_PRODUCTS]);
+// 评估的测试还要 6–12 岁版（没有训练单，只用 manifest 里的成品信息）
+const EXTRA_PRODUCTS = ["6-12岁-户外与游戏版（家长版）"];
+const products = new Set([...courses.map((c) => c.source.product), ...PLAN_PRODUCTS, ...EXTRA_PRODUCTS]);
 const exerciseIds = new Set(courses.flatMap((c) => c.blocks.flatMap((b) => b.items.map((i) => i.exercise))));
 for (const name of PLAN_PRODUCTS) {
   const p = plans.products[name];
@@ -39,11 +41,13 @@ const manifest = {
     .map((e) => ({ ...e, used_in: e.used_in.filter((u) => products.has(u.product)) })),
 };
 delete (manifest as Record<string, unknown>).figures;
-delete (manifest as Record<string, unknown>).params;
+// 官方参数只留评估要用的 BMI 切点（低体重、超重、肥胖）
+(manifest as Record<string, unknown>).params = ((m as unknown as { params: { id: string }[] }).params ?? []).filter((x) => ["BMI_CN", "WEIGHT_LOW_CN"].includes(x.id));
 writeFileSync(join(FIX, "manifest.json"), JSON.stringify(manifest, null, 1) + "\n");
 
 mkdirSync(join(FIX, "products"), { recursive: true });
 for (const name of products) {
+  if (EXTRA_PRODUCTS.includes(name)) continue;
   const lines = (t.readProduct(name) ?? "").split("\n");
   // 原文所在的行；表格行再带上它的表头和分隔行（课程检查要靠表头判断那一格是第几周）
   const idx = new Set<number>();
