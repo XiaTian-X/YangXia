@@ -232,7 +232,7 @@ describe("个人进度：升级（达标、允许的周、紧挨着的上一周�
     expect(run(BW, [1, 2, 3], [lvUp("2026-11-23", 2)], { "glute-bridge": { level: 2, reps: 20 } }, { reviews: easy(2) })).toMatch(/不能升级/);
   });
   it("拦下：40–64 岁这一轮第 4 周也不升级；放行：下一段从第 1 周起", () => {
-    expect(run(BW40, [1, 2, 3, 4], [lvUp("2026-11-30", 3)], { "glute-bridge": { level: 2, reps: 20 } }, { reviews: easy(3) })).toMatch(/这一轮不升级/);
+    expect(run(BW40, [1, 2, 3, 4], [lvUp("2026-11-30", 3)], { "glute-bridge": { level: 2, reps: 20 } }, { reviews: easy(3) })).toMatch(/第 1 轮不升级/);
     expect(run(BW40, [1, 2, 3, 4, 1], [lvUp("2026-12-07", 4)], { "glute-bridge": { level: 2, reps: 20 } }, { ns: [1, 1, 1, 1, 2], reviews: easy(4) })).toBe("");
   });
   it("拦下：上一周有不适，新开一段当天就升级", () => {

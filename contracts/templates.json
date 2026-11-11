@@ -3,7 +3,7 @@
   "manifestPath": "dist/manifest.json",
   "data": [
     { "file": "dist/data/plans.json", "format": "yangxia.plans/1", "about": "训练单：导出课程、核对课程和个人进度" },
-    { "file": "dist/data/rules.json", "format": "yangxia.rules/1", "about": "规则参数：适用条件、个人进度规则、下放放慢；阶段 2 起还有评估（assess）、下一轮的方向（nextRound）、打卡项（habits）" }
+    { "file": "dist/data/rules.json", "format": "yangxia.rules/1", "about": "规则参数：适用条件、个人进度规则、下放放慢；阶段 2 起还有评估（assess）、下一轮的方向（nextRound）、打卡项（habits）；阶段 3 起还有稳定期（stable）、有氧（cardio）、组合条件（derivedConditions）" }
   ],
   "note": "主仓库只认这些格式号的模板发布物；路径相对于模板仓库根目录（scripts/templates-path.mjs 找到的那个目录）。缺了训练单就提示先更新模板。"
 }

@@ -9,6 +9,7 @@
 //   npm run course -- bedtime <阶段> <起床时间>                    按公式算上床时间（如 初中 06:30）
 //   npm run course -- moves <成品名>                               这份成品能导出的动作：ID、短名、处方原文、呼吸节奏
 //   npm run course -- assess <档案目录> <入门|段末|触发> [记录.json]  评估：列出要问、要测的项；给了记录就重算结论、核对
+//   npm run course -- plan <档案目录> [第几周]                        生成这一周的个人计划单（计划/第N段-第N周.md）
 //   npm run profile -- check <档案目录>                            检查档案（和模板核对）、练习记录、课程，以及写给这个人的复盘和菜单
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, sep } from "node:path";
@@ -21,13 +22,15 @@ import { bedtimeFor, checkProfileWithTemplates } from "./intake.ts";
 import { checkProgress, checkProgressLog, localDate, progressOn, REVIEW_FORMAT, type SessionFile, validateReview } from "./progress.ts";
 import { loadTemplates, requirePlans, type Templates } from "./node.ts";
 import { currentSegment, exportCourse } from "./plan.ts";
-import { ASSESS_FORMAT, type AssessFile, ageAt, assessRules, balanceHold, checkAssessments, checkRecord, doctorNeed, gap, param, productInfo, recordConclusion, segmentEnd, validateAssessment } from "./assess.ts";
+import { ASSESS_FORMAT, type AssessFile, ageAt, assessRules, cardioMode, cycleEnd, balanceHold, checkAssessments, checkRecord, doctorNeed, gap, param, productInfo, recordConclusion, segmentEnd, validateAssessment } from "./assess.ts";
 import { checkDeclaration, checkNotes, DECLARATION, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
+import { buildSheet, checkSheet } from "./sheet.ts";
 import type { Issue } from "./types.ts";
 
 const USAGE = `用法：
   npm run course -- export <档案目录> <第几周> <哪天> [--out <文件>] [--pick 组=动作] [--half]
   npm run course -- assess <档案目录> <入门|段末|触发> [记录.json] [--product <成品名>]
+  npm run course -- plan <档案目录> [第几周]
   npm run course -- check <课程.json> --profile <档案.json>
   npm run course -- check <课程.json> --no-profile
   npm run course -- summary <课程.json>
@@ -53,7 +56,10 @@ async function intake(age?: string): Promise<number> {
   }
   const VENUE: Record<string, string> = { gym: "健身房", home: "居家（2.5kg 哑铃 + 动感单车）", bw: "纯徒手", play: "户外与游戏", chair: "椅子辅助", meal: "全家餐饮" };
   console.log("\n成品（档案的 product 写成品名）：");
-  for (const p of manifest.products.filter((x) => !age || x.age === age)) console.log(`  ${p.name}（${p.age}·${p.venue}，${VENUE[p.venue] ?? p.venue}）`);
+  for (const p of manifest.products.filter((x) => !age || x.age === age)) {
+    const stable = (p as Record<string, any>).phase === "稳定";
+    console.log(`  ${p.name}（${p.age}·${p.venue}，${VENUE[p.venue] ?? p.venue}${stable ? "；稳定期：起始期段末到了进阶线、或者有基础的人直接进入才用，新手选起始期那一份" : ""}）`);
+  }
   console.log("\n不覆盖的人群：");
   for (const n of it.not_covered) console.log(`  ${n.group}：${n.advice}`);
   return 0;
@@ -118,6 +124,7 @@ function scanDir(dir: string, t: Templates, profile: Record<string, any>) {
   const reviewData: Record<string, Record<string, any>> = {};
   const courses: { name: string; raw: Record<string, any>; archived: boolean }[] = [];
   const assessments: AssessFile[] = [];
+  const sheets: { name: string; text: string }[] = [];
   const segN = currentSegment(profile)?.n ?? 1;
   for (const f of walk(dir)) {
     const name = relative(dir, f);
@@ -163,17 +170,18 @@ function scanDir(dir: string, t: Templates, profile: Record<string, any>) {
       issues.push(...checkNotes(t.manifest.redlines, ages, name, text));
       // 计划、菜单、复盘都是生成的计划：开头要有声明（历史/ 里以前的不查）
       if (!archived && /^(计划|菜单|复盘)[\\/]/.test(name)) issues.push(...checkDeclaration(name, text));
+      if (!archived && /^计划[\\/]/.test(name)) sheets.push({ name, text });
     } else if (!name.split(sep).some((s) => s.startsWith("."))) {
       issues.push({ level: "warning", path: name, message: "不认识的文件：复盘、菜单写成 .md，课程、练习记录是 .json；别的文件不检查" });
     }
   }
-  return { issues, sessions, reviews, reviewData, courses, assessments };
+  return { issues, sessions, reviews, reviewData, courses, assessments, sheets };
 }
 
 /** 周次推进和个人进度（不复盘不进下一周、进度只能按规则改）：导出、检查课程之前都要过。 */
 function progressIssues(t: Templates, profile: Record<string, any>, scan: ReturnType<typeof scanDir>): Issue[] {
   const out = [...checkProgress(profile, scan.sessions, scan.reviews, new Date(), scan.reviewData)];
-  if (t.plans && t.rules) out.push(...checkProgressLog(profile, t.plans, t.rules, scan.sessions, scan.reviewData).map((i) => ({ ...i, path: `档案.json ${i.path}` })));
+  if (t.plans && t.rules) out.push(...checkProgressLog(profile, t.plans, t.rules, scan.sessions, scan.reviewData, new Date(), scan.assessments).map((i) => ({ ...i, path: `档案.json ${i.path}` })));
   else out.push({ level: "warning", path: "档案.json", message: "模板还没有训练单（dist/data/）：个人进度没核对，先更新模板" });
   out.push(...checkAssessments(assessCtx(t, profile, scan)));
   return out;
@@ -183,6 +191,8 @@ function progressIssues(t: Templates, profile: Record<string, any>, scan: Return
 function recordIssues(scan: ReturnType<typeof scanDir>): Issue[] {
   return scan.issues.filter((i) => /^(评估|复盘|打卡)[\\/]/.test(i.path) || /^历史[\\/]第\d+段[\\/](评估|复盘|打卡)[\\/]/.test(i.path));
 }
+
+const info0 = (t: Templates, name: string) => productInfo(t.manifest, name);
 
 function assessCtx(t: Templates, profile: Record<string, any>, scan: ReturnType<typeof scanDir>) {
   return { profile, manifest: t.manifest, plans: t.plans, rules: t.rules, sessions: scan.sessions, reviewData: scan.reviewData, assessments: scan.assessments };
@@ -218,6 +228,8 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
   if (r.course && doc.needed && !doc.ok) {
     r.issues.push({ level: "error", path: "screening", message: `医生同意之前不出课程（${doc.reason}：医生同意的日期 doctorDate 要不早于 ${doc.after}）` });
   }
+  const cm = info0(t, seg.product) ? cardioMode(t.rules, profile, info0(t, seg.product)!, seg.n, Number(weekArg), scan.reviewData) : null;
+  if (cm) r.notes.push(`有氧：这一周做${cm.mode}（${cm.why}）`);
   if (balanceHold(ctx)) r.notes.push("摔倒过：医生同意之前不练平衡动作（6–9 号），照成品第十二章；力量动作也先问医生");
   const info = productInfo(t.manifest, seg.product);
   const today = localDate(new Date());
@@ -307,8 +319,13 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
     console.log("模板还没有评估规则（rules.json 的 assess）：先把模板仓库更新到 v4 阶段 2 之后");
     return 2;
   }
-  if (!["入门", "段末", "触发"].includes(kind)) {
-    console.log(kind === "周期末" ? "周期末评估属于稳定期，阶段 3 才有" : "种类写 入门 / 段末 / 触发");
+  if (!["入门", "段末", "周期末", "触发"].includes(kind)) {
+    console.log("种类写 入门 / 段末 / 周期末 / 触发");
+    return 2;
+  }
+  const seg0 = currentSegment(profile);
+  if (seg0 && kind === "周期末" && seg0.phase !== "稳定" && !(profile.segments as any[]).some((x) => x.phase === "稳定")) {
+    console.log("周期末评估只在稳定期第 12 周之后做；起始期每段第 4 周之后做的是段末评估");
     return 2;
   }
   const seg = currentSegment(profile);
@@ -326,7 +343,7 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
       const at = ageAt(profile, localDate(new Date()), ar.assess);
       if (at.age && at.age !== info.age) console.log(`现在推算是${at.stage}（${at.age}），「${product}」是 ${info.age}：跨段要换到 ${at.age} 的成品，用 --product 列它的项目`);
     }
-    const timing = kind === "段末" ? "段末" : "入门";
+    const timing = kind === "段末" || kind === "周期末" ? "段末" : "入门";
     for (const pr of ar.assess.prereqs.filter((x) => x.products.includes(info.code))) console.log(`开工前提 ${pr.id}：${pr.ask}（是 / 否；${pr.note}）`);
     if (kind === "入门" && ["a18", "a40", "a13"].includes(info.age)) console.log("训练基础 base：最近 3 个月平均每周几天力量练习（0、1、2 及以上；只记录）");
     for (const x of ar.assess.tests.filter((x) => x.products.includes(info.code) && x.timing.includes(timing))) {
@@ -336,6 +353,20 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
       if (x.id === "wallsit-test" && cap !== undefined && profile.conditions?.["高血压"] !== false) console.log(`  这个人有高血压或没确认：静蹲最多 ${cap} 秒`);
     }
     if (info.age === "a65" && kind === "段末") console.log("weightDrop：体重有没有明显下降（是 / 否，不记数字）");
+    if (kind === "周期末") {
+      const segs = profile.segments as any[];
+      const stableNs = [...new Set(segs.filter((x) => x.phase === "稳定").map((x) => x.n))] as number[];
+      const done = stableNs.filter((n) => segs.some((x) => x.n === n && x.week === (t.rules?.stable?.cycleWeeks ?? 12)));
+      const n = done.length ? done[done.length - 1] : stableNs[stableNs.length - 1];
+      const end = done.length ? cycleEnd(assessCtx(t, profile, scan), n) : null;
+      if (!end) console.log(`周期末结论：现在是稳定期第 ${seg?.week} 周，第 ${t.rules?.stable?.cycleWeeks ?? 12} 周的周复盘做完才算`);
+      else if ("error" in end) console.log(`周期末结论：${end.error}`);
+      else {
+        console.log(`第 ${n} 段（稳定期）：12 周训练 ${end.trainings} 次；达标周数 ${Object.entries(end.habitWeeks).map(([h, w]) => `${h} ${w}`).join("、")}`);
+        console.log(`结论：${end.result}；下一段：${end.next.phase === "稳定" ? `下一周期${end.next.hold ? "（第一轮不升级）" : ""}` : `回起始期${end.next.type}段`}`);
+        for (const q of end.quotes) console.log(`  原文：${q}`);
+      }
+    }
     if (kind === "段末" && seg) {
       // 刚练完的那一段：现在这一段到了第 4 周就是它，否则是上一段（已经开了下一段的第 1 周）
       const n = seg.week === 4 || seg.n === 1 ? seg.n : seg.n - 1;
@@ -367,6 +398,33 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
   return print([...validateAssessment(raw), ...checkRecord(ctx, { ...f, raw: { ...raw, conclusion: raw.conclusion ?? want } }, product, asEntry)]);
 }
 
+/** 个人计划单：这一周每天练什么、有氧、习惯、下次评估。档案目录先过检查，0 错误才写。 */
+async function planCmd(dir: string, weekArg?: string): Promise<number> {
+  const t = await loadTemplates();
+  requirePlans(t);
+  const profile = readJson(join(dir, "档案.json")) as Record<string, any>;
+  const scan = scanDir(dir, t, profile);
+  const pre = [...validateProfile(profile).map((i) => ({ ...i, path: `档案.json ${i.path}` })),
+    ...checkProfileWithTemplates(profile, t.manifest).map((i) => ({ ...i, path: `档案.json ${i.path}` })),
+    ...progressIssues(t, profile, scan), ...recordIssues(scan)].filter((i) => i.level === "error");
+  const ctx = assessCtx(t, profile, scan);
+  const doc = doctorNeed(ctx);
+  if (doc.needed && !doc.ok) pre.push({ level: "error", path: "screening", message: `医生同意之前不出计划（${doc.reason}：医生同意的日期 doctorDate 要不早于 ${doc.after}）` });
+  if (pre.length) {
+    console.log("档案目录没通过检查，先改好再生成计划单（npm run profile -- check）：");
+    return print(pre);
+  }
+  const r = buildSheet(ctx, weekArg ? Number(weekArg) : undefined);
+  if (!r.text || r.issues.length) return print(r.issues);
+  const seg = currentSegment(profile)!;
+  const out = join(dir, "计划", `第${seg.n}段-第${weekArg ? Number(weekArg) : seg.week}周.md`);
+  mkdirSync(dirname(out), { recursive: true });
+  writeFileSync(out, r.text);
+  console.log(`已生成：${out}`);
+  console.log(DECLARATION.replace(/^> /, "声明："));
+  return 0;
+}
+
 async function profileCheck(dir: string): Promise<number> {
   const t = await loadTemplates();
   const profile = readJson(join(dir, "档案.json")) as Record<string, any>;
@@ -375,6 +433,7 @@ async function profileCheck(dir: string): Promise<number> {
   return print([
     ...inProfile(validateProfile(profile)), ...inProfile(checkProfileWithTemplates(profile, t.manifest)),
     ...scan.issues, ...courseIssues(t, profile, scan), ...progressIssues(t, profile, scan),
+    ...scan.sheets.flatMap((x) => checkSheet(assessCtx(t, profile, scan), x.name, x.text)),
   ]);
 }
 
@@ -409,6 +468,13 @@ async function main(argv: string[]): Promise<number> {
     return exportCmd(file, rest[0], rest[1], rest.slice(2));
   }
   if (cmd === "bedtime") return bedtime(file, rest[0]);
+  if (cmd === "plan") {
+    if (!file) {
+      console.log(USAGE);
+      return 2;
+    }
+    return planCmd(file, rest[0]);
+  }
   if (cmd === "assess") {
     if (!file || !rest[0]) {
       console.log(USAGE);

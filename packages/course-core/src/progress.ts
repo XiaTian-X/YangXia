@@ -3,7 +3,7 @@
 // - 每一周结束都有周复盘（复盘/<开始日期>-第N周.md 和同名 .json），不复盘不能进下一周；
 // - 一周里有疼痛、头晕、胸闷，下一周不能往上走，这一周之后的进度也不能往上加；
 // - 进度只能照成品的规则改（找级、升级、加次数、加重各有允许的周和依据），一次只改一样，重放日志要等于档案的 progress。
-import { allowedLevels, currentSegment, type PlansData, progressRow, roundOf, ruleValue, type RulesData, startLevel } from "./plan.ts";
+import { allowedLevels, currentSegment, planType, type PlansData, progressRow, ROUND_WEEKS, roundOf, roundWeek, ruleValue, type RulesData, stableParam, startLevel } from "./plan.ts";
 import type { Issue } from "./types.ts";
 
 export interface SegmentEntry {
@@ -11,12 +11,13 @@ export interface SegmentEntry {
   n: number;
   /** 段型：标准 / 减量。 */
   type: string;
-  /** 这一段的第几周（起始期 1–4）。 */
+  /** 这一段的第几周（起始期 1–4，稳定期 1–12）。 */
   week: number;
   /** 这一周从哪天开始。 */
   start: string;
   /** 这一段用的成品。 */
   product: string;
+  /** 阶段：起始（默认）/ 稳定。同一段里不变，要和成品的阶段一致。 */
   phase?: string;
 }
 
@@ -53,13 +54,15 @@ export function validateSegments(p: Obj, now = new Date()): Issue[] {
   let bad = false;
   ss.forEach((e: unknown, i: number) => {
     const s = e as Obj;
+    const stable = s?.phase === "稳定";
     if (typeof e !== "object" || e === null || !Number.isInteger(s.n) || s.n < 1 || !TYPES.includes(s.type)
-      || !Number.isInteger(s.week) || s.week < 1 || s.week > 4 || typeof s.start !== "string" || !DATE.test(s.start)
+      || !Number.isInteger(s.week) || s.week < 1 || s.week > (stable ? 12 : 4) || typeof s.start !== "string" || !DATE.test(s.start)
       || typeof s.product !== "string" || !s.product) {
-      err(`segments[${i}]`, "每一项要有 n（第几段）、type（标准 / 减量）、week（1–4）、start（YYYY-MM-DD）、product（成品名）");
+      err(`segments[${i}]`, "每一项要有 n（第几段）、type（标准 / 减量）、week（起始期 1–4，稳定期 1–12）、start（YYYY-MM-DD）、product（成品名）");
       bad = true;
     }
-    if (s?.phase !== undefined && s.phase !== "起始") err(`segments[${i}].phase`, "phase 现在只有 起始");
+    if (s?.phase !== undefined && s.phase !== "起始" && s.phase !== "稳定") { err(`segments[${i}].phase`, "phase 只能是 起始 / 稳定"); bad = true; }
+    if (stable && s.type !== "标准") err(`segments[${i}].type`, "稳定期没有减量段：type 写 标准");
   });
   if (bad) return out;
   const first = ss[0] as SegmentEntry;
@@ -71,13 +74,14 @@ export function validateSegments(p: Obj, now = new Date()): Issue[] {
     if (dayStart(s.start) - dayStart(prev.start) < 7 * DAY) err(`segments[${i}].start`, `每一周至少练 7 天：上一周 ${prev.start} 开始，这一周最早 7 天后开始`);
     if (dayStart(s.start) > localToday(now) + DAY) err(`segments[${i}].start`, `开始日期 ${s.start} 还没到：周复盘做完才追加下一周，最早从明天开始`);
     if (s.n === prev.n) {
-      if (s.product !== prev.product || s.type !== prev.type) err(`segments[${i}]`, "同一段里成品和段型不变；换成品、换段型要新开一段（n 加 1）");
+      if (s.product !== prev.product || s.type !== prev.type || (s.phase ?? "起始") !== (prev.phase ?? "起始")) err(`segments[${i}]`, "同一段里成品、段型、阶段不变；换成品、换段型要新开一段（n 加 1）");
       if (s.week > prev.week + 1) err(`segments[${i}].week`, `从第 ${prev.week} 周不能直接跳到第 ${s.week} 周：每次最多推进一周`);
       if (s.week < prev.week) err(`segments[${i}].week`, `同一段里周次不能往回走（第 ${prev.week} 周 → 第 ${s.week} 周）；要从头来就新开一段`);
     } else if (s.n === prev.n + 1) {
       if (s.week !== 1) err(`segments[${i}].week`, "新的一段从第 1 周开始");
       // 同一成品中途重来（65 岁以上生病住院回来、6–12 岁生病超过 7 天）要写 restart：依据的触发评估，由评估核对
-      if (prev.week !== 4 && s.product === prev.product && typeof (s as Obj).restart !== "string") err(`segments[${i}].n`, `上一段才到第 ${prev.week} 周：练完第 4 周（段末）或者换成品，才能新开一段（生病住院回来从第 1 周重来的，写 restart）`);
+      const prevMax = prev.phase === "稳定" ? 12 : 4;
+      if (prev.week !== prevMax && s.product === prev.product && typeof (s as Obj).restart !== "string") err(`segments[${i}].n`, `上一段才到第 ${prev.week} 周：练完第 ${prevMax} 周（${prev.phase === "稳定" ? "周期末" : "段末"}）或者换成品，才能新开一段（生病住院回来从第 1 周重来的，写 restart）`);
     } else err(`segments[${i}].n`, `段号要连续：上一项是第 ${prev.n} 段，这一项是第 ${s.n} 段`);
   }
   const last = ss[ss.length - 1] as SegmentEntry;
@@ -168,10 +172,10 @@ export function checkProgress(profile: Obj, sessions: SessionFile[], reviews: st
 // ---------- 个人进度 ----------
 
 export const FEELS = ["做不到下限或后面几下变形", "能做到下限，最后两下有点难", "做到上限还很轻松"] as const;
-const RULES = ["建档", "找级", "退回", "减量", "升级", "加次数", "调重量", "加重", "重来"] as const;
+const RULES = ["建档", "找级", "退回", "减量", "升级", "加次数", "调重量", "加重", "重来", "加一档"] as const;
 const FIELDS = ["level", "reps", "weight"] as const;
 type Field = (typeof FIELDS)[number];
-const UP = new Set(["找级", "升级", "加次数", "调重量", "加重"]);
+const UP = new Set(["找级", "升级", "加次数", "调重量", "加重", "加一档"]);
 
 /** progress 的结构：{动作或阶梯 ID: {level?, reps?, weight?}}。 */
 export function validateProgressShape(p: Obj): Issue[] {
@@ -216,8 +220,8 @@ type State = Record<string, Partial<Record<Field, number>> & { product?: Partial
  * - 练习记录当依据：日期不晚于这条改动，在规定的周里，不是手改过的课程（edited），这个动作练过（setsDone > 0）；
  * - 复盘数据当依据：必须是紧挨着的上一周的复盘，那一周不能有不适。
  */
-export function checkProgressLog(profile: Obj, plans: PlansData, rules: RulesData, sessions: SessionFile[], reviewData: Record<string, Obj>, now = new Date()): Issue[] {
-  return replayProgress(profile, plans, rules, sessions, reviewData, now).issues;
+export function checkProgressLog(profile: Obj, plans: PlansData, rules: RulesData, sessions: SessionFile[], reviewData: Record<string, Obj>, now = new Date(), assessments: { raw: Obj }[] = []): Issue[] {
+  return replayProgress(profile, plans, rules, sessions, reviewData, now, false, assessments).issues;
 }
 
 /** 重放到某一天为止的进度（不核对规则），给"档案进度变了，旧课程是按哪一天的进度导出的"用。 */
@@ -226,7 +230,7 @@ export function progressOn(profile: Obj, plans: PlansData, rules: RulesData, dat
   return replayProgress(p, plans, rules, [], {}, now, true).state;
 }
 
-function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessions: SessionFile[], reviewData: Record<string, Obj>, now: Date, quiet = false): { issues: Issue[]; state: Obj } {
+function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessions: SessionFile[], reviewData: Record<string, Obj>, now: Date, quiet = false, assessments: { raw: Obj }[] = []): { issues: Issue[]; state: Obj } {
   const out: Issue[] = [];
   const err = (i: number, message: string) => out.push({ level: "error", path: `progressLog[${i}]`, message });
   const ss = profile.segments as SegmentEntry[];
@@ -244,6 +248,18 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
   const oncePerWeek = new Set<string>();
   const usedEvidence = new Set<string>();
   const lastChange = new Map<string, string>();   // 动作 → 上一次改动的日期（找级的依据要晚于它）
+  const lastTouch = new Map<string, string>();    // 动作 → 上一次改次数或重量的日期（健身房双进阶的依据要晚于它）
+  const upgradeWeeks = new Map<number, string>(); // 40–64 岁"一次只升一样"：这一周已经升过的动作
+  // 成品家族：稳定期成品和同一年龄段、场地的起始期成品，进度接着用
+  const fam = (name: string) => plans.products[name]?.base ?? name;
+  const stableOf = (x: SegmentEntry) => x.phase === "稳定";
+  const wk = (x: SegmentEntry) => (stableOf(x) ? roundWeek(x.week) : x.week);
+  /** 这一项所在的"轮"从哪一项开始：起始期是这一段的第一项，稳定期是这一段里这 4 周的第一项。 */
+  const blockStart = (k: number) => {
+    const x = ss[k];
+    const idx = (y: SegmentEntry) => (stableOf(y) ? Math.floor((y.week - 1) / ROUND_WEEKS) : 0);
+    return ss.findIndex((y) => y.n === x.n && idx(y) === idx(x));
+  };
   const sessionAt = (name: string) => sessions.find((s) => s.name === name || s.name.endsWith(`/${name}`));
   const sessionPeriod = (s: SessionFile) => periodIndex(ss, Date.parse(s.raw?.startedAt));
   const sickPeriods = new Set<number>();
@@ -272,18 +288,21 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       err(i, `「${e.move}」不在${period.product}的训练单里`);
       continue;
     }
-    const row = progressRow(p, rules, profile, period.type, period.week, e.move);
+    const row = progressRow(p, rules, profile, planType(period), period.week, e.move);
     const ladder = p.ladders[e.move];
+    const stable = stableOf(period);
+    const kWeek = wk(period);
+    const gymDouble = stable && p.venue === "gym";
     const cur = (state[e.move] ??= {});
     cur.product ??= {};
     const field = e.field as Field;
     const to = e.to as number;
-    const from = cur[field] !== undefined && cur.product[field] === period.product ? cur[field] : undefined;
+    const from = cur[field] !== undefined && cur.product[field] === fam(period.product) ? cur[field] : undefined;
     const round = roundOf(profile, plans, pi);
     const allowed = allowedLevels(p, row, round, rules);
     // 建档只能用第 1 轮这一周允许的级（换成品重新建档也一样）；以后几轮才放开的级要一级一级"升"上去
     const startAllowed = allowedLevels(p, row, 1, rules);
-    const productStart = ss.findIndex((x, k) => x.product === period.product && (k === 0 || ss[k - 1].product !== period.product));
+    const productStart = ss.findIndex((x, k) => fam(x.product) === fam(period.product) && (k === 0 || fam(ss[k - 1].product) !== fam(period.product)));
     if (field === "level" && !ladder) { err(i, `「${e.move}」没有难度阶梯，不记 level`); continue; }
     if (field === "reps" && row && row.reps_from !== "progress") { err(i, `「${e.move}」的次数由当周的表定（周表），不记进度`); continue; }
     if (field === "weight" && p.venue !== "gym") { err(i, "只有健身房版记重量"); continue; }
@@ -299,7 +318,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       if (si < 0 || ss[si].n !== period.n || si < pi - 1) return "依据的练习记录要是这一周或上一周的";
       if (weeksRule) {
         const v = ruleValue(rules, p.code, weeksRule);
-        if (!v || ss[si].week < v.min || ss[si].week > v.max) return `依据的练习记录要在${weeksRule === "找级周" ? "找级" : "调重量"}的那几周里`;
+        if (!v || wk(ss[si]) < v.min || wk(ss[si]) > v.max) return `依据的练习记录要在${weeksRule === "找级周" ? "找级" : "调重量"}的那几周里`;
       }
       if (sess.raw?.edited) return "依据的练习记录练的是手改过的课程（edited），不按它调";
       if (sess.raw?.course?.source?.half === true) return "依据的练习记录练的是半量课（中断、生病回来的第一次），不当加量依据";
@@ -321,15 +340,46 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
     const weeksOf = (rule: string) => ruleValue(rules, p.code, rule);
     const inWeeks = (rule: string) => {
       const v = weeksOf(rule);
-      return !!v && period.week >= v.min && period.week <= v.max;
+      return !!v && kWeek >= v.min && kWeek <= v.max;
     };
+    // 上一轮（起始期是上一段，稳定期是上一个 4 周）有过不适：这一轮要先有一周没有不适的复盘，才往上走
     const carryBlocked = (k: number) => {
-      const segStart = ss.findIndex((x) => x.n === period.n);
-      if (segStart < 1) return false;
-      const prevN = ss[segStart - 1].n;
-      const prevSick = ss.some((x, j) => x.n === prevN && (sickPeriods.has(j)));
+      const start = blockStart(k);
+      if (start < 1) return false;
+      const prevStart = blockStart(start - 1);
+      let prevSick = false;
+      for (let j = prevStart; j < start; j++) if (sickPeriods.has(j)) prevSick = true;
       if (!prevSick) return false;
-      return !ss.some((x, j) => j >= segStart && j < k && reviewData[reviewDataName(x)]?.symptoms === false);
+      return !ss.some((x, j) => j >= start && j < k && reviewData[reviewDataName(x)]?.symptoms === false);
+    };
+    // 上一轮第 3、4 周的复盘（3 组的周）：40–64 岁第 2 轮起每轮第 1–2 周升级的依据
+    const prevRoundReview = () => {
+      const start = blockStart(pi);
+      if (start < 1) return { error: "依据要写上一轮第 3 或第 4 周的复盘数据，这是第一轮" };
+      const prevStart = blockStart(start - 1);
+      const names: string[] = [];
+      for (let j = prevStart; j < start; j++) if (wk(ss[j]) >= 3) names.push(reviewDataName(ss[j]));
+      const key = ev.replace(/^.*[\\/]/, "");
+      if (!names.includes(key)) return { error: `依据要写上一轮第 3 或第 4 周的复盘数据（${names.map((x) => `复盘/${x}`).join("、") || "还没有"}）` };
+      const rv = reviewData[key];
+      if (!rv) return { error: `依据的复盘数据 复盘/${key} 不存在` };
+      if (rv.symptoms === true) return { error: "依据的那一周有疼痛、头晕或胸闷：不加、不升（可以降）" };
+      if (rv.half === true) return { error: "依据的那一周练过半量课（中断、生病回来），这一周的复盘不当加量依据" };
+      return { rv, m: (rv.moves ?? []).find((x: Obj) => x.move === e.move) };
+    };
+    // 周期末"习惯没达标"：下一周期的第一轮不升级（健身房：头 4 周不加次数、不加一档）
+    const holdRound = () => {
+      if (!stable || period.week > ROUND_WEEKS) return false;
+      const start = ss.findIndex((x) => x.n === period.n);
+      if (start < 1) return false;
+      const prevN = ss[start - 1].n;
+      return assessments.some((a) => a.raw?.kind === "周期末" && a.raw?.segment === prevN && a.raw?.conclusion?.next?.hold === true);
+    };
+    // 长时间中断回来的头 N 天可以找级（不论周次）
+    const gapReturn = () => {
+      const days = stableParam(rules, p.code, "找级窗口天数")?.number ?? 14;
+      return assessments.some((a) => a.raw?.kind === "触发" && Array.isArray(a.raw?.reasons) && a.raw.reasons.includes("中断")
+        && typeof a.raw.date === "string" && dayStart(a.raw.date) <= t && t < dayStart(a.raw.date) + days * DAY);
     };
     const before = from ?? (field === "level" && ladder ? startLevel(ladder) : field === "reps" && row?.reps ? row.reps.min : undefined);
     if (e.rule === "重来") {
@@ -341,7 +391,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       else if (startTo === undefined || to !== startTo) err(i, `重来改回训练单的起始值：${field === "level" ? "起始级" : "区间下限"} ${startTo ?? "（这一项没有起始值）"}`);
       else if (before !== undefined && to > before) err(i, "重来只能往下改");
       cur[field] = to;
-      cur.product[field] = period.product;
+      cur.product[field] = fam(period.product);
       if (field === "level") lastChange.set(e.move, e.date);
       continue;
     }
@@ -355,18 +405,21 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       err(i, field === "weight" ? `「${e.move}」还没记过起始重量：先写一条"建档"` : `「${e.move}」没有起始值`);
       continue;
     } else if (UP.has(e.rule)) {
-      // 不适：这一段里出现过，或者上一周有，都不往上加
-      const segStart = ss.findIndex((x) => x.n === period.n);
+      // 不适：这一段里出现过（稳定期按轮：这 4 周里出现过），或者上一周有，都不往上加
+      const segStart = blockStart(pi);
       const sickToday = sessions.some((s) => sessionPeriod(s) === pi && symptomatic(s.raw) && Date.parse(s.raw?.startedAt) < t + DAY);
       const sickBefore = sickToday || [...sickPeriods].some((k) => k === pi - 1 || (k >= segStart && k < pi));
-      if (sickBefore) err(i, `这一段里（或上一周）有疼痛、头晕或胸闷的记录：不加量、不升级（可以降）`);
+      if (sickBefore) err(i, `${stable ? "这一轮（4 周）里" : "这一段里"}（或上一周）有疼痛、头晕或胸闷的记录：不加量、不升级（可以降）`);
+      else if (stable && carryBlocked(pi)) err(i, "上一轮有过疼痛、头晕或胸闷：这一轮要先有一周没有不适的复盘，才接着往上走");
+      if (holdRound() && (e.rule === "升级" || gymDouble)) err(i, "上一个周期习惯没达标：这个周期的第一轮（头 4 周）不升级、不加量");
       const k = `${e.move}|${e.date}`;
       upOnDate.set(k, (upOnDate.get(k) ?? 0) + 1);
       if ((upOnDate.get(k) ?? 0) > 1) err(i, `「${e.move}」${e.date} 已经往上改过一样了：一次只改一样（升级、加次数、加重不同时）`);
-      if (e.rule !== "找级") {
-        const wk = `${e.move}|${pi}`;
-        if (oncePerWeek.has(wk)) err(i, `「${e.move}」这一周已经往上改过了：每个动作每周最多往上改一次`);
-        oncePerWeek.add(wk);
+      // 健身房双进阶（稳定期）是例外：每练一次最多改一次，由"依据晚于上一次改动、每份记录只用一次"管
+      if (e.rule !== "找级" && !(gymDouble && (e.rule === "加次数" || e.rule === "加一档"))) {
+        const key = `${e.move}|${pi}`;
+        if (oncePerWeek.has(key)) err(i, `「${e.move}」这一周已经往上改过了：每个动作每周最多往上改一次`);
+        oncePerWeek.add(key);
       }
       if (ev) {
         const uk = `${ev.replace(/^.*[\\/]/, "")}|${e.move}`;
@@ -376,11 +429,16 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
     }
     switch (e.rule) {
       case "找级": {
-        const problem = sessOk("找级周");
+        // 稳定期的找级只给三种人：直接进入的人的第 1 轮、家族外换了成品的人（走新成品的起始期）、长时间中断回来的头两周
+        const back = stable && gapReturn();
+        const findOk = stable ? back || (round === 1 && inWeeks("找级周")) : inWeeks("找级周");
+        const problem = sessOk(back ? undefined : "找级周");
         const it = sess ? itemOf(sess.raw) : null;
         const want = to > before! ? FEELS[2] : FEELS[0];
         if (field !== "level") err(i, "找级只改难度级");
-        else if (!inWeeks("找级周")) err(i, `第 ${period.week} 周不是找级的周（${fmtWeeks(weeksOf("找级周"))}）`);
+        else if (!findOk) err(i, stable
+          ? "稳定期的找级只给：直接进稳定期的人的第 1 轮第 1–2 周、断了四周以上做过触发评估回来的头两周；其他时候只能往下调（减量、退回）"
+          : `第 ${period.week} 周不是找级的周（${fmtWeeks(weeksOf("找级周"))}）`);
         else if (Math.abs(to - before!) !== 1) err(i, `找级一次只能上下调一级（第 ${before} 级 → 第 ${to} 级）`);
         else if (!allowed.has(to)) err(i, `第 ${to} 级这一周不能用（可以用第 ${[...allowed].join("、")} 级）`);
         else if (problem) err(i, `找级：${problem}，记录里这个动作的感受要是"${want}"`);
@@ -398,18 +456,34 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         if (!(to < before!)) err(i, "减量只能往下调（降级、减次数、减重量随时可以）");
         break;
       case "升级": {
+        // 18–39 岁：每一轮第 4 周（升级周）。40–64 岁：第 1 轮不升；第 2 轮起每一轮第 1–2 周，第 3–4 周不动，每周最多升一个动作，
+        // 依据是上一轮第 3 或第 4 周的复盘（"下一轮从第 1 周起升级，一次只升一样"）
         const nextRound = weeksOf("下一轮升级");
-        const okWeek = inWeeks("升级周") || (!!nextRound && round >= 2 && period.week >= nextRound.min);
-        const rv = prevReview();
+        const late = !inWeeks("升级周") && !!nextRound && round >= 2 && kWeek >= nextRound.min && kWeek <= nextRound.min + 1;
+        const okWeek = inWeeks("升级周") || late;
+        const rv = late ? prevRoundReview() : prevReview();
         if (field !== "level" || to !== before! + 1) err(i, "升级是难度级加一级");
-        else if (!okWeek) err(i, `第 ${round} 轮（第 ${period.n} 段）第 ${period.week} 周不能升级（${weeksOf("升级周") === null ? "这一版这一轮不升级，下一轮从第 1 周起" : `升级周：${fmtWeeks(weeksOf("升级周"))}`}）`);
+        else if (!okWeek) err(i, `第 ${round} 轮（第 ${period.n} 段）第 ${period.week} 周不能升级（${weeksOf("升级周") === null ? "这一版第 1 轮不升级；第 2 轮起每一轮第 1–2 周可以升，第 3–4 周级别不动" : `升级周：每一轮${fmtWeeks(weeksOf("升级周"))}`}）`);
         else if (!allowed.has(to)) err(i, `第 ${to} 级这一周不能用（可以用第 ${[...allowed].join("、")} 级）`);
         else if ("error" in rv) err(i, `升级：${rv.error}`);
-        else if (!rv.m || rv.m.allAtTop !== true || !(rv.m.spare >= 1)) err(i, "升级要达标：上一周的复盘数据里这个动作每组都做到区间上限、最后一组还有余力（成品的\"达标\"）");
-        else if (!inWeeks("升级周") && carryBlocked(pi)) err(i, "上一段有过疼痛、头晕或胸闷：这一段要先有一周没有不适的复盘，才能按\"下一轮升级\"往上升（SYMPTOM_CARRY）");
+        else if (!rv.m || rv.m.allAtTop !== true || !(rv.m.spare >= 1)) err(i, "升级要达标：依据的复盘数据里这个动作每组都做到区间上限、最后一组还有余力（成品的\"达标\"）");
+        else if (late && !stable && carryBlocked(pi)) err(i, "上一段有过疼痛、头晕或胸闷：这一段要先有一周没有不适的复盘，才能按\"下一轮升级\"往上升（SYMPTOM_CARRY）");
+        else if (late && upgradeWeeks.has(pi) && upgradeWeeks.get(pi) !== e.move) err(i, `这一周已经升过「${upgradeWeeks.get(pi)}」：40–64 岁一次只升一样（每周最多升一个动作）`);
+        if (late) upgradeWeeks.set(pi, upgradeWeeks.get(pi) ?? e.move);
         break;
       }
       case "加次数": {
+        if (gymDouble) {
+          // 健身房双进阶：上一次练这个动作的练习记录里 3 组都做完、还能做 3 下以上 → 下一次多做 1 下，不超过区间上限
+          const problem = sessOk();
+          const it = sess ? itemOf(sess.raw) : null;
+          if (field !== "reps" || to !== before! + 1) err(i, "双进阶每次只多做 1 下");
+          else if (row?.reps && to > row.reps.max) err(i, `不能超过 ${row.reps.max} 次：3 组都做到 ${row.reps.max} 次就该加一档、回到 ${row.reps.min} 次`);
+          else if (problem) err(i, `双进阶加次数：${problem}`);
+          else if (lastTouch.has(e.move) && localDate(new Date(Date.parse(sess!.raw?.startedAt))) <= lastTouch.get(e.move)!) err(i, `依据要是上一次改动（${lastTouch.get(e.move)}）之后练的那一次`);
+          else if (it.setsDone !== it.setsPlanned || !(it.spare >= 3)) err(i, "双进阶加次数要依据的练习记录里这个动作每组都做完、\"还能做几下\"是 3 下以上（加完仍留 2 下余力）");
+          break;
+        }
         const step = weeksOf("加次数");
         const need = weeksOf("加次数余力")?.min ?? 4;
         const rv = prevReview();
@@ -422,11 +496,27 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         else if (p.age === "a65" && rv.m.easyTwice !== true) err(i, "65 岁以上加次数要连着两次训练都轻松（复盘数据里 easyTwice）");
         break;
       }
+      case "加一档": {
+        // 健身房双进阶：3 组都做到区间上限（12 次）、还留 2 下以上余力、没当场退回 → 加一档，次数回到区间下限
+        const problem = sessOk();
+        const it = sess ? itemOf(sess.raw) : null;
+        const cap = weeksOf("每档加重上限")?.min;
+        const reps = state[e.move]?.reps;
+        if (!gymDouble) err(i, "加一档是健身房稳定期双进阶的规则（起始期用 调重量、加重）");
+        else if (field !== "weight" || !(to > before!)) err(i, "加一档是重量往上加一档");
+        else if (!row?.reps || reps !== row.reps.max) err(i, `加一档要先把次数做到 ${row?.reps?.max ?? "区间上限"} 次（现在是 ${reps ?? row?.reps?.min ?? "下限"} 次）`);
+        else if (problem) err(i, `加一档：${problem}`);
+        else if (lastTouch.has(e.move) && localDate(new Date(Date.parse(sess!.raw?.startedAt))) <= lastTouch.get(e.move)!) err(i, `依据要是上一次改动（${lastTouch.get(e.move)}）之后练的那一次`);
+        else if (it.setsDone !== it.setsPlanned || !(it.spare >= 2) || it.reverted === true) err(i, "加一档要依据的练习记录里这个动作每组都做完、\"还能做几下\"是 2 下以上、没有当场退回");
+        else if (cap !== undefined && to > before! * (1 + cap / 100) + 1e-9) err(i, `加一档最多加 ${cap}%（${before} → 最多 ${Math.round(before! * (1 + cap / 100) * 100) / 100}）`);
+        break;
+      }
       case "调重量": {
         const problem = sessOk("调重量周");
         const it = sess ? itemOf(sess.raw) : null;
         const cap = weeksOf("每档加重上限")?.min;
-        if (field !== "weight" || !(to > before!)) err(i, "调重量是往上加一档");
+        if (stable) err(i, "稳定期不用\"调重量\"：加重只走双进阶（加次数、加一档）");
+        else if (field !== "weight" || !(to > before!)) err(i, "调重量是往上加一档");
         else if (!inWeeks("调重量周")) err(i, `第 ${period.week} 周不调重量（${fmtWeeks(weeksOf("调重量周"))}）`);
         else if (problem) err(i, `调重量：${problem}`);
         else if (!(it.spare >= 6)) err(i, "调重量要依据的练习记录里这个动作\"还能做几下\"是 6 下以上");
@@ -435,18 +525,20 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       }
       case "加重": {
         const cap = weeksOf("每档加重上限")?.min;
-        if (field !== "weight" || !(to > before!)) err(i, "加重是往上加一档");
+        if (stable) err(i, "稳定期不用\"加重\"：加重只走双进阶（加次数、加一档）");
+        else if (field !== "weight" || !(to > before!)) err(i, "加重是往上加一档");
         else if (!inWeeks("加重周")) err(i, `第 ${period.week} 周不加重（加重周：${fmtWeeks(weeksOf("加重周"))}）`);
         else if (cap !== undefined && to > before! * (1 + cap / 100) + 1e-9) err(i, `加一档最多加 ${cap}%（${before} → 最多 ${Math.round(before! * (1 + cap / 100) * 100) / 100}）`);
         break;
       }
     }
     cur[field] = to;
-    cur.product[field] = period.product;
+    cur.product[field] = fam(period.product);
     if (field === "level") lastChange.set(e.move, e.date);
-    if (e.rule === "升级" && row?.reps) {
-      cur.reps = row.reps.min;   // 升级后次数回到区间下限
-      cur.product.reps = period.product;
+    else lastTouch.set(e.move, e.date);
+    if ((e.rule === "升级" || e.rule === "加一档") && row?.reps) {
+      cur.reps = row.reps.min;   // 升级、加一档后次数回到区间下限
+      cur.product.reps = fam(period.product);
     }
   }
   if (quiet) return { issues: out, state: plainState() };
@@ -480,9 +572,9 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
   const p = seg ? plans.products[seg.product] : undefined;
   if (seg && p) {
     for (const [k, v] of Object.entries(prog)) {
-      const row = progressRow(p, rules, profile, seg.type, seg.week, k);
+      const row = progressRow(p, rules, profile, planType(seg), seg.week, k);
       if (!row) continue;
-      if (v.level !== undefined && p.ladders[k] && state[k]?.level !== undefined && state[k]?.product?.level !== seg.product) {
+      if (v.level !== undefined && p.ladders[k] && state[k]?.level !== undefined && state[k]?.product?.level !== fam(seg.product)) {
         out.push({ level: "error", path: `progress.${k}.level`, message: `难度级是在别的成品里定的，换成「${seg.product}」后要重新"建档"（各成品的级号意思不同）` });
       } else if (v.level !== undefined && p.ladders[k] && !allowedLevels(p, row, roundOf(profile, plans), rules).has(v.level)) {
         out.push({ level: "warning", path: `progress.${k}.level`, message: `第 ${v.level} 级这一周（第 ${seg.n} 段第 ${seg.week} 周）不能用，导出前要降回能用的级` });
@@ -507,7 +599,8 @@ export function validateReview(raw: unknown): Issue[] {
   const r = raw as Obj;
   if (r.schema !== REVIEW_FORMAT) err("schema", `格式标识要写 "${REVIEW_FORMAT}"`);
   if (typeof r.start !== "string" || !DATE.test(r.start)) err("start", "start 是这一周的开始日期 YYYY-MM-DD");
-  if (!Number.isInteger(r.week) || r.week < 1 || r.week > 4) err("week", "week 是 1–4");
+  if (!Number.isInteger(r.week) || r.week < 1 || r.week > 12) err("week", "week 是 1–4（稳定期 1–12）");
+  if (r.steadyCheck !== undefined && typeof r.steadyCheck !== "boolean") err("steadyCheck", "steadyCheck（这一轮第 2 周的稳态自查过没过）是 true / false");
   if (!Number.isInteger(r.trainings) || r.trainings < 0) err("trainings", "trainings 是这一周练了几次（照使用者说的）");
   if (r.checkinDays !== undefined && !(Number.isInteger(r.checkinDays) && r.checkinDays >= 0 && r.checkinDays <= 7)) err("checkinDays", "checkinDays 是 0–7");
   if (typeof r.symptoms !== "boolean") err("symptoms", "symptoms：这一周有没有疼痛、头晕、胸闷（true / false）");

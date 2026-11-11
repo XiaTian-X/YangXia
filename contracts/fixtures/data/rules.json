@@ -23,6 +23,27 @@
    ],
    "note": "没确认的按有高血压导出：不做派克、毛巾自阻类，平板、靠墙静蹲撑得短一些"
   },
+  "有氧问过医生": {
+   "ask": "有高血压的：医生说过可以做间歇、可以给有氧加时长加坡度吗",
+   "products": [
+    "a18·bw",
+    "a40·bw",
+    "a18·home",
+    "a40·home",
+    "a18·gym",
+    "a40·gym"
+   ],
+   "default": false,
+   "text": true,
+   "per_session": false,
+   "quotes": [
+    {
+     "section": "安全须知",
+     "text": "先问医生；没问之前"
+    }
+   ],
+   "note": "只对有高血压（或没确认）的人有用：没问过医生（或没确认）就一直做稳态、不加时长坡度。不在训练单的\"条件\"列里用，由 `有氧.md` 的组合条件\"高血压没问过医生\"用"
+  },
   "骨质疏松": {
    "ask": "医生有没有说过你骨量低或者骨质疏松",
    "products": [
@@ -2059,6 +2080,357 @@
     }
    ],
    "note": "同上"
+  }
+ ],
+ "stable": {
+  "cycleWeeks": 12,
+  "roundWeeks": 4,
+  "params": [
+   {
+    "name": "周期周数",
+    "products": [
+     "a18·bw"
+    ],
+    "value": "12",
+    "quotes": [
+     {
+      "section": "稳定期说明",
+      "text": "一轮 4 周，连着走 3 轮，一共 12 周"
+     }
+    ],
+    "note": "设计值 STABLE_CYCLE：12 周一个周期，第 12 周结束做周期末评估",
+    "number": 12
+   },
+   {
+    "name": "每轮周数",
+    "products": [
+     "a18·bw"
+    ],
+    "value": "4",
+    "quotes": [
+     {
+      "section": "稳定期说明",
+      "text": "一轮 4 周，连着走 3 轮，一共 12 周"
+     }
+    ],
+    "note": "每一轮照起始期标准段第 1–4 周的训练单",
+    "number": 4
+   },
+   {
+    "name": "进稳定期的结论",
+    "products": [
+     "a18·bw"
+    ],
+    "value": "添装备",
+    "quotes": [
+     {
+      "section": "谁用这一份",
+      "text": "4 周完成 ≥ 14 次训练，而且那一轮没有出现疼痛、头晕、胸闷"
+     }
+    ],
+    "note": "起始期段末结论是进阶线那一条（纯徒手、居家\"添装备\"，健身房\"进入下一阶段\"）而且没被不适降级，才能进稳定期；\"换场地\"不能用来进"
+   },
+   {
+    "name": "找级窗口天数",
+    "products": [
+     "a18·bw"
+    ],
+    "value": "14",
+    "quotes": [
+     {
+      "section": "难度级：接着用，达标了再升",
+      "text": "断了四周以上回来的人（回来后的头两周）"
+     }
+    ],
+    "note": "设计值 STABLE_FIND：找级只给直接进入的人的第 1 轮、家族外换成品的人、中断超过 28 天回来的人（回来后头 14 天）；其他人只能往下调",
+    "number": 14
+   },
+   {
+    "name": "回起始期的中断天数",
+    "products": [
+     "a18·bw"
+    ],
+    "value": "56",
+    "quotes": [
+     {
+      "section": "不舒服、断了几天",
+      "text": "断了八周以上"
+     }
+    ],
+    "note": "设计值 GAP_RESTART：断了超过 56 天（8 周）回起始期标准段",
+    "number": 56
+   },
+   {
+    "name": "周期达标训练数",
+    "products": [
+     "a18·bw"
+    ],
+    "value": "36",
+    "quotes": [
+     {
+      "section": "周期末评估",
+      "text": "≥ 36 为达标"
+     }
+    ],
+    "note": "设计值 CYCLE_PASS：12 周 ≥ 36 练（每周 4 练的 75%，和起始期 12/16 同一比例）",
+    "number": 36
+   },
+   {
+    "name": "习惯达标周数",
+    "products": [
+     "a18·bw"
+    ],
+    "value": "9",
+    "quotes": [
+     {
+      "section": "周期末评估",
+      "text": "≥ 9 周为达标"
+     }
+    ],
+    "note": "设计值 CYCLE_PASS：散步、冥想各自达标（每周 ≥ 5 天）的周数都要 ≥ 9",
+    "number": 9
+   },
+   {
+    "name": "有基础每周力量天数",
+    "products": [
+     "a18·bw"
+    ],
+    "value": "2",
+    "quotes": [
+     {
+      "section": "谁用这一份",
+      "text": "最近 3 个月平均每周做 2 天以上力量练习"
+     }
+    ],
+    "note": "设计值 BASE_ACTIVE：入门评估的训练频率是 2（每周 2 天及以上）",
+    "number": 2
+   },
+   {
+    "name": "有基础俯卧撑级",
+    "products": [
+     "a18·bw"
+    ],
+    "value": "3",
+    "quotes": [
+     {
+      "section": "谁用这一份",
+      "text": "做到\"跪姿俯卧撑\"这一级或更高"
+     }
+    ],
+    "note": "设计值 BASE_ACTIVE：入门俯卧撑测试用的级在第 3 级（跪姿俯卧撑）以上",
+    "number": 3
+   },
+   {
+    "name": "有基础俯卧撑次数",
+    "products": [
+     "a18·bw"
+    ],
+    "value": "8",
+    "quotes": [
+     {
+      "section": "谁用这一份",
+      "text": "做满 8 次"
+     }
+    ],
+    "note": "设计值 BASE_ACTIVE：8 是 B 日俯卧撑次数区间 8–15 的下限",
+    "number": 8
+   },
+   {
+    "name": "不适按轮",
+    "products": [
+     "a18·bw"
+    ],
+    "value": "是",
+    "quotes": [
+     {
+      "section": "不舒服、断了几天",
+      "text": "这一轮（4 周）剩下的时间不升级、不加次数，可以降"
+     }
+    ],
+    "note": "设计值 STABLE_SYMPTOM：一轮里有不适，这一轮后面不往上加；下一轮等有一周没有不适才放开"
+   }
+  ],
+  "nextCycle": [
+   {
+    "order": 1,
+    "when": [
+     {
+      "kind": "trainingsBelow"
+     }
+    ],
+    "result": "训练没达标",
+    "next": {
+     "phase": "起始",
+     "type": "减量"
+    },
+    "quotes": [
+     {
+      "section": "下一个周期怎么走",
+      "text": "12 周训练不到 36 次"
+     }
+    ],
+    "note": "设计值 CYCLE_LOW：照起始期\"完成 < 12 练……降到每周 3 练\"的意思，回起始期减量段"
+   },
+   {
+    "order": 2,
+    "when": [
+     {
+      "kind": "habitsMiss"
+     },
+     {
+      "kind": "prevMiss"
+     }
+    ],
+    "result": "连续两个周期没达标",
+    "next": {
+     "phase": "起始",
+     "type": "标准"
+    },
+    "quotes": [
+     {
+      "section": "下一个周期怎么走",
+      "text": "而且上一个周期也是这样"
+     }
+    ],
+    "note": "设计值 CYCLE_FAIL_TWICE：回起始期标准段，从第 1 周把习惯重新立住"
+   },
+   {
+    "order": 3,
+    "when": [
+     {
+      "kind": "habitsMiss"
+     }
+    ],
+    "result": "习惯没达标",
+    "next": {
+     "phase": "稳定",
+     "hold": true
+    },
+    "quotes": [
+     {
+      "section": "下一个周期怎么走",
+      "text": "接着开下一个周期，第 1 轮不升级"
+     }
+    ],
+    "note": "设计值 CYCLE_HOLD：下一周期的第一轮不升级"
+   },
+   {
+    "order": 4,
+    "when": [],
+    "result": "达标",
+    "next": {
+     "phase": "稳定"
+    },
+    "quotes": [
+     {
+      "section": "下一个周期怎么走",
+      "text": "接着开下一个周期，难度级和次数接着用"
+     }
+    ],
+    "note": "设计值 CYCLE_PASS"
+   }
+  ]
+ },
+ "cardio": [
+  {
+   "products": [
+    "a18·bw",
+    "a40·bw"
+   ],
+   "weeks": [
+    1,
+    2
+   ],
+   "mode": "稳态",
+   "when": "always",
+   "quotes": [
+    {
+     "section": "4 周强度递进",
+     "text": "低冲击稳态 15 分钟"
+    },
+    {
+     "section": "4 周强度递进",
+     "text": "低冲击稳态 20 分钟"
+    }
+   ],
+   "note": "第 1–2 周低冲击稳态"
+  },
+  {
+   "products": [
+    "a18·bw",
+    "a40·bw"
+   ],
+   "weeks": [
+    3,
+    4
+   ],
+   "mode": "间歇",
+   "when": "selfCheckPassed",
+   "quotes": [
+    {
+     "section": "4 周强度递进",
+     "text": "第 3 周上间歇之前先自查"
+    },
+    {
+     "section": "4 周强度递进",
+     "text": "做完能说完整句子、第二天不觉得累，才上间歇"
+    }
+   ],
+   "note": "第 2 周自查过了才上间歇"
+  },
+  {
+   "products": [
+    "a18·bw",
+    "a40·bw"
+   ],
+   "weeks": [
+    3,
+    4
+   ],
+   "mode": "稳态",
+   "when": "selfCheckFailed",
+   "quotes": [
+    {
+     "section": "4 周强度递进",
+     "text": "做不到，第 3–4 周继续稳态 20 分钟，照样打勾"
+    }
+   ],
+   "note": "自查没过（或者没记）继续稳态"
+  },
+  {
+   "products": [
+    "a18·bw",
+    "a40·bw"
+   ],
+   "weeks": [
+    3,
+    4
+   ],
+   "mode": "稳态",
+   "when": "hypertensionNoDoctor",
+   "quotes": [
+    {
+     "section": "安全须知",
+     "text": "第 3–4 周的间歇训练先问医生；没问之前，继续做中等强度的稳态有氧"
+    }
+   ],
+   "note": "有高血压（或没确认）而且没问过医生：一直稳态"
+  }
+ ],
+ "derivedConditions": [
+  {
+   "name": "高血压没问过医生",
+   "all": [
+    {
+     "name": "高血压",
+     "value": true
+    },
+    {
+     "name": "有氧问过医生",
+     "value": false
+    }
+   ],
+   "note": "没确认的按各自\"没确认时\"那一边：高血压没确认按是、有氧问过医生没确认按否"
   }
  ]
 }

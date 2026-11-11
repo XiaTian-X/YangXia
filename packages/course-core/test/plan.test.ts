@@ -21,6 +21,13 @@ function profile(product: string, week = 1, extra: Record<string, any> = {}) {
   p.screening = { answers: manifest.intake.screening.find((s) => s.age === prod.age)!.items.map((item) => ({ item, answer: "否" })), doctorCleared: true, date: DATES[0], doctorDate: DATES[0] };
   fitAge(p, prod.age);
   p.segments = Array.from({ length: week }, (_, i) => ({ n: 1, type: "标准", week: i + 1, start: DATES[i], product }));
+  if (plans.products[product]?.phase === "稳定") {
+    // 稳定期：一段 12 周，日期从今天往前排（开始日期不能是将来）
+    const day = (n: number) => new Date(new Date("2026-11-02T12:00:00Z").getTime() + n * 86_400_000).toISOString().slice(0, 10);
+    p.segments = Array.from({ length: week }, (_, i) => ({ n: 1, phase: "稳定", type: "标准", week: i + 1, start: day(-7 * (week - 1 - i)), product }));
+    p.startDate = p.segments[0].start;
+    p.screening.date = p.screening.doctorDate = p.startDate;
+  }
   p.conditions = Object.fromEntries(Object.entries(rules.conditions).map(([k, v]) => [k, v.text]));
   p.choices = ["table-row", "door-row", "a13-bar-row"];
   return Object.assign(p, extra);
@@ -33,8 +40,9 @@ const errors = (c: Course, p: Record<string, any>) =>
 describe("每份成品、每周每天都能导出，导出的课程按训练单核对 0 错误", () => {
   for (const [product, p] of Object.entries(plans.products)) {
     it(product, () => {
-      for (let w = 1; w <= 4; w++) {
-        for (const day of p.segments["标准"].days) {
+      const stable = p.phase === "稳定";
+      for (let w = 1; w <= (stable ? 12 : 4); w++) {
+        for (const day of p.segments[stable ? "稳定" : "标准"].days) {
           const r = ex(product, w, day);
           expect(r.issues.filter((i) => i.level === "error"), `${product} 第 ${w} 周 ${day} 日`).toEqual([]);
           expect(r.course, `${product} 第 ${w} 周 ${day} 日`).not.toBeNull();

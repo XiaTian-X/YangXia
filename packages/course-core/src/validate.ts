@@ -28,13 +28,13 @@ export function validateCourse(raw: unknown): { course: Course | null; issues: I
   if (!isObj(src)) err("source", "缺少 source（出自哪份成品、第几周）");
   else {
     if (typeof src.product !== "string" || !src.product) err("source.product", "缺少成品名");
-    if (!isInt(src.week, 1, 4)) err("source.week", "week 要是 1–4 的整数");
+    if (src.phase === "稳定" ? !isInt(src.week, 1, 12) : !isInt(src.week, 1, 4)) err("source.week", "week 要是 1–4 的整数（稳定期 1–12）");
     if (src.day !== undefined && (typeof src.day !== "string" || src.day.length > 20)) err("source.day", "day 最多 20 个字");
     if (src.templates !== undefined && typeof src.templates !== "string") err("source.templates", "templates 要是字符串");
     if (src.plan !== undefined && src.plan !== "yangxia.plans/1") err("source.plan", 'plan 只能是 "yangxia.plans/1"');
     if (src.segment !== undefined && !isInt(src.segment, 1, 99)) err("source.segment", "segment 是第几段，从 1 起的整数");
     if (src.type !== undefined && !["标准", "减量"].includes(src.type as string)) err("source.type", "type 只能是 标准 / 减量");
-    if (src.phase !== undefined && src.phase !== "起始") err("source.phase", "phase 现在只有 起始");
+    if (src.phase !== undefined && src.phase !== "起始" && src.phase !== "稳定") err("source.phase", "phase 只能是 起始 / 稳定");
     if (src.half !== undefined && src.half !== true) err("source.half", "half 只能是 true（半量课：中断、生病回来的第一次）");
     if (src.picks !== undefined && !(isObj(src.picks) && Object.values(src.picks).every((v) => typeof v === "string"))) err("source.picks", "picks 是 {轮换组: 动作 ID}");
   }

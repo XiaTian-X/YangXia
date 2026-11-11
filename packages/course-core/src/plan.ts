@@ -61,6 +61,10 @@ export interface ProductPlan {
   segments: Record<string, { days: string[] }>;
   rows: PlanRow[];
   ladders: Record<string, LadderLevel[]>;
+  /** 起始 / 稳定（v4 阶段 3）。稳定期成品的 code 是家族代码（和起始期成品一样），rows 的段型是"稳定"、周次 1–12。 */
+  phase?: string;
+  /** 稳定期成品：同一家族的起始期成品名。 */
+  base?: string | null;
 }
 
 export interface PlansData {
@@ -74,20 +78,46 @@ export interface RulesData {
   conditions: Record<string, { ask: string; products: string[]; default: boolean; text: boolean; per_session?: boolean; note: string }>;
   progress: { rule: string; products: string[]; value: { min: number; max: number } | null | string; note: string }[];
   slowdown: { products: string[]; weeks: number[]; moves: string[] | null; down: number; circuits: boolean }[];
+  /** 稳定期参数和周期末规则（v4 阶段 3）。 */
+  stable?: {
+    cycleWeeks: number;
+    roundWeeks: number;
+    params: { name: string; products: string[]; value: string; number?: number; note: string }[];
+    nextCycle: { order: number; when: { kind: string }[]; result: string; next: { phase: string; type?: string; hold?: boolean }; quotes: { section: string; text: string }[]; note: string }[];
+  };
+  /** 每一轮哪几周稳态、哪几周间歇。 */
+  cardio?: { products: string[]; weeks: number[]; mode: string; when: string; quotes: { section: string; text: string }[]; note: string }[];
+  /** 由两项条件合起来的组合条件。 */
+  derivedConditions?: { name: string; all: { name: string; value: boolean }[] }[];
+}
+
+export const ROUND_WEEKS = 4;
+/** 一段最多几周：起始期 4，稳定期 12（一个周期）。 */
+export const maxWeek = (phase: string | undefined, rules?: RulesData | null) => (phase === "稳定" ? rules?.stable?.cycleWeeks ?? 12 : 4);
+/** 这一周是这一轮的第几周（稳定期每 4 周一轮；起始期就是周次本身）。 */
+export const roundWeek = (week: number) => ((week - 1) % ROUND_WEEKS) + 1;
+/** 训练单里的段型：稳定期的段取"稳定"行，起始期按档案的段型（标准 / 减量）。 */
+export const planType = (seg: { phase?: string; type?: string }) => (seg.phase === "稳定" ? "稳定" : seg.type ?? "标准");
+/** 稳定期参数（按家族代码取）。 */
+export function stableParam(rules: RulesData | null | undefined, code: string, name: string): { value: string; number?: number } | undefined {
+  return rules?.stable?.params.find((x) => x.name === name && x.products.includes(code));
 }
 
 type Obj = Record<string, any>;
 
 /** 档案最后一段：成品、段型、第几段、第几周。 */
-export function currentSegment(profile: Obj): { product: string; type: string; n: number; week: number } | null {
+export function currentSegment(profile: Obj): { product: string; type: string; n: number; week: number; phase: string } | null {
   const segs = profile?.segments;
   if (!Array.isArray(segs) || !segs.length) return null;
   const s = segs[segs.length - 1] ?? {};
-  return { product: s.product ?? profile.product, type: s.type ?? "标准", n: s.n ?? 1, week: s.week ?? 1 };
+  return { product: s.product ?? profile.product, type: s.type ?? "标准", n: s.n ?? 1, week: s.week ?? 1, phase: s.phase ?? "起始" };
 }
 
 /** 条件取值：档案记了就用档案的，没记按规则层的"没确认时"。 */
 export function conditionValue(rules: RulesData, profile: Obj, name: string): boolean {
+  // 组合条件（如"高血压没问过医生"）：每一项都成立才成立，各项没确认时按各自的"没确认时"
+  const d = rules.derivedConditions?.find((x) => x.name === name);
+  if (d) return d.all.every((part) => conditionValue(rules, profile, part.name) === part.value);
   const v = profile?.conditions?.[name];
   const c = rules.conditions[name];
   // 没记的按规则层的"没确认时"；规则层也没有这个条件的，取正文以外的那一边（保守）
@@ -113,19 +143,26 @@ export function allowedLevels(p: ProductPlan, row: PlanRow | null, round: number
 }
 
 /**
- * 第几轮：这一项之前，同一个年龄段已经练完第 4 周的段有几段，再加 1。
- * 换成品、没练满 4 周就新开的段不算一轮（"下一轮才用"的级、40–64 岁推迟的升级要真的练完一轮）。
+ * 第几轮 = 同一个年龄段里已经练完的 4 周轮数 + 1：
+ * - 起始期的段练到第 4 周算一轮（换成品、没练满 4 周就新开的段不算：
+ *   "下一轮才用"的级、40–64 岁推迟的升级要真的练完一轮）；
+ * - 稳定期的段每满 4 周算一轮（被提前截断的只算练满的 4 周）；正在进行的稳定段，前面练完的 4 周也算。
+ * 直接进稳定期的人从第 1 轮起；从起始期升上来的人，稳定期第 1–4 周至少是第 2 轮。
  */
 export function roundOf(profile: Obj, plans: PlansData, index?: number): number {
   const ss: Obj[] = Array.isArray(profile?.segments) ? profile.segments : [];
   if (!ss.length) return 1;
   const i = index ?? ss.length - 1;
   const age = plans.products[ss[i].product]?.age;
-  const done = new Set<number>();
-  for (let k = 0; k < i; k++) {
-    if (ss[k].n < ss[i].n && ss[k].week === 4 && plans.products[ss[k].product]?.age === age) done.add(ss[k].n);
+  const lastOf = new Map<number, Obj>();
+  for (let k = 0; k < i; k++) if (ss[k].n < ss[i].n) lastOf.set(ss[k].n, ss[k]);
+  let rounds = 0;
+  for (const e of lastOf.values()) {
+    if (plans.products[e.product]?.age !== age) continue;
+    rounds += e.phase === "稳定" ? Math.floor(e.week / ROUND_WEEKS) : e.week === 4 ? 1 : 0;
   }
-  return 1 + done.size;
+  if (ss[i].phase === "稳定") rounds += Math.floor((ss[i].week - 1) / ROUND_WEEKS);
+  return 1 + rounds;
 }
 
 
@@ -245,12 +282,17 @@ export function exportCourse(input: ExportInput): ExportResult {
     err("week", `档案现在是第 ${seg.n} 段第 ${seg.week} 周，只能导出第 1–${seg.week} 周（下一周要等周复盘放行）`);
     return out;
   }
-  const days = p.segments[seg.type]?.days ?? [];
-  if (!days.includes(day)) {
-    err("day", `${productName}的${seg.type}段没有 ${day} 日（有 ${days.join("、")}）`);
+  const ptype = planType(seg);
+  if ((p.phase ?? "起始") !== seg.phase) {
+    err("profile.segments", `「${productName}」是${p.phase ?? "起始"}期的成品，档案这一段写的是${seg.phase}期：phase 要和成品一致`);
     return out;
   }
-  const rows = dayRows(p, rules, profile, seg.type, week, day);
+  const days = p.segments[ptype]?.days ?? [];
+  if (!days.includes(day)) {
+    err("day", `${productName}的${ptype}段没有 ${day} 日（有 ${days.join("、")}）`);
+    return out;
+  }
+  const rows = dayRows(p, rules, profile, ptype, week, day);
   const choices: string[] = Array.isArray(profile.choices) ? profile.choices : [];
   const progress: Obj = profile.progress ?? {};
   const picks: Record<string, string> = {};
@@ -352,7 +394,7 @@ export function exportCourse(input: ExportInput): ExportResult {
       {
         const t: Tempo = { ...base, ...(lv?.tempo ?? {}) };
         for (const s of rules.slowdown) {
-          if (!s.products.includes(p.code) || !s.weeks.includes(week)) continue;
+          if (!s.products.includes(p.code) || !s.weeks.includes(seg.phase === "稳定" ? roundWeek(week) : week)) continue;
           if (r.block === "circuit" && !s.circuits) continue;
           if (s.moves ? !s.moves.includes(ex.id) && !s.moves.includes(move) : !base.down) continue;
           t.down = Math.max(t.down, s.down);
@@ -380,7 +422,7 @@ export function exportCourse(input: ExportInput): ExportResult {
     age: prod.age as Course["age"],
     source: {
       product: productName, templates: plans.version, week, day,
-      plan: PLANS_FORMAT, segment: seg.n, type: seg.type, phase: "起始",
+      plan: PLANS_FORMAT, segment: seg.n, type: seg.type, phase: seg.phase,
       ...(Object.keys(picks).length ? { picks } : {}),
       ...(input.half ? { half: true } : {}),
     } as Course["source"],
@@ -408,7 +450,8 @@ function hash(s: string): string {
 export function isStartCourse(plans: PlansData, rules: RulesData, profile: Obj, course: Course): boolean {
   const seg = currentSegment(profile);
   const p = plans.products[course.source.product];
-  if (!seg || !p || (course.source as Obj).type !== "标准" || (course.source as Obj).half === true) return false;
+  // 稳定期的课程不做原文核对（成品里的 4 周表是按轮写的，周次对不上；稳定段由标准段派生，按训练单核对）
+  if (!seg || !p || (course.source as Obj).type !== "标准" || (course.source as Obj).half === true || seg.phase === "稳定") return false;
   const rows = dayRows(p, rules, profile, "标准", course.source.week, course.source.day ?? "");
   if (rows.some((r) => r.condition && conditionValue(rules, profile, r.condition.name) !== rules.conditions[r.condition.name]?.text)) return false;
   for (const r of rows) {
@@ -429,6 +472,7 @@ export function checkPlanCourse(course: Course, plans: PlansData, rules: RulesDa
   const seg = currentSegment(profile);
   if (seg && src.segment !== undefined && src.segment !== seg.n) err("source.segment", `课程是第 ${src.segment} 段的，档案现在是第 ${seg.n} 段：重新导出`);
   if (seg && src.type !== undefined && src.type !== seg.type) err("source.type", `课程是${src.type}段的，档案现在是${seg.type}段：重新导出`);
+  if (seg && (src.phase ?? "起始") !== seg.phase) err("source.phase", `课程是${src.phase ?? "起始"}期的，档案现在是${seg.phase}期：重新导出`);
   const want = exportCourse({ plans, rules, manifest, profile, week: course.source.week, day: course.source.day ?? "", picks: src.picks, half: src.half === true });
   for (const i of want.issues) issues.push({ ...i, path: `训练单 ${i.path}` });
   if (!want.course) return issues;

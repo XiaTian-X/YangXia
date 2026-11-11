@@ -327,9 +327,10 @@ describe("档案目录的评估核对", () => {
     expect(errs(c(plus(START, 40))).join()).toMatch(/断了 34 天/);
     expect(errs(c(plus(START, 40), [rec(plus(START, 40), "触发", { reasons: ["中断"], conclusion: {} })])).join()).not.toMatch(/断了/);
   });
-  it("周期末评估：阶段 3 才有", async () => {
+  it("周期末评估：要写是第几段", async () => {
     const { validateAssessment } = await import("../src/assess.ts");
-    expect(validateAssessment({ schema: ASSESS_FORMAT, date: "2026-06-01", kind: "周期末" }).map((i) => i.message).join()).toMatch(/阶段 3/);
+    expect(validateAssessment({ schema: ASSESS_FORMAT, date: "2026-06-01", kind: "周期末" }).map((i) => i.message).join()).toMatch(/第几段/);
+    expect(validateAssessment({ schema: ASSESS_FORMAT, date: "2026-06-01", kind: "周期末", segment: 2 })).toEqual([]);
   });
 });
 
@@ -371,7 +372,7 @@ describe("评估记录的 schema 和核心库判断一致", () => {
     { schema: ASSESS_FORMAT, date: "2026-07-01", kind: "触发", reasons: ["换场地"], product: "18-39岁-居家版", prereqs: { checkup: true } },
   ];
   const bad = [
-    { schema: ASSESS_FORMAT, date: "2026-06-01", kind: "周期末" },
+    { schema: ASSESS_FORMAT, date: "2026-06-01", kind: "年中" },
     { schema: ASSESS_FORMAT, date: "2026-06-01", kind: "触发", reasons: ["想换就换"] },
     { schema: ASSESS_FORMAT, date: "2026-06-01", kind: "入门", tests: [{ id: "chair-stand-30s", hands: "单手" }] },
     { schema: ASSESS_FORMAT, date: "2026-06-01", kind: "入门", body: { weight: 70, bmi: 24 } },

@@ -24,7 +24,7 @@
     "week": {
       "type": "integer",
       "minimum": 1,
-      "maximum": 4
+      "maximum": 12
     },
     "trainings": {
       "type": "integer",
@@ -113,6 +113,10 @@
     "half": {
       "type": "boolean",
       "description": "这一周练过半量课：这份复盘不当加量依据"
+    },
+    "steadyCheck": {
+      "type": "boolean",
+      "description": "这一轮第 2 周的稳态自查过没过（做完能说完整句子、第二天不觉得累）；没过或没记，这一轮第 3–4 周继续稳态"
     }
   }
 }

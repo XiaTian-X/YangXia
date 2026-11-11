@@ -1,7 +1,7 @@
 // 命令行：导出、带档案的课程检查之前，评估记录、复盘数据本身的写法错误也要拦下（不只是 profile check）。
 // 要用真模板（templates/ 或 YANGXIA_TEMPLATES）；模板不在时跳过。
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -60,6 +60,54 @@ describe.skipIf(!hasTemplates)("导出之前也拦评估记录的写法错误", 
     const r = run("export", d, "1", "A", "--out", join(root, "teen.json"));
     expect(r.status).toBe(1);
     expect(r.stdout).toMatch(/只能有这些字段/);
+  });
+});
+
+const STABLE_BW = "18-39岁-纯徒手版（稳定期）";
+describe.skipIf(!hasTemplates || !t!.plans?.products[STABLE_BW])("稳定期：有基础的人直接进入，导出课程、生成计划单", () => {
+  const entry = (fields: Record<string, unknown> = {}) => ({ [`评估/${today}-入门.json`]: { schema: ASSESS_FORMAT, date: today, kind: "入门", base: 2,
+    tests: [{ id: "pushup-test", level: 3, value: 10 }, { id: "wallsit-test", value: 45 }], conclusion: {}, ...fields } });
+  const stable = (name: string, extra: Record<string, unknown> = {}, files: Record<string, unknown> = entry()) => {
+    const d = dir(name, STABLE_BW, { birth: "1996-05", body: "不记", focus: { areas: ["训练"] }, ...extra }, files);
+    const p = JSON.parse(readFileSync(join(d, "档案.json"), "utf8"));
+    p.segments[0].phase = "稳定";
+    writeFileSync(join(d, "档案.json"), JSON.stringify(p));
+    return d;
+  };
+  it("第 1 周能导出，提示这一周有氧做稳态；档案检查通过", () => {
+    const d = stable("st-ok");
+    const r = run("export", d, "1", "A");
+    expect(r.stdout).toMatch(/已导出/);
+    expect(r.stdout).toMatch(/有氧：这一周做稳态/);
+    expect(run("profile", "check", d).status).toBe(0);
+  });
+  it("训练频率不到每周 2 天：不能直接进稳定期，导不出", () => {
+    const r = run("export", stable("st-base", {}, entry({ base: 1 })), "1", "A");
+    expect(r.status).toBe(1);
+    expect(r.stdout).toMatch(/有基础/);
+  });
+  it("计划单由命令生成：带声明，档案检查通过；手改过就报错", () => {
+    const d = stable("st-plan");
+    const r = run("plan", d);
+    expect(r.stdout).toMatch(/已生成/);
+    const f = join(d, "计划", "第1段-第1周.md");
+    const text = readFileSync(f, "utf8");
+    expect(text).toMatch(/未经专业审核，不是医学建议/);
+    expect(text).toMatch(/稳定期 12 周的第 1 周：第 1 轮 · 第 1 周/);
+    expect(run("profile", "check", d).status).toBe(0);
+    writeFileSync(f, text.replace(/\d组×/, "9组×"));
+    const bad = run("profile", "check", d);
+    expect(bad.status).toBe(1);
+    expect(bad.stdout).toMatch(/不手改/);
+  });
+  it("还没到的周不出计划单", () => {
+    const r = run("plan", stable("st-future"), "3");
+    expect(r.status).toBe(1);
+    expect(r.stdout).toMatch(/只能生成第 1–1 周/);
+  });
+  it("周期末评估：列出 12 周的训练次数和结论的算法（第 12 周之前提示还没练完）", () => {
+    const r = run("assess", stable("st-cycle"), "周期末");
+    expect(r.stdout).toMatch(/周期末/);
   });
 });
 

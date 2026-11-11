@@ -156,7 +156,7 @@
     "segments": {
       "type": "array",
       "minItems": 1,
-      "description": "每一周一项：第几段（起始期 4 周一段）、段型、第几周、开始日期、成品。建档写第一项；周复盘每次追加一项（放行就加 1，重复本周不变）；段末或换成品时新开一段（n 加 1、从第 1 周起）。最后一项就是现在",
+      "description": "每一周一项：第几段、阶段（起始期 4 周一段，稳定期 12 周一个周期）、段型、第几周、开始日期、成品。建档写第一项；周复盘每次追加一项（放行就加 1，重复本周不变）；段末、周期末或换成品时新开一段（n 加 1、从第 1 周起）。最后一项就是现在",
       "items": {
         "type": "object",
         "required": [
@@ -180,7 +180,8 @@
           "week": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 4
+            "maximum": 12,
+            "description": "这一段的第几周：起始期 1–4，稳定期 1–12"
           },
           "start": {
             "type": "string",
@@ -190,7 +191,11 @@
             "type": "string"
           },
           "phase": {
-            "const": "起始"
+            "enum": [
+              "起始",
+              "稳定"
+            ],
+            "description": "阶段（不写按起始）；要和成品的阶段一致，同一段里不变"
           },
           "habitTargets": {
             "type": "object",
@@ -299,7 +304,8 @@
               "加次数",
               "调重量",
               "加重",
-              "重来"
+              "重来",
+              "加一档"
             ]
           },
           "evidence": {
@@ -329,6 +335,27 @@
         "停记"
       ],
       "description": "18–64 岁记不记体重、腰围（默认不记；出现节食、焦虑改停记，并写 bodyStopDate）。6–17 岁、65 岁以上不能写记"
+    },
+    "focus": {
+      "type": "object",
+      "required": [
+        "areas"
+      ],
+      "additionalProperties": false,
+      "description": "有基础的 18–64 岁：想先从哪方面入手（含训练的可以直接进稳定期）",
+      "properties": {
+        "areas": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "作息",
+              "饮食",
+              "训练"
+            ]
+          }
+        }
+      }
     },
     "bodyStopDate": {
       "type": "string",
