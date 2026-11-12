@@ -22,6 +22,7 @@ import { bedtimeFor, checkProfileWithTemplates } from "./intake.ts";
 import { checkProgress, checkProgressLog, localDate, progressOn, REVIEW_FORMAT, type SessionFile, validateReview } from "./progress.ts";
 import { loadTemplates, requirePlans, type Templates } from "./node.ts";
 import { currentSegment, exportCourse } from "./plan.ts";
+import { fallRiskRules } from "./fallrisk.ts";
 import { ASSESS_FORMAT, type AssessFile, ageAt, assessRules, cardioMode, cycleEnd, balanceHold, checkAssessments, checkRecord, doctorNeed, gap, param, productInfo, recordConclusion, segmentEnd, validateAssessment } from "./assess.ts";
 import { checkDeclaration, checkNotes, DECLARATION, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
 import { buildSheet, checkSheet, sheetFile } from "./sheet.ts";
@@ -152,7 +153,11 @@ function scanDir(dir: string, t: Templates, profile: Record<string, any>) {
         issues.push(...tag(validateAssessment(raw)));
         if (!name.startsWith(`评估${sep}`) && !archived) issues.push({ level: "error", path: name, message: "评估记录放在 评估/ 下：评估/<日期>-<种类>.json" });
         assessments.push({ name: name.split(sep).join("/"), raw });
-        if (typeof raw?.note === "string") issues.push(...checkNotes(t.manifest.redlines, [profile.age], name, raw.note));
+        if (typeof raw?.note === "string") {
+          const ar0 = assessRules(t.rules);
+          const own = ar0 && ageAt(profile, localDate(new Date()), ar0.assess).age === "a65" ? ["a65"] : [];
+          issues.push(...checkNotes(t.manifest.redlines, [...new Set([profile.age, ...own])], name, raw.note));
+        }
       }
       else if (raw?.schema === REVIEW_FORMAT) {
         issues.push(...tag(validateReview(raw)));
@@ -165,7 +170,10 @@ function scanDir(dir: string, t: Templates, profile: Record<string, any>) {
       if (menu && !Array.isArray(profile.household)) {
         issues.push({ level: "error", path: name, message: "排菜单前要在档案里记下家庭成员的年龄段（household），菜单按每个人的红线检查" });
       }
-      const ages = [...new Set(menu ? ["fam", profile.age, ...(profile.household ?? [])] : [profile.age])];
+      // 满 65 岁当月起按 65 岁以上的红线查（成品还没换过来的窗口里也一样）
+      const ar0 = assessRules(t.rules);
+      const own = ar0 && ageAt(profile, localDate(new Date()), ar0.assess).age === "a65" ? ["a65"] : [];
+      const ages = [...new Set(menu ? ["fam", profile.age, ...own, ...(profile.household ?? [])] : [profile.age, ...own])];
       const text = readFileSync(f, "utf8");
       issues.push(...checkNotes(t.manifest.redlines, ages, name, text));
       // 计划、菜单、复盘都是生成的计划：开头要有声明（历史/ 里以前的不查）
@@ -353,6 +361,17 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
       if (x.id === "wallsit-test" && cap !== undefined && profile.conditions?.["高血压"] !== false) console.log(`  这个人有高血压或没确认：静蹲最多 ${cap} 秒`);
     }
     if (info.age === "a65" && kind === "段末") console.log("weightDrop：体重有没有明显下降（是 / 否，不记数字）");
+    const fr = fallRiskRules(t.rules);
+    if (fr && info.age === "a65" && kind !== "段末" && kind !== "周期末") {
+      console.log(`\n跌倒风险自查（fallRisk；照 WS/T 887—2026 第 5 章，不是正式评估；${kind === "触发" ? "跨段、满一年、摔倒、生病住院、身体变化、跌倒自查到期都要做" : "建档时要做"}）`);
+      console.log("第一部分 问卷（看医生之前可以做，原话照念）：");
+      for (const q of fr.questions) console.log(`  ${q.id}（${q.clause}，问${q.who}${q.part === "严重程度" ? "；一般性有\"是\"或说不清才问" : ""}）：${q.quotes.map((x) => x.text).join("")}`);
+      console.log(`  衰弱 5 条（${fr.frailMin} 条及以上算"是"）：${fr.frail.map((x) => `${x.id}「${x.quotes.map((q) => q.text).join("")}」`).join("；")}`);
+      console.log("  另问：needsSupport（在家走路也要扶墙或用助行器）、hardToStand（扶着椅子也很难自己站起来）");
+      console.log("第二部分 步态（医生同意以后、家人在场时做；过去 12 个月跌倒过、高风险、走路要扶、站起困难、经常头晕的不在家测）：");
+      for (const g of fr.gait) console.log(`  ${g.id}：${g.id === "walk4m" ? `${g.distance} m，用时超过 ${(g.distance ?? 4) / g.line} 秒阳性` : `超过 ${g.line} 秒阳性`}（按留余量的线 ${g.margin} 秒）；记 seconds（往大里取一位小数）、cane、siteOk${g.id === "tug" ? "、chairOk（有扶手和靠背、无轮子、约 46 cm）" : ""}、testedOn`);
+      console.log("  测不了写 { result: \"没测成\", reason }；按规则不测写 { result: \"按规则不测\", reason }。看过结果的医生同意写 fallRiskSeen: true；正式评估写 official { date, afterFall, level? }");
+    }
     if (kind === "周期末") {
       const segs = profile.segments as any[];
       const stableNs = [...new Set(segs.filter((x) => x.phase === "稳定").map((x) => x.n))] as number[];

@@ -50,7 +50,8 @@
           "换场地",
           "中断",
           "看完医生回来",
-          "回起始期"
+          "回起始期",
+          "跌倒自查到期"
         ]
       },
       "description": "触发评估的原因"
@@ -179,6 +180,312 @@
     "doctorRestart": {
       "type": "boolean",
       "description": "医生建议从头来（稳定期中途回起始期的依据）"
+    },
+    "fallRisk": {
+      "type": "object",
+      "description": "65 岁以上的跌倒风险自查（照 WS/T 887—2026 第 5 章，不是正式评估）：只记是 / 否、秒数和测试条件，不记病名、用药、体重数字",
+      "additionalProperties": false,
+      "required": [
+        "askedOn",
+        "general",
+        "needsSupport",
+        "hardToStand"
+      ],
+      "properties": {
+        "askedOn": {
+          "type": "string",
+          "format": "date"
+        },
+        "general": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fell",
+            "unsteady",
+            "fear"
+          ],
+          "properties": {
+            "fell": {
+              "type": "boolean"
+            },
+            "unsteady": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "fear": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        },
+        "severity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "twoPlus",
+            "medical",
+            "helpUp",
+            "syncope"
+          ],
+          "properties": {
+            "twoPlus": {
+              "type": "boolean"
+            },
+            "medical": {
+              "type": "boolean"
+            },
+            "helpUp": {
+              "type": "boolean"
+            },
+            "syncope": {
+              "type": "boolean"
+            }
+          }
+        },
+        "frail": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fatigue",
+            "stairs",
+            "walk",
+            "illness",
+            "weightLoss"
+          ],
+          "properties": {
+            "fatigue": {
+              "type": "boolean"
+            },
+            "stairs": {
+              "type": "boolean"
+            },
+            "walk": {
+              "type": "boolean"
+            },
+            "illness": {
+              "type": "boolean"
+            },
+            "weightLoss": {
+              "type": "boolean"
+            }
+          }
+        },
+        "needsSupport": {
+          "type": "boolean"
+        },
+        "hardToStand": {
+          "type": "boolean"
+        },
+        "walk4m": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "seconds",
+                "cane",
+                "siteOk",
+                "testedOn"
+              ],
+              "properties": {
+                "seconds": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "cane": {
+                  "type": "boolean"
+                },
+                "siteOk": {
+                  "type": "boolean"
+                },
+                "chairOk": {
+                  "type": "boolean"
+                },
+                "testedOn": {
+                  "type": "string",
+                  "format": "date"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "result",
+                "reason"
+              ],
+              "properties": {
+                "result": {
+                  "const": "没测成"
+                },
+                "reason": {
+                  "enum": [
+                    "场地不够",
+                    "椅子不合要求",
+                    "家人不在",
+                    "本人不想测",
+                    "中途停下"
+                  ]
+                },
+                "stopReason": {
+                  "enum": [
+                    "头晕",
+                    "腿软",
+                    "身体晃"
+                  ]
+                },
+                "testedOn": {
+                  "type": "string",
+                  "format": "date"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "result",
+                "reason"
+              ],
+              "properties": {
+                "result": {
+                  "const": "按规则不测"
+                },
+                "reason": {
+                  "enum": [
+                    "跌倒过",
+                    "高风险",
+                    "走路要扶",
+                    "站起困难",
+                    "经常头晕"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "tug": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "seconds",
+                "cane",
+                "siteOk",
+                "testedOn"
+              ],
+              "properties": {
+                "seconds": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "cane": {
+                  "type": "boolean"
+                },
+                "siteOk": {
+                  "type": "boolean"
+                },
+                "chairOk": {
+                  "type": "boolean"
+                },
+                "testedOn": {
+                  "type": "string",
+                  "format": "date"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "result",
+                "reason"
+              ],
+              "properties": {
+                "result": {
+                  "const": "没测成"
+                },
+                "reason": {
+                  "enum": [
+                    "场地不够",
+                    "椅子不合要求",
+                    "家人不在",
+                    "本人不想测",
+                    "中途停下"
+                  ]
+                },
+                "stopReason": {
+                  "enum": [
+                    "头晕",
+                    "腿软",
+                    "身体晃"
+                  ]
+                },
+                "testedOn": {
+                  "type": "string",
+                  "format": "date"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "result",
+                "reason"
+              ],
+              "properties": {
+                "result": {
+                  "const": "按规则不测"
+                },
+                "reason": {
+                  "enum": [
+                    "跌倒过",
+                    "高风险",
+                    "走路要扶",
+                    "站起困难",
+                    "经常头晕"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fallRiskSeen": {
+      "type": "boolean",
+      "description": "医生看过这份跌倒风险自查的结果"
+    },
+    "official": {
+      "type": "object",
+      "description": "医生或社区做的正式跌倒风险评估",
+      "additionalProperties": false,
+      "required": [
+        "date",
+        "afterFall"
+      ],
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "afterFall": {
+          "type": "boolean"
+        },
+        "level": {
+          "enum": [
+            "低",
+            "中",
+            "高"
+          ]
+        }
+      }
     }
   },
   "additionalProperties": false,

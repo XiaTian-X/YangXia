@@ -1,0 +1,285 @@
+// 65 岁以上的跌倒风险自查（v4 阶段 3c）：结论重算（标准等级、未定、留余量、正式评估）、记录的矛盾、
+// 档案目录里的要求（时机、先问医生、正式评估、到期复查）、按人的年龄的保护。每条规则有拦下 / 放行用例。只用 contracts/fixtures/。
+import Ajv2020 from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
+import { describe, expect, it } from "vitest";
+import { ASSESS_FORMAT, type AssessContext, balanceHold, checkAssessments, doctorNeed, validateAssessment } from "../src/assess.ts";
+import { fallRiskConclusion, fallRiskIssues, fallRiskRules } from "../src/fallrisk.ts";
+import { REVIEW_FORMAT } from "../src/progress.ts";
+import { CONTRACTS, FIX, fitAge, fixtureManifest, fixturePlans, fixtureRules, readJson } from "./helpers.ts";
+
+const manifest = fixtureManifest();
+const plans = fixturePlans();
+const rules = fixtureRules();
+const rr = fallRiskRules(rules)!;
+const CHAIR = "65岁以上-椅子辅助版";
+const START = "2026-12-01";
+const NOW = "2026-12-03";
+const plus = (d: string, n: number) => new Date(new Date(`${d}T12:00:00Z`).getTime() + n * 86_400_000).toISOString().slice(0, 10);
+
+const general = (fell = false, unsteady: boolean | null = false, fear: boolean | null = false) => ({ fell, unsteady, fear });
+const sevNo = { twoPlus: false, medical: false, helpUp: false, syncope: false };
+const frailNo = { fatigue: false, stairs: false, walk: false, illness: false, weightLoss: false };
+const walk = (seconds: number, extra: Record<string, unknown> = {}) => ({ seconds, cane: false, siteOk: true, testedOn: START, ...extra });
+const tug = (seconds: number, extra: Record<string, unknown> = {}) => ({ seconds, cane: false, siteOk: true, chairOk: true, testedOn: START, ...extra });
+const untested = (reason = "椅子不合要求") => ({ result: "没测成", reason });
+const skipped = (reason: string) => ({ result: "按规则不测", reason });
+/** 一份自查：默认一般性 3 问都"否"、两项步态都在线内。 */
+const fr = (x: Record<string, unknown> = {}) => ({ askedOn: START, general: general(), needsSupport: false, hardToStand: false, walk4m: walk(3.5), tug: tug(9), ...x });
+const pos = (x: Record<string, unknown> = {}) => fr({ general: general(false, true), severity: sevNo, frail: frailNo, ...x });
+const concl = (f: Record<string, unknown>, opts = {}) => fallRiskConclusion(f, rr, opts);
+
+describe("结论：标准等级照 5.1.4、5.2.1 算", () => {
+  it("一般性 3 问都\"否\"：低风险（步态照样测，A65_GAIT_ALWAYS）", () => {
+    expect(concl(fr())).toMatchObject({ level: "低", effective: "低", doctorFirst: false, reassessBy: null });
+  });
+  it("一般性有阳性、严重程度有阳性：高风险，先问医生", () => {
+    const c = concl(pos({ severity: { ...sevNo, syncope: true }, walk4m: skipped("高风险"), tug: skipped("高风险") }));
+    expect(c).toMatchObject({ level: "高", doctorFirst: true, officialNeeded: false });
+  });
+  it("衰弱 5 条里 3 条：严重程度阳性（高风险）；2 条不算", () => {
+    const three = { ...frailNo, fatigue: true, stairs: true, walk: true };
+    expect(concl(pos({ frail: three, walk4m: skipped("高风险"), tug: skipped("高风险") })).level).toBe("高");
+    expect(concl(pos({ frail: { ...frailNo, fatigue: true, stairs: true } })).level).toBe("低");
+  });
+  it("一般性有阳性、严重程度全阴性：步态任一项阳性是中风险（6 个月再查），两项都阴性是低风险", () => {
+    expect(concl(pos({ walk4m: walk(5.1) }))).toMatchObject({ level: "中", gaitOfficial: true, reassessBy: plus(START, 182) });
+    expect(concl(pos({ tug: tug(15.1) })).level).toBe("中");
+    expect(concl(pos())).toMatchObject({ level: "低", reassessBy: null });
+  });
+  it("过去 12 个月跌倒过：先问医生、先做正式评估；步态按规则不测，等级照问卷能定多少定多少", () => {
+    const c = concl(fr({ general: general(true), severity: sevNo, frail: frailNo, walk4m: skipped("跌倒过"), tug: skipped("跌倒过") }));
+    expect(c).toMatchObject({ level: "未定", worst: "中", doctorFirst: true, officialNeeded: true, gaitIncomplete: false, reassessBy: null });
+  });
+});
+
+describe("结论：判定线的边界和留余量（A65_TIMING_MARGIN）", () => {
+  const w = (s: number) => concl(pos({ walk4m: walk(s) }));
+  const t = (s: number) => concl(pos({ tug: tug(s) }));
+  it("4 m：4.4 秒阴性；4.5 秒按余量阳性（等级仍低，6 个月再查）；5.0 秒官方线上仍阴性；5.1 秒阳性", () => {
+    expect(w(4.4)).toMatchObject({ level: "低", gaitMargin: false, reassessBy: null });
+    expect(w(4.5)).toMatchObject({ level: "低", gaitMargin: true, reassessBy: plus(START, 182) });
+    expect(w(5.0)).toMatchObject({ level: "低", gaitMargin: true, gaitOfficial: false });
+    expect(w(5.1)).toMatchObject({ level: "中", gaitOfficial: true, gaitMargin: false });
+  });
+  it("起立行走：13.9 / 14.0 / 15.0 / 15.1 秒", () => {
+    expect(t(13.9)).toMatchObject({ level: "低", gaitMargin: false });
+    expect(t(14.0)).toMatchObject({ level: "低", gaitMargin: true });
+    expect(t(15.0)).toMatchObject({ level: "低", gaitMargin: true });
+    expect(t(15.1)).toMatchObject({ level: "中", gaitOfficial: true });
+  });
+  it("一般性全阴性的人步态按官方线阳性：标准等级仍是低风险，6 个月再查", () => {
+    expect(concl(fr({ walk4m: walk(5.5) }))).toMatchObject({ level: "低", gaitOfficial: true, reassessBy: plus(START, 182) });
+  });
+  it("秒数最多一位小数（往大里取）：5.04 这样的写法被拦", () => {
+    expect(validateAssessment({ schema: ASSESS_FORMAT, date: START, kind: "入门", fallRisk: fr({ walk4m: walk(5.04) }) }).map((i) => i.message).join()).toMatch(/最多一位小数/);
+  });
+});
+
+describe("结论：未定（A65_UNDETERMINED）", () => {
+  it("4 m 阴性、起立行走没测成：未定，按中处理（6 个月），记 gaitIncomplete", () => {
+    expect(concl(pos({ tug: untested() }))).toMatchObject({ level: "未定", worst: "中", effective: "中", gaitIncomplete: true, reassessBy: plus(START, 182) });
+  });
+  it("任一项按官方线阳性：中风险（定得了），另一项没测也一样", () => {
+    expect(concl(pos({ walk4m: walk(5.3), tug: untested() })).level).toBe("中");
+  });
+  it("场地、椅子不合要求的那一项按没测成", () => {
+    expect(concl(pos({ tug: tug(9, { chairOk: false }) }))).toMatchObject({ level: "未定", gaitIncomplete: true });
+  });
+  it("第 2 问老人说不清、严重程度有阳性：未定（可能低、可能高），按高处理：先问医生", () => {
+    const c = concl(fr({ general: general(false, null, false), severity: { ...sevNo, medical: true }, frail: frailNo, walk4m: skipped("高风险"), tug: skipped("高风险") }));
+    expect(c).toMatchObject({ level: "未定", worst: "高", effective: "高", doctorFirst: true });
+  });
+  it("一般性全阴性的人没测成：标准到问卷就结束了，仍是低风险", () => {
+    expect(concl(fr({ tug: untested() }))).toMatchObject({ level: "低", gaitIncomplete: false });
+  });
+});
+
+describe("结论：和正式评估合", () => {
+  const off = (level: string) => ({ date: START, afterFall: false, level });
+  it("自查未定的照正式评估；两边都定得了的取高的", () => {
+    expect(concl(pos({ tug: untested() }), { official: off("低") }).effective).toBe("低");
+    expect(concl(pos(), { official: off("高") })).toMatchObject({ level: "低", effective: "高", doctorFirst: true });
+    expect(concl(pos({ walk4m: walk(5.5) }), { official: off("低") }).effective).toBe("中");
+  });
+});
+
+describe("记录本身的矛盾", () => {
+  const issues = (f: Record<string, unknown>, opts = {}) => fallRiskIssues(f, rr, opts).map((i) => i.message).join("\n");
+  it("一般性有阳性却没问严重程度；一般性全阴性却写了严重程度", () => {
+    expect(issues(fr({ general: general(false, true) }))).toMatch(/接着问严重程度/);
+    expect(issues(fr({ severity: sevNo, frail: frailNo }))).toMatch(/不写严重程度/);
+  });
+  it("第 1 问说没跌倒过，严重程度却有\"是\"", () => {
+    expect(issues(pos({ severity: { ...sevNo, helpUp: true }, walk4m: skipped("高风险"), tug: skipped("高风险") }))).toMatch(/前后对不上/);
+  });
+  it("跌倒过、高风险、走路要扶、站起困难、经常头晕的不在家测：记了秒数拦下；按规则不测的写法也要对", () => {
+    expect(issues(fr({ general: general(true), severity: sevNo, frail: frailNo }))).toMatch(/不在家测步态（跌倒过）/);
+    expect(issues(fr({ needsSupport: true }))).toMatch(/不在家测步态（走路要扶）/);
+    expect(issues(fr(), { dizzy: true })).toMatch(/不在家测步态（经常头晕）/);
+    expect(issues(fr({ walk4m: skipped("跌倒过") }))).toMatch(/不属于按规则不在家测/);
+    expect(issues(fr({ tug: undefined }))).toMatch(/要测计时起立行走/);
+    expect(issues(fr({ needsSupport: true, walk4m: skipped("走路要扶"), tug: skipped("走路要扶") }))).toBe("");
+  });
+  it("只问本人的两问不能写成别的值；病名、体重数字没地方记", () => {
+    const v = (f: unknown) => validateAssessment({ schema: ASSESS_FORMAT, date: START, kind: "入门", fallRisk: f }).map((i) => i.message).join();
+    expect(v(fr({ general: { fell: false, unsteady: "家人说有点", fear: false } }))).toMatch(/只问老人本人/);
+    expect(v(fr({ diseases: ["高血压"] }))).toMatch(/不记病名/);
+  });
+  it("JSON Schema 和代码校验一致", () => {
+    const ajv = new Ajv2020({ allErrors: true, strict: false });
+    addFormats(ajv);
+    const schema = ajv.compile(readJson(`${CONTRACTS}assessment.schema.json`) as object);
+    const rec = (f: unknown) => ({ schema: ASSESS_FORMAT, date: START, kind: "入门", fallRisk: f });
+    for (const ok of [fr(), pos({ tug: untested() }), fr({ needsSupport: true, walk4m: skipped("走路要扶"), tug: skipped("走路要扶") })]) {
+      expect(schema(rec(ok))).toBe(true);
+      expect(validateAssessment(rec(ok))).toEqual([]);
+    }
+    for (const bad of [fr({ general: { fell: "否" } }), fr({ walk4m: { result: "没测成", reason: "懒得测" } }), fr({ weight: 60 })]) {
+      expect(schema(rec(bad))).toBe(false);
+      expect(validateAssessment(rec(bad)).length).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ---------- 档案目录 ----------
+
+/** 65 岁以上椅子版的档案，第 1 段第 1 周从 START 开始（生效日期之后）。 */
+function profile(extra: Record<string, any> = {}) {
+  const p = readJson<Record<string, any>>(`${FIX}profiles/ok-a18-home.json`);
+  const prod = manifest.products.find((x) => x.name === CHAIR)!;
+  Object.assign(p, { age: "a65", stage: "65 岁以上", product: CHAIR, venue: prod.venue, startDate: START });
+  delete p.wake;
+  delete p.bedtime;
+  const items = manifest.intake.screening.find((s) => s.age === "a65")!.items;
+  p.screening = { answers: items.map((item) => ({ item, answer: "否" })), doctorCleared: true, date: START, doctorDate: START };
+  p.segments = [{ n: 1, type: "标准", week: 1, start: START, product: CHAIR }];
+  fitAge(p, "a65");
+  p.progress = {};
+  p.progressLog = [];
+  return Object.assign(p, extra);
+}
+const chair = [{ id: "chair-stand-30s", value: 10, hands: "扶椅子", done: true }];
+const entry = (f: Record<string, unknown> | undefined, extra: Record<string, unknown> = {}) => {
+  const raw: Record<string, any> = { schema: ASSESS_FORMAT, date: START, kind: "入门", tests: chair, companion: true, doctorCleared: true, doctorDate: START, ...extra };
+  if (f) raw.fallRisk = f;
+  raw.conclusion = f ? { fallRisk: fallRiskConclusion(f, rr, { official: extra.official as any }) } : {};
+  return { name: `评估/${START}-入门.json`, raw };
+};
+const ctx = (p: Record<string, any>, assessments: any[], now = NOW, reviewData: Record<string, any> = {}): AssessContext =>
+  ({ profile: p, manifest, plans, rules, sessions: [], reviewData, assessments, now: new Date(`${now}T12:00:00`) });
+const errs = (c: AssessContext) => checkAssessments(c).filter((i) => i.level === "error").map((i) => `${i.path}：${i.message}`).join("\n");
+const warns = (c: AssessContext) => checkAssessments(c).filter((i) => i.level === "warning").map((i) => i.message).join("\n");
+
+describe("档案目录：什么时候要做", () => {
+  it("65 岁以上建档（生效日期之后）没做自查：拦下；做了：放行", () => {
+    expect(errs(ctx(profile(), [entry(undefined)]))).toMatch(/65 岁以上建档要做跌倒风险自查/);
+    expect(errs(ctx(profile(), [entry(fr())]))).toBe("");
+  });
+  it("生效日期之前的记录免查（已经在用椅子版的档案不会一上线就卡住）", () => {
+    const old = "2026-06-01";
+    const p = profile({ startDate: old });
+    p.segments[0].start = old;
+    p.screening.date = old;
+    p.screening.doctorDate = old;
+    const e = entry(undefined);
+    Object.assign(e.raw, { date: old, doctorDate: old });
+    e.name = `评估/${old}-入门.json`;
+    expect(errs(ctx(p, [e], "2026-06-03"))).not.toMatch(/跌倒风险自查/);
+  });
+  it("摔倒的触发评估、满一年复筛也要带自查", () => {
+    const p = profile();
+    const fall = { name: `评估/${plus(START, 1)}-触发.json`, raw: { schema: ASSESS_FORMAT, date: plus(START, 1), kind: "触发", reasons: ["摔倒"], eventDate: START, conclusion: {} } };
+    expect(errs(ctx(p, [entry(fr()), fall]))).toMatch(/65 岁以上摔倒要做跌倒风险自查/);
+  });
+});
+
+describe("档案目录：先问医生、正式评估、到期", () => {
+  // 没摔过的高风险：站立行走感到不稳、衰弱 3 条
+  const high = pos({ frail: { ...frailNo, fatigue: true, stairs: true, walk: true }, walk4m: skipped("高风险"), tug: skipped("高风险") });
+  it("高风险：没有医生看过结果（fallRiskSeen）拦下；医生同意早于问卷拦下；都对放行", () => {
+    const p = profile();
+    expect(errs(ctx(p, [entry(high)]))).toMatch(/先带着结果问医生/);
+    const seen = entry(high, { fallRiskSeen: true });
+    expect(doctorNeed(ctx(p, [seen])).ok).toBe(true);                  // 同一天：不早于问卷就算
+    const q = profile();
+    q.screening.doctorDate = plus(START, -1);
+    q.screening.date = plus(START, -2);
+    expect(doctorNeed(ctx(q, [seen])).ok).toBe(false);
+    expect(errs(ctx(p, [seen]))).toBe("");
+  });
+  it("问卷超过 30 天才拿去换医生同意：拦下", () => {
+    const p = profile();
+    const late = plus(START, 40);
+    p.screening.doctorDate = late;
+    expect(errs(ctx(p, [entry(high, { fallRiskSeen: true })], plus(late, 1)))).toMatch(/隔了 30 天以上/);
+  });
+  it("过去 12 个月跌倒过：要有摔倒之后的正式评估（afterFall）", () => {
+    const fell = fr({ general: general(true), severity: sevNo, frail: frailNo, walk4m: skipped("跌倒过"), tug: skipped("跌倒过") });
+    const p = profile();
+    p.screening.answers = p.screening.answers.map((a: any) => (/最近一年摔倒过/.test(a.item) ? { ...a, answer: "是" } : a));
+    expect(errs(ctx(p, [entry(fell, { fallRiskSeen: true })]))).toMatch(/正式的跌倒风险评估/);
+    expect(errs(ctx(p, [entry(fell, { fallRiskSeen: true, official: { date: START, afterFall: false } })]))).toMatch(/正式的跌倒风险评估/);
+    expect(errs(ctx(p, [entry(fell, { fallRiskSeen: true, official: { date: START, afterFall: true } })]))).toBe("");
+  });
+  it("跌倒过却说筛查\"最近一年摔倒过\"是\"否\"：拦下", () => {
+    const fell = fr({ general: general(true), severity: sevNo, frail: frailNo, walk4m: skipped("跌倒过"), tug: skipped("跌倒过") });
+    expect(errs(ctx(profile(), [entry(fell, { fallRiskSeen: true, official: { date: START, afterFall: true } })]))).toMatch(/照实重做筛查/);
+  });
+  it("6 个月复查到期没做：拦下", () => {
+    const mid = pos({ walk4m: walk(5.5) });
+    expect(errs(ctx(profile(), [entry(mid)], plus(START, 183)))).toMatch(/跌倒自查到期/);
+    expect(errs(ctx(profile(), [entry(mid)], plus(START, 100)))).not.toMatch(/跌倒自查到期/);
+  });
+  it("高风险过了 30 天还没有正式随访：只提醒", () => {
+    const p = profile();
+    expect(warns(ctx(p, [entry(high, { fallRiskSeen: true })], plus(START, 35)))).toMatch(/1～3 个月后随访一次/);
+  });
+  it("档案里一年内摔倒过，问卷却答\"没跌倒过\"：拦下", () => {
+    const p = profile();
+    const fall = { name: `评估/${plus(START, -10)}-触发.json`, raw: { schema: ASSESS_FORMAT, date: plus(START, -10), kind: "触发", reasons: ["摔倒"], eventDate: plus(START, -10), conclusion: {} } };
+    expect(errs(ctx(p, [entry(fr()), fall]))).toMatch(/你是否跌倒过？"却答了"否"/);
+  });
+  it("测了步态却不是家人在场、或者医生同意晚于测的那天：拦下", () => {
+    expect(errs(ctx(profile(), [entry(fr(), { companion: false })]))).toMatch(/家人在场/);
+    const late = entry(fr(), { doctorDate: plus(START, 1) });
+    expect(errs(ctx(profile(), [late], plus(START, 2)))).toMatch(/步态测试要在医生同意之后做/);
+  });
+});
+
+describe("65 岁以上的保护按人的年龄", () => {
+  const BW40 = "40-64岁-纯徒手版";
+  /** 40–64 岁版的档案，人在 2026-12 满 65 岁。 */
+  const turning = () => {
+    const p = readJson<Record<string, any>>(`${FIX}profiles/ok-a18-home.json`);
+    const prod = manifest.products.find((x) => x.name === BW40)!;
+    const s0 = "2026-11-24";
+    Object.assign(p, { age: "a40", stage: "40–64 岁", product: BW40, venue: prod.venue, startDate: s0, birth: "1961-12", body: "记" });
+    delete p.wake;
+    delete p.bedtime;
+    const items = manifest.intake.screening.find((s) => s.age === "a40")!.items;
+    p.screening = { answers: items.map((item) => ({ item, answer: "否" })), doctorCleared: false, date: s0 };
+    p.segments = [{ n: 1, type: "标准", week: 1, start: s0, product: BW40 }];
+    return p;
+  };
+  it("满 65 岁当月起要医生同意（不等换成品）", () => {
+    expect(doctorNeed(ctx(turning(), [])).needed).toBe(true);
+  });
+  it("满 65 岁当月起的新评估不能记身高体重腰围", () => {
+    const p = turning();
+    const rec = { name: `评估/${START}-触发.json`, raw: { schema: ASSESS_FORMAT, date: START, kind: "触发", reasons: ["身体变化"], body: { weight: 60, waist: 80 }, conclusion: {} } };
+    expect(errs(ctx(p, [rec]))).toMatch(/满 65 岁当月起不记身高、体重、腰围/);
+  });
+  it("满 65 岁以后摔倒过：暂停平衡（按人的年龄判断）", () => {
+    const p = turning();
+    const fall = { name: `评估/${START}-触发.json`, raw: { schema: ASSESS_FORMAT, date: START, kind: "触发", reasons: ["摔倒"], eventDate: START, conclusion: {} } };
+    expect(balanceHold(ctx(p, [fall]))).toBe(true);
+  });
+  it("复盘的 weightDrop：满 65 岁那一周起可以记", () => {
+    const p = turning();
+    p.segments.push({ n: 1, type: "标准", week: 2, start: START, product: BW40 }, { n: 1, type: "标准", week: 3, start: plus(START, 7), product: BW40 });
+    const rv = (start: string, week: number) => ({ [`${start}-第${week}周.json`]: { schema: REVIEW_FORMAT, start, week, trainings: 3, symptoms: false, moves: [], weightDrop: false } });
+    expect(errs(ctx(p, [], plus(START, 8), rv(START, 2)))).not.toMatch(/weightDrop 只给 65 岁以上/);
+    expect(errs(ctx(p, [], plus(START, 8), rv("2026-11-24", 1)))).toMatch(/weightDrop 只给 65 岁以上/);   // 那一周还没满 65 岁
+  });
+});

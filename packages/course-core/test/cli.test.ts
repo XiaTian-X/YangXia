@@ -38,10 +38,15 @@ function dir(name: string, product: string, extra: Record<string, any>, files: R
 }
 const run = (...args: string[]) => spawnSync("node", [join(REPO, "packages/course-core/src/cli.ts"), ...args], { encoding: "utf8" });
 const chair = [{ id: "chair-stand-30s", value: 10, hands: "扶椅子", done: true }];
+// 跌倒风险自查（阶段 3c）：一般性 3 问都"否"、两项步态都在线内
+const lowRisk = { askedOn: today, general: { fell: false, unsteady: false, fear: false }, needsSupport: false, hardToStand: false,
+  walk4m: { seconds: 3.6, cane: false, siteOk: true, testedOn: today }, tug: { seconds: 9.8, cane: false, siteOk: true, chairOk: true, testedOn: today } };
+const lowRiskConclusion = { level: "低", worst: null, effective: "低", gaitOfficial: false, gaitMargin: false, gaitIncomplete: false, doctorFirst: false, officialNeeded: false, reassessBy: null };
 
 describe.skipIf(!hasTemplates)("导出之前也拦评估记录的写法错误", () => {
   const a65 = (name: string, more: Record<string, unknown>) => dir(name, "65岁以上-椅子辅助版", { birth: "1950-05", habitBase: { 散步: 20 } }, {
-    [`评估/${today}-入门.json`]: { schema: ASSESS_FORMAT, date: today, kind: "入门", tests: chair, companion: true, doctorCleared: true, doctorDate: today, conclusion: {} },
+    [`评估/${today}-入门.json`]: { schema: ASSESS_FORMAT, date: today, kind: "入门", tests: chair, companion: true, doctorCleared: true, doctorDate: today,
+      fallRisk: lowRisk, conclusion: { fallRisk: lowRiskConclusion } },
     ...more,
   });
   it("合格的档案能导出", () => {

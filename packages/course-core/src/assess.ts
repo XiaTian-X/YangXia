@@ -4,16 +4,17 @@
 // 稳定期（阶段 3）：周期末结论照 rules.json 的 stable.nextCycle 重算；进稳定期的两条路、有氧稳态 / 间歇（cardio）也在这里。
 import type { Manifest } from "./manifest.ts";
 import { type PlansData, ROUND_WEEKS, roundWeek, type RulesData, stableParam } from "./plan.ts";
+import { fallRiskConclusion, fallRiskIssues, fallRiskRules, validateFallRisk, validateOfficial } from "./fallrisk.ts";
 import { gapBefore, localDate, longGapDays, reviewDataName, type SegmentEntry, type SessionFile, trainingDates } from "./progress.ts";
 import type { Issue } from "./types.ts";
 
 type Obj = Record<string, any>;
 export const ASSESS_FORMAT = "yangxia.assessment/1";
 export const KINDS = ["入门", "段末", "触发", "周期末"] as const;
-export const REASONS = ["跨段", "满一年", "身体变化", "生病住院", "生病", "摔倒", "换场地", "中断", "看完医生回来", "回起始期"] as const;
+export const REASONS = ["跨段", "满一年", "身体变化", "生病住院", "生病", "摔倒", "换场地", "中断", "看完医生回来", "回起始期", "跌倒自查到期"] as const;
 const SWITCH_REASONS = ["跨段", "换场地"];
 const TOP_KEYS = ["schema", "date", "kind", "product", "segment", "reasons", "base", "prereqs", "body", "tests", "companion", "doctorCleared", "doctorDate",
-  "eventDate", "fallAssessDone", "weightDrop", "doctorRestart", "conclusion", "note"];
+  "eventDate", "fallAssessDone", "weightDrop", "doctorRestart", "fallRisk", "fallRiskSeen", "official", "conclusion", "note"];
 const HANDS = ["不用手", "扶椅子", "手撑"];
 const STOPS = ["头晕", "腿软", "身体晃"];
 const BIKE = ["稳态分钟", "间歇轮数"];
@@ -229,7 +230,9 @@ export function validateAssessment(raw: unknown): Issue[] {
       if (t.depth !== undefined && (typeof t.depth !== "string" || t.depth.length > 30)) err(`tests[${i}].depth`, "depth 是蹲的深度（文字，最多 30 字）");
     });
   }
-  for (const k of ["companion", "doctorCleared", "fallAssessDone", "doctorRestart"]) if (raw[k] !== undefined && typeof raw[k] !== "boolean") err(k, `${k} 是 true / false`);
+  for (const k of ["companion", "doctorCleared", "fallAssessDone", "doctorRestart", "fallRiskSeen"]) if (raw[k] !== undefined && typeof raw[k] !== "boolean") err(k, `${k} 是 true / false`);
+  if (raw.fallRisk !== undefined) out.push(...validateFallRisk(raw.fallRisk));
+  if (raw.official !== undefined) out.push(...validateOfficial(raw.official));
   if (raw.doctorDate !== undefined && !(typeof raw.doctorDate === "string" && DATE.test(raw.doctorDate))) err("doctorDate", "doctorDate 写成 YYYY-MM-DD");
   if (raw.eventDate !== undefined && !(typeof raw.eventDate === "string" && DATE.test(raw.eventDate))) err("eventDate", "eventDate 写成 YYYY-MM-DD");
   if (raw.conclusion !== undefined && !isObj(raw.conclusion)) err("conclusion", "conclusion 是对象（照 course assess 的输出写）");
@@ -427,6 +430,13 @@ function sortKeys(v: unknown): unknown {
 }
 
 const screeningItem = (profile: Obj, re: RegExp) => (profile.screening?.answers ?? []).find((x: Obj) => re.test(x?.item ?? ""));
+/** 安全筛查"经常头晕，或者站起来时眼前发黑"答了"是"。 */
+const screeningDizzy = (profile: Obj) => screeningItem(profile, /经常头晕/)?.answer === "是";
+/** 人在某一天的年龄段（按出生年月 / 学段推算；推不出来的按档案的 age）。 */
+const personAge = (ctx: AssessContext, date: string) => {
+  const ar = assessRules(ctx.rules);
+  return (ar ? ageAt(ctx.profile, date, ar.assess).age : null) ?? ctx.profile.age;
+};
 const hasReason = (a: AssessFile, r: string) => a.raw?.kind === "触发" && Array.isArray(a.raw.reasons) && a.raw.reasons.includes(r);
 const isSwitch = (a: AssessFile) => a.raw?.kind === "触发" && Array.isArray(a.raw.reasons) && a.raw.reasons.some((x: string) => SWITCH_REASONS.includes(x)) && typeof a.raw.product === "string";
 const segCode = (m: Manifest, name: string) => productInfo(m, name)?.code ?? "";
@@ -459,7 +469,9 @@ export function doctorEvents(ctx: AssessContext): DoctorEvent[] {
   const sc = p.screening ?? {};
   const ss = (p.segments ?? []) as SegmentEntry[];
   const cur = ss.length ? productInfo(ctx.manifest, ss[ss.length - 1].product) : null;
-  const age = cur?.age ?? p.age;
+  // 65 岁以上按人的年龄（满 65 岁当月起），不只看成品年龄段（阶段 3c 第五节）
+  const today = localDate(ctx.now ?? new Date());
+  const age = personAge(ctx, today) === "a65" ? "a65" : cur?.age ?? p.age;
   const ev: DoctorEvent[] = [];
   const sd = typeof sc.date === "string" ? sc.date : "";
   if (age === "a65") ev.push({ date: sd, reason: "65 岁以上开始前都要先问医生" });
@@ -470,7 +482,23 @@ export function doctorEvents(ctx: AssessContext): DoctorEvent[] {
     if (a.raw?.kind === "段末" && a.raw.conclusion?.next === "不开") ev.push({ date: a.raw.date, reason: "段末结论是\"先看医生\"" });
   }
   if (age === "a65") for (const d of fallDates(ctx)) ev.push({ date: d, reason: "摔倒过" });
+  // 跌倒风险自查：一年内跌倒过、高风险（先问医生，医生同意不早于问卷）
+  const fr = latestFallRisk(ctx);
+  if (fr?.conclusion.doctorFirst) ev.push({ date: fr.askedOn, reason: FALL_REASON });
   return ev.filter((e) => e.date).sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
+}
+
+const FALL_REASON = "跌倒风险自查要先问医生";
+
+/** 最近一份跌倒风险自查（按 askedOn）和它重算的结论。 */
+export function latestFallRisk(ctx: AssessContext): { file: AssessFile; askedOn: string; conclusion: ReturnType<typeof fallRiskConclusion> } | null {
+  const rr = fallRiskRules(ctx.rules);
+  if (!rr) return null;
+  const list = ctx.assessments.filter((a) => isObj(a.raw?.fallRisk) && typeof a.raw.fallRisk.askedOn === "string" && isObj(a.raw.fallRisk.general))
+    .sort((x, y) => (x.raw.fallRisk.askedOn < y.raw.fallRisk.askedOn ? -1 : x.raw.fallRisk.askedOn > y.raw.fallRisk.askedOn ? 1 : 0));
+  const f = list[list.length - 1];
+  if (!f) return null;
+  return { file: f, askedOn: f.raw.fallRisk.askedOn, conclusion: fallRiskConclusion(f.raw.fallRisk, rr, { dizzy: screeningDizzy(ctx.profile), official: isObj(f.raw.official) ? f.raw.official : undefined }) };
 }
 
 /**
@@ -527,8 +555,10 @@ export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, 
   }
   // 身体数据
   const b = r.body;
+  const a65Then = info.age === "a65" || personAge(ctx, r.date) === "a65";
   if (b !== undefined) {
-    if (!BODY_AGES.includes(info.age)) err("body", info.age === "a65" ? "65 岁以上不记身高、体重、腰围的数字（只问体重有没有明显下降）" : "6–17 岁不记身高、体重、腰围、BMI");
+    if (a65Then && info.age !== "a65") err("body", "满 65 岁当月起不记身高、体重、腰围的数字（只问体重有没有明显下降）");
+    else if (!BODY_AGES.includes(info.age)) err("body", info.age === "a65" ? "65 岁以上不记身高、体重、腰围的数字（只问体重有没有明显下降）" : "6–17 岁不记身高、体重、腰围、BMI");
     // 停记以前记的保留，只拦停记之后的新记录（第十三节第 2 条）
     else if (ctx.profile.body === "停记" && typeof ctx.profile.bodyStopDate === "string" && r.date < ctx.profile.bodyStopDate) { /* 停记以前的 */ }
     else if (ctx.profile.body !== "记") err("body", `档案选了${ctx.profile.body === "停记" ? `停记（${ctx.profile.bodyStopDate ?? "没写日期"} 起）` : "不记"}体重腰围，评估里不能有身体数据`);
@@ -539,7 +569,7 @@ export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, 
     const lack = want.filter((k) => typeof b?.[k] !== "number");
     if (lack.length) err("body", `档案选了记体重腰围：${timing}要记 ${want.join("、")}，少了 ${lack.join("、")}`);
   }
-  if (r.weightDrop !== undefined && (info.age !== "a65" || typeof r.weightDrop !== "boolean")) err("weightDrop", "weightDrop（体重有没有明显下降，是 / 否）只给 65 岁以上");
+  if (r.weightDrop !== undefined && (!a65Then || typeof r.weightDrop !== "boolean")) err("weightDrop", "weightDrop（体重有没有明显下降，是 / 否）只给 65 岁以上");
   // 65 岁以上：有人在旁边、医生同意之后才测（同意的日期不早于测之前最近一件要医生同意的事）
   if (info.age === "a65" && tests.length) {
     if (param(ar.assess, "测试要有人在旁", info.code) && r.companion !== true) err("companion", "65 岁以上的测试要家人在场时做：companion 写 true");
@@ -556,7 +586,25 @@ export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, 
     for (const pr of pres) if (typeof r.prereqs?.[pr.id] !== "boolean") err(`prereqs.${pr.id}`, `${product}开始前要问：${pr.ask}（是 / 否）`);
   } else if (r.prereqs !== undefined) err("prereqs", "开工前提只在 40–64 岁的入门（或换到 40–64 岁版的触发）评估里记");
   if (r.base !== undefined && !(asEntry && ["a18", "a40", "a13"].includes(info.age))) err("base", "训练频率只在 18–64 岁、13–17 岁的入门评估里记");
-  if (hasReason(f, "满一年") && info.age === "a65" && typeof r.fallAssessDone !== "boolean") err("fallAssessDone", "65 岁以上满一年复评要问：这一年做过跌倒风险评估没有（是 / 否）");
+  // 跌倒风险自查：这份记录本身的矛盾；测了步态的要家人在场、医生同意之后（和 65 岁以上的测试同一个规则）
+  const rr = fallRiskRules(ctx.rules);
+  if (rr && isObj(r.fallRisk) && isObj(r.fallRisk.general)) {
+    out.push(...fallRiskIssues(r.fallRisk, rr, { dizzy: screeningDizzy(ctx.profile) }).map((i) => ({ ...i, path: `${f.name} ${i.path}` })));
+    for (const def of rr.gait) {
+      const v = r.fallRisk[def.id];
+      if (typeof v?.seconds !== "number" || typeof v.testedOn !== "string") continue;
+      if (r.companion !== true) err(`fallRisk.${def.id}`, "步态测试要家人在场时做：companion 写 true");
+      const before = doctorEvents(ctx).filter((e) => e.date <= v.testedOn && e.reason !== FALL_REASON).pop();
+      if (!(r.doctorCleared === true && typeof r.doctorDate === "string" && r.doctorDate <= v.testedOn)) {
+        err(`fallRisk.${def.id}`, "步态测试要在医生同意之后做：评估里记 doctorCleared、doctorDate（不晚于测的那天）");
+      } else if (before && r.doctorDate < before.date) {
+        err(`fallRisk.${def.id}`, `测之前${before.reason}（${before.date}）：这次测试用的医生同意（${r.doctorDate}）要在那之后`);
+      }
+      if (v.testedOn < r.fallRisk.askedOn || v.testedOn > r.date) err(`fallRisk.${def.id}.testedOn`, "步态测的日期要在问卷之后、评估日期之前");
+    }
+    if (r.fallRisk.askedOn > r.date) err("fallRisk.askedOn", "问卷的日期不能晚于这份评估的日期");
+  }
+  if (hasReason(f, "满一年") && a65Then && typeof r.fallAssessDone !== "boolean") err("fallAssessDone", "65 岁以上满一年复评要问：这一年做过跌倒风险评估没有（是 / 否）");
   // 结论
   const want = recordConclusion(ctx, f, product, asEntry);
   if (r.conclusion !== undefined && want && !sameJson(r.conclusion, want)) {
@@ -585,6 +633,10 @@ export function recordConclusion(ctx: AssessContext, f: AssessFile, product: str
   if (cuts && bmi !== null && BODY_AGES.includes(info.age)) {
     out.bmi = bmi;
     out.bmiClass = bmiClass(bmi, cuts);
+  }
+  const rr = fallRiskRules(ctx.rules);
+  if (rr && isObj(r.fallRisk) && r.fallRisk.general) {
+    out.fallRisk = fallRiskConclusion(r.fallRisk, rr, { dizzy: screeningDizzy(ctx.profile), official: isObj(r.official) ? r.official : undefined });
   }
   if (r.kind === "周期末" && Number.isInteger(r.segment)) {
     const end = cycleEnd(ctx, r.segment);
@@ -926,7 +978,8 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
   if (sd && yearDays !== undefined && (dayStart(today) - dayStart(sd)) / DAY > yearDays) {
     err("档案.json screening.date", `安全筛查是 ${sd} 做的，已经超过 ${yearDays} 天：做触发评估（满一年），重做筛查${curInfo?.age === "a65" ? "，也问医生做一次跌倒风险评估" : ""}`);
   }
-  if (curInfo?.age === "a65") {
+  const a65Now = curInfo?.age === "a65" || personAge(ctx, today) === "a65";
+  if (a65Now) {
     const recent = fallDates(ctx).filter((d) => (dayStart(today) - dayStart(d)) / DAY <= 365);
     const lastFall = recent[recent.length - 1];
     if (lastFall) {
@@ -940,12 +993,62 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
   else if (need.needed && !need.ok) warn("档案.json screening", `${need.reason}：医生同意（doctorDate 不早于 ${need.after}）之前不出课程`);
   const back = A.filter((a) => hasReason(a, "看完医生回来") && typeof a.raw.doctorDate === "string").map((a) => a.raw.doctorDate as string).sort().pop();
   if (back && !(typeof sc.doctorDate === "string" && sc.doctorDate >= back)) err("档案.json screening.doctorDate", `看完医生回来的触发评估记了医生同意（${back}）：档案的 doctorCleared、doctorDate 要同步改`);
+  // 4b. 跌倒风险自查（阶段 3c）：生效日期之后，65 岁以上的入门、换到 65 岁以上版、满一年、摔倒、生病住院、身体变化、到期复查都要做
+  const rr = fallRiskRules(ctx.rules);
+  if (rr) {
+    const ASKS = ["满一年", "摔倒", "生病住院", "身体变化", "跌倒自查到期"];
+    for (const a of A) {
+      const d = a.raw?.date;
+      if (typeof d !== "string" || d < rr.effective) continue;
+      const prod = a.raw.kind === "入门" ? ss[0].product : isSwitch(a) ? a.raw.product : productAt(ss, d);
+      if (productInfo(ctx.manifest, prod ?? "")?.age !== "a65") continue;
+      const why = a.raw.kind === "入门" ? "建档" : isSwitch(a) ? "换到 65 岁以上版" : ASKS.find((x) => hasReason(a, x));
+      if (why && !isObj(a.raw.fallRisk)) err(`${a.name} fallRisk`, `65 岁以上${why}要做跌倒风险自查（照成品第〇章《跌倒风险自查》的原话；npm run course -- assess 列出来）`);
+    }
+    const fr = latestFallRisk(ctx);
+    if (fr) {
+      const c = fr.conclusion;
+      const askedOn = fr.askedOn;
+      const raw = fr.file.raw.fallRisk;
+      const name = fr.file.name;
+      // 和档案对得上（问卷照实答）
+      const falls = fallDates(ctx).filter((d) => d <= askedOn && (dayStart(askedOn) - dayStart(d)) / DAY <= 365);
+      if (falls.length && raw.general?.fell === false) err(`${name} fallRisk.general.fell`, `档案里 ${falls[falls.length - 1]} 摔倒过，"在过去 12 个月内，你是否跌倒过？"却答了"否"：照实答`);
+      if (falls.length >= 2 && raw.severity?.twoPlus === false) err(`${name} fallRisk.severity.twoPlus`, `档案里过去 12 个月摔倒过 ${falls.length} 次，"跌倒的次数是否大于等于 2 次"却答了"否"：照实答`);
+      const fallItem = screeningItem(p, /最近一年摔倒过/);
+      if (raw.general?.fell === true && fallItem && fallItem.answer !== "是") err("档案.json screening", `跌倒风险自查说过去 12 个月跌倒过，安全筛查"${fallItem.item}"却答了"否"：照实重做筛查`);
+      const wItem = screeningItem(p, /体重/);
+      if (raw.frail?.weightLoss === true && wItem && wItem.answer !== "是") warn(`${name} fallRisk.frail.weightLoss`, `衰弱那一项说体重下降了，安全筛查"${wItem.item}"却答了"否"：照实再确认`);
+      if (raw.frail?.weightLoss === false && wItem?.answer === "是") warn(`${name} fallRisk.frail.weightLoss`, `安全筛查说体重掉得明显，衰弱那一项却说体重没下降：照实再确认`);
+      // 先问医生：医生看过这份结果（fallRiskSeen），医生同意不早于问卷、问卷在有效期里
+      if (c.doctorFirst) {
+        const seen = A.some((a) => a.raw?.fallRiskSeen === true && typeof a.raw.date === "string" && a.raw.date >= askedOn);
+        if (!seen) err(name, `跌倒风险自查${c.officialNeeded ? "：过去 12 个月内跌倒过" : "是高风险"}——先带着结果问医生，这份记录或之后的"看完医生回来"写 fallRiskSeen: true（医生看过这份自查结果），之前不出计划`);
+        if (typeof sc.doctorDate === "string" && sc.doctorDate >= askedOn && (dayStart(sc.doctorDate) - dayStart(askedOn)) / DAY > rr.askedValidDays) {
+          err("档案.json screening.doctorDate", `问卷是 ${askedOn} 做的，医生同意是 ${sc.doctorDate}，隔了 ${rr.askedValidDays} 天以上：重新做一次问卷，再给医生看`);
+        }
+      }
+      // 过去 12 个月内跌倒过：要有摔倒之后的正式跌倒风险评估
+      if (c.officialNeeded) {
+        const lastFall = fallDates(ctx).filter((d) => d <= today).pop();
+        const ok = A.some((a) => isObj(a.raw?.official) && a.raw.official.afterFall === true && typeof a.raw.official.date === "string"
+          && a.raw.official.date <= today && (!lastFall || a.raw.official.date >= lastFall) && (dayStart(today) - dayStart(a.raw.official.date)) / DAY <= 365);
+        if (!ok) err(name, `过去 12 个月内跌倒过：先去医生或社区卫生服务中心做一次正式的跌倒风险评估（要在${lastFall ? ` ${lastFall} 那次` : "最近一次"}摔倒之后），记 official { date, afterFall: true }；医生同意以后才出计划`);
+      }
+      if (c.reassessBy && c.reassessBy < today) err(name, `跌倒风险自查约定 ${c.reassessBy} 再查：做触发评估（跌倒自查到期），之前不出课程`);
+      if (c.effective === "高" && !c.officialNeeded) {
+        const days = (dayStart(today) - dayStart(askedOn)) / DAY;
+        const followed = A.some((a) => isObj(a.raw?.official) && typeof a.raw.official.date === "string" && a.raw.official.date > askedOn);
+        if (days >= rr.highFollowup.min && !followed) warn(name, `跌倒风险自查是高风险（${askedOn}）：官方标准建议 1～3 个月后随访一次、再次评估——问问医生或社区卫生服务中心`);
+      }
+    }
+  } else if (A.some((a) => isObj(a.raw?.fallRisk))) warn("评估/", "模板还没有跌倒风险自查的规则（rules.json 的 fallRisk）：自查没核对，先把模板更新到 v3.2 之后");
   // 体重明显下降（65 岁以上）：重做筛查，"最近体重掉得明显"照实答
   const drops = [
     ...ss.filter((s) => ctx.reviewData[reviewDataName(s)]?.weightDrop === true).map((s) => s.start),
     ...A.filter((a) => a.raw?.weightDrop === true).map((a) => a.raw.date as string),
   ].filter((d) => (dayStart(today) - dayStart(d)) / DAY <= 365).sort();
-  if (drops.length && curInfo?.age === "a65") {
+  if (drops.length && a65Now) {
     const it = screeningItem(p, /体重/);
     const d = drops[drops.length - 1];
     if (it && (it.answer !== "是" || !(sd && sd >= d))) err("档案.json screening", `${d} 那一周说体重明显下降：重做安全筛查（"${it.item}"照实答），先问医生`);
@@ -953,7 +1056,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
   for (const s of ss) {
     const rv = ctx.reviewData[reviewDataName(s)];
     if (!rv) continue;
-    const sAge = productInfo(ctx.manifest, s.product)?.age;
+    const sAge = productInfo(ctx.manifest, s.product)?.age === "a65" || personAge(ctx, s.start) === "a65" ? "a65" : productInfo(ctx.manifest, s.product)?.age;
     if (rv.weightDrop !== undefined && sAge !== "a65") err(`复盘/${reviewDataName(s)} weightDrop`, "weightDrop 只给 65 岁以上");
     if (rv.sickOrMeds === true && !(sd && sd >= s.start) && !A.some((a) => hasReason(a, "身体变化") && a.raw.date >= s.start)) {
       warn(`复盘/${reviewDataName(s)}`, "这一周生病或换了药：做触发评估（身体变化），重做安全筛查");
@@ -1095,7 +1198,7 @@ export function cardioMode(rules: RulesData | null, profile: Obj, product: { cod
 export function balanceHold(ctx: AssessContext): boolean {
   const ss = (ctx.profile.segments ?? []) as SegmentEntry[];
   const cur = ss.length ? productInfo(ctx.manifest, ss[ss.length - 1].product) : null;
-  if (cur?.age !== "a65") return false;
+  if (cur?.age !== "a65" && personAge(ctx, localDate(ctx.now ?? new Date())) !== "a65") return false;
   const falls = fallDates(ctx);
   if (!falls.length) return false;
   const dd = ctx.profile.screening?.doctorDate;
