@@ -268,6 +268,17 @@ describe("稳定期的进度规则", () => {
     expect(build(4, 5)).toMatch(/这一轮（4 周）里/);   // 稳定期第 2 周（下标 5）有不适，第 4 周不升
     expect(build(8, 5)).toBe("");                    // 上一轮有不适，这一轮第 5–7 周都没有：第 8 周可以升
   });
+  it("升级的依据要是在现在这一级练的那一周：重复第 4 周，不能拿改级之前那一周的复盘连升两级", () => {
+    const p = profile([...weeks(1, "起始", 1, 4), [1, "起始", 4], [1, "起始", 4]], { progress: { squat: { level: 3, reps: 15 } } });
+    const ev = (k: number) => `复盘/${p.segments[k].start}-第${p.segments[k].week}周.json`;
+    p.progressLog = [{ date: plus(p.segments[3].start, 6), move: "squat", field: "level", to: 2, rule: "升级", evidence: ev(2) },
+      { date: p.segments[4].start, move: "squat", field: "level", to: 3, rule: "升级", evidence: ev(3) }];
+    const rv = reviews(p, () => ({ moves: [{ move: "squat", allAtTop: true, spare: 2 }] }));
+    expect(plog(p, rv)).toMatch(/还不是现在这一级/);
+    // 第二次升级等到第二个重复的第 4 周，依据是在第 2 级练满的那一周：放行
+    p.progressLog[1] = { date: p.segments[5].start, move: "squat", field: "level", to: 3, rule: "升级", evidence: ev(4) };
+    expect(plog(p, rv)).toBe("");
+  });
   it("周期末习惯没达标：下一周期的第一轮不升级", () => {
     const p = profile([...weeks(1, "稳定", 1, 12), ...weeks(2, "稳定", 1, 4)], { progress: { pushup: { level: 2, reps: 8 } } });
     const i = p.segments.length - 1;
@@ -391,6 +402,12 @@ describe("健身房双进阶（用起始期健身房版派生一份稳定期样�
     const ss = [session(d(p, 4), [{ exercise: MOVE, spare: 3 }]), session(d(p, 4, 2), [{ exercise: MOVE, spare: 0, setsDone: 2 }])];
     expect(plog(p, reviews(p), ss, [], pl)).toMatch(/最近一次练这个动作/);
   });
+  it("中间那次这个动作没练（0 组）：不算又练过，前一次的记录照样能当依据", () => {
+    const p = base(1, [], { weight: 40, reps: 11 });
+    p.progressLog.push({ date: d(p, 4, 3), move: MOVE, field: "reps", to: 11, rule: "加次数", evidence: `打卡/${d(p, 4)}.json` });
+    const ss = [session(d(p, 4), [{ exercise: MOVE, spare: 3 }]), session(d(p, 4, 2), [{ exercise: MOVE, spare: 0, setsDone: 0 }])];
+    expect(plog(p, reviews(p), ss, [], pl)).toBe("");
+  });
   it("上一轮有过不适：这一轮先有一周没有不适的复盘才接着加", () => {
     const p = base(5, [], { weight: 40, reps: 11 });
     p.progressLog.push({ date: d(p, 8, 1), move: MOVE, field: "reps", to: 11, rule: "加次数", evidence: `打卡/${d(p, 8)}.json` });
@@ -452,18 +469,34 @@ describe("周期末结论和下一段", () => {
     const make = (type: string) => {
       const p = profile([...weeks(1, "稳定", 1, 12), [2, "起始", 1, type, HOME]], { focus: { areas: ["训练"] } });
       p.venue = "home";
-      const sw = rec(p.segments[12].start, "触发", { reasons: ["换场地"], product: HOME, tests: bwT, conclusion: {} });
+      const sw = rec(p.segments[12].start, "触发", { reasons: ["换场地"], product: HOME, tests: [bwT[0]], conclusion: {} });
       const end = endRec(p, 1, { result: "训练没达标", next: { phase: "起始", type: "减量" } }, "周期末");
       return errs(ctx(p, reviews(p, () => ({ trainings: 2 })), [base(p), end, sw])).join();
     };
     expect(make("标准")).toMatch(/回起始期减量段，写的是标准段/);
-    expect(make("减量")).not.toMatch(/回起始期/);
+    expect(make("减量")).toBe("");
   });
   it("稳定期中间断过超过 8 周、后来又接着练：不只看最近一次，照样拦", () => {
     const p = profile(weeks(1, "稳定", 1, 5), { focus: { areas: ["训练"] } });
     for (let k = 3; k < 5; k++) p.segments[k].start = plus(p.segments[k].start, 70);   // 第 3 周拖了 11 周
     const out = errs(ctx(p, reviews(p), [base(p), rec(p.segments[3].start, "触发", { reasons: ["中断"], conclusion: {} })])).join();
     expect(out).toMatch(/断了 \d+ 天（超过 56 天）还接着练稳定期/);
+  });
+  it("断了超过 8 周、正好跨过周期末又接着开下一个周期：照样拦", () => {
+    const p = profile([...weeks(1, "稳定", 1, 12), [2, "稳定", 1], [2, "稳定", 2]], { focus: { areas: ["训练"] } });
+    for (let k = 12; k < p.segments.length; k++) p.segments[k].start = plus(p.segments[k].start, 70);   // 第 12 周拖了 11 周
+    const end = endRec(p, 1, { result: "达标", next: { phase: "稳定" } }, "周期末");
+    const out = errs(ctx(p, reviews(p), [base(p), end, rec(p.segments[12].start, "触发", { reasons: ["中断"], conclusion: {} })])).join();
+    expect(out).toMatch(/断了 \d+ 天（超过 56 天）还接着练稳定期/);
+  });
+  it("断了超过 8 周、回来那天先照旧课程练了一次，第二天照规矩回起始期：不误拦", () => {
+    const p = profile([...weeks(1, "稳定", 1, 5), [2, "起始", 1], [2, "起始", 2]], { focus: { areas: ["训练"] } });
+    const S5 = p.segments[4].start;
+    p.segments[5].start = plus(S5, 66);
+    p.segments[6].start = plus(S5, 73);
+    const ss = [session(plus(S5, 1), [{ exercise: "pushup" }]), session(plus(S5, 65), [{ exercise: "pushup" }])];
+    const c = { ...ctx(p, reviews(p), [base(p), rec(plus(S5, 66), "触发", { reasons: ["中断"], conclusion: {} })]), sessions: ss };
+    expect(errs(c).join()).not.toMatch(/还接着练稳定期/);
   });
   it("周期中途回起始期：要有触发评估（中断、医生建议从头来、自己要求），回标准段", () => {
     const p = profile([...weeks(1, "稳定", 1, 6), [2, "起始", 1]], { focus: { areas: ["训练"] } });
@@ -535,7 +568,7 @@ describe("个人计划单", () => {
     const { text, issues } = buildSheet(c);
     expect(issues).toEqual([]);
     expect(text).toMatch(/未经专业审核，不是医学建议/);
-    expect(text).toMatch(/<!-- 养夏计划单 段=1 周=7 开始=\d{4}-\d{2}-\d{2} 模板=\S+ 进度=\d{4}-\d{2}-\d{2} -->/);
+    expect(text).toMatch(/<!-- 养夏计划单 段=1 周=7 开始=\d{4}-\d{2}-\d{2} 模板=\S+ 进度=\d{4}-\d{2}-\d{2}\/\d+ -->/);
     expect(text).toMatch(/第 2 轮 · 第 3 周/);
     expect(text).toMatch(/### A 日[\s\S]*### D 日/);
     expect(text).toMatch(/照成品做：徒手有氧——这一周做\*\*间歇\*\*/);
@@ -567,7 +600,7 @@ describe("个人计划单", () => {
     expect(tamper(/周=7/, "周=12", "计划/第1段-第12周.md")).toMatch(/error：.*还没到/);
     expect(tamper(/开始=[\d-]+/, "开始=2020-01-01")).toMatch(/error：.*重新生成/);
     expect(tamper(/模板=\S+/, "模板=v0.1")).toMatch(/error：.*模板版本/);
-    expect(tamper(/进度=[\d-]+/, "进度=2020-01-01")).toMatch(/error：.*手改过/);
+    expect(tamper(/进度=[\d-]+\/\d+/, "进度=2020-01-01/0")).toMatch(/error：.*手改过/);
   });
   it("进度在生成之后往上改过：只提醒重新生成；往下调过：旧单子比现在重，报错", () => {
     const text = buildSheet(c).text!;
@@ -580,7 +613,30 @@ describe("个人计划单", () => {
     expect(later(3, "找级")).toMatch(/^warning：个人进度在这张计划单生成之后改过/);
     expect(later(1, "减量")).toMatch(/^error：.*旧单子比现在重/);
   });
-  it("以前几周的单子不再核对内容（周不是正好 7 天、重复过也不误报）；这一周重新开始过要重新生成", () => {
+  it("手改过的单子改成以前的周、手写一个假标记：照样拦下", () => {
+    const bad = buildSheet(c).text!.replace(/\d组×/, "9组×");
+    const msg = (name: string, text: string) => checkSheet(c, name, text).map((i) => `${i.level}：${i.message}`).join();
+    expect(msg("计划/第1段-第6周.md", bad.replace("周=7", "周=6"))).toMatch(/^error：.*在档案 segments 里没有/);
+    const start6 = p.segments[5].start;
+    expect(msg("计划/第1段-第6周.md", bad.replace("周=7", "周=6").replace(/开始=[\d-]+/, `开始=${start6}`))).toMatch(/^error：以前几周的计划单和按当时的档案重新生成的不一样/);
+    expect(msg("计划/第0段-第7周.md", bad.replace("段=1", "段=0"))).toMatch(/^error：/);
+    expect(msg("计划/第1段-第3周.md", "# 第 3 周\n<!-- 养夏计划单 段=1 周=3 开始=1999-01-01 模板=x 进度=1999-01-01/0 -->\n- 深蹲 5 组\n")).toMatch(/^error：/);
+  });
+  it("以前几周的单子：进度后来改了也照样对得上（按生成时的进度比）", () => {
+    const old = buildSheet({ ...c, profile: { ...p, segments: p.segments.slice(0, 6) } }).text!;
+    const q = clone(p);
+    q.progressLog.push({ date: q.segments[6].start, move: "pushup", field: "level", to: 1, rule: "减量" });
+    q.progress = { pushup: { level: 1 } };
+    expect(checkSheet({ ...c, profile: q }, "计划/第1段-第6周.md", old)).toEqual([]);
+  });
+  it("同一天生成以后又改了进度：提醒重新生成，不当成手改", () => {
+    const text = buildSheet(c).text!;
+    const q = clone(p);
+    q.progressLog.push({ date: START, move: "squat", field: "level", to: 2, rule: "建档" });
+    q.progress = { ...q.progress, squat: { level: 2 } };
+    expect(checkSheet({ ...c, profile: q }, NAME, text).map((i) => i.level)).toEqual(["warning"]);
+  });
+  it("以前几周的单子不再误报（周不是正好 7 天、重复过）；这一周重新开始过要重新生成", () => {
     const old = buildSheet({ ...c, profile: { ...p, segments: p.segments.slice(0, 6) } }).text!;
     expect(checkSheet(c, "计划/第1段-第6周.md", old)).toEqual([]);
     const late = clone(p);

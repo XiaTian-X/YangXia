@@ -107,8 +107,10 @@ function periodIndex(ss: SegmentEntry[], t: number): number {
 }
 
 /**
- * 训练过的日期（中断按它算）：练习记录的日期；某一周没有练习记录、复盘数据写了练过的，按这一周开始后的第 7 天算
- * （不按拖长的那一周的最后一天，宁可多报一次中断），不晚于 today。升序、不重复。
+ * 训练过的日期（中断按它算）：练习记录的日期；某一周没有练习记录、复盘数据写了练过的，按这一周开始后的第 7 天算，不晚于 today。
+ * 对拖长的周是往早里算（宁可多报一次中断）；对正常 7 天的周是这一周最晚的一天（往晚里算：实际可能早几天就练完了，
+ * 这样算出的中断会少几天——找级、"不算长时间中断"这类往上的放得更紧，"超过 28 天先做触发评估"会晚几天报；没有练习记录就只能这样）。
+ * 升序、不重复。
  */
 export function trainingDates(ss: SegmentEntry[], sessions: SessionFile[], reviewData: Record<string, Obj>, today: string): string[] {
   const dates = new Set<string>();
@@ -373,14 +375,15 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       if (!rv) return { error: `依据的复盘数据 复盘/${want} 不存在` };
       if (rv.symptoms === true) return { error: "依据的那一周有疼痛、头晕或胸闷：不加、不升（可以降）" };
       if (rv.half === true) return { error: "依据的那一周练过半量课（中断、生病回来），这一周的复盘不当加量依据" };
-      return { rv, m: (rv.moves ?? []).find((x: Obj) => x.move === e.move) };
+      return { rv, start: ss[pi - 1].start, m: (rv.moves ?? []).find((x: Obj) => x.move === e.move) };
     };
     const weeksOf = (rule: string) => ruleValue(rules, p.code, rule);
     // 双进阶：依据要是"上一次练这个动作"的记录——它和这条改动之间不能还有一次练这个动作的记录（改动当天的不算，分不清先后）
     const notLatest = (): boolean => {
       if (!sess) return false;
       const at = Date.parse(sess.raw?.startedAt);
-      return sessions.some((x) => { const xt = Date.parse(x.raw?.startedAt); return x !== sess && !Number.isNaN(xt) && xt > at && xt < t && !!itemOf(x.raw); });
+      // 中间那次这个动作没练（0 组，比如被砍掉了）不算"又练过"
+      return sessions.some((x) => { const xt = Date.parse(x.raw?.startedAt); return x !== sess && !Number.isNaN(xt) && xt > at && xt < t && itemOf(x.raw)?.setsDone > 0; });
     };
     const spareNeed = (rule: string, fallback: number) => weeksOf(rule)?.min ?? fallback;
     const inWeeks = (rule: string) => {
@@ -410,7 +413,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       if (!rv) return { error: `依据的复盘数据 复盘/${key} 不存在` };
       if (rv.symptoms === true) return { error: "依据的那一周有疼痛、头晕或胸闷：不加、不升（可以降）" };
       if (rv.half === true) return { error: "依据的那一周练过半量课（中断、生病回来），这一周的复盘不当加量依据" };
-      return { rv, m: (rv.moves ?? []).find((x: Obj) => x.move === e.move) };
+      return { rv, start: ss.find((x) => reviewDataName(x) === key)?.start ?? "", m: (rv.moves ?? []).find((x: Obj) => x.move === e.move) };
     };
     // 周期末"习惯没达标"：下一周期的第一轮不升级（健身房：头 4 周不加次数、不加一档）
     const holdRound = () => {
@@ -517,13 +520,15 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         const okWeek = inWeeks("升级周") || late;
         const rv = late ? prevRoundReview() : prevReview();
         if (field !== "level" || to !== before! + 1) err(i, "升级是难度级加一级");
-        else if (!okWeek) err(i, `第 ${round} 轮（第 ${period.n} 段）第 ${period.week} 周不能升级（${weeksOf("升级周") === null ? "这一版第 1 轮不升级；第 2 轮起每一轮第 1–2 周可以升，第 3–4 周级别不动" : `升级周：每一轮${fmtWeeks(weeksOf("升级周"))}`}）`);
+        else if (!okWeek) err(i, `第 ${round} 轮（第 ${period.n} 段）第 ${period.week} 周不能升级（${weeksOf("升级周") === null ? `这一版第 1 轮不升级；第 2 轮起每一轮${fmtWeeks(win)}可以升，别的周级别不动` : `升级周：每一轮${fmtWeeks(weeksOf("升级周"))}`}）`);
         else if (!allowed.has(to)) err(i, `第 ${to} 级这一周不能用（可以用第 ${[...allowed].join("、")} 级）`);
         else if ("error" in rv) err(i, `升级：${rv.error}`);
         else if (!rv.m || rv.m.allAtTop !== true || !(rv.m.spare >= 1)) err(i, "升级要达标：依据的复盘数据里这个动作每组都做到区间上限、最后一组还有余力（成品的\"达标\"）");
         else if (late && !stable && carryBlocked(pi)) err(i, "上一段有过疼痛、头晕或胸闷：这一段要先有一周没有不适的复盘，才能按\"下一轮升级\"往上升（SYMPTOM_CARRY）");
         else if (late && upgradeWeeks.has(pi) && upgradeWeeks.get(pi) !== e.move) err(i, `这一周已经升过「${upgradeWeeks.get(pi)}」：40–64 岁一次只升一样（每周最多升一个动作）`);
         else if (late && lateUp.has(lateKey)) err(i, `「${e.move}」这一轮已经按上一轮的复盘升过一级：上一轮是在原来那一级达标的，新的一级要先练到达标（下一轮再升）`);
+        // 依据那一周要是在现在这一级练的：这个动作上一次改级之后才开始的那一周（比如重复第 4 周，不能拿改级之前那一周的复盘再升一次）
+        else if (lastChange.has(e.move) && rv.start < lastChange.get(e.move)!) err(i, `升级的依据那一周（${rv.start} 起）开始时「${e.move}」还不是现在这一级（${lastChange.get(e.move)} 改过级）：要用在现在这一级练满一周的复盘`);
         if (late) { upgradeWeeks.set(pi, upgradeWeeks.get(pi) ?? e.move); lateUp.add(lateKey); }
         break;
       }

@@ -996,18 +996,20 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       const d = gapBefore(trained, ss[0].start, a.raw.date);
       if (d <= longDays) warn(a.name, `这份"中断"触发评估之前只断了 ${d} 天（不超过 ${longDays} 天）：不算长时间中断，稳定期不能按它找级`);
     }
-    // 稳定期中间断过超过"回起始期的中断天数"、后来又接着练同一段稳定期：要回起始期（不只看最近一次）
+    // 稳定期中间断过超过"回起始期的中断天数"、后来又接着练（不只看最近一次）：断之前在稳定期，
+    // 断了以后新开的第一项要是起始期（跨周期、接着开下一个周期也算没回去）；断完以后没新开过一项、就在原来那一周接着练的也算
     for (let k = 1; k < trained.length; k++) {
       const from = productAtIndex(ss, trained[k - 1]);
-      const to = productAtIndex(ss, trained[k]);
-      if (from < 0 || to < 0 || phaseOf(ss[to]) !== "稳定" || phaseOf(ss[from]) !== "稳定" || ss[from].n !== ss[to].n) continue;
-      const info2 = productInfo(ctx.manifest, ss[to].product);
+      if (from < 0 || phaseOf(ss[from]) !== "稳定") continue;
+      const info2 = productInfo(ctx.manifest, ss[from].product);
       const limit = info2 ? stableParam(ctx.rules, info2.code, "回起始期的中断天数")?.number : undefined;
       const days = Math.round((dayStart(trained[k]) - dayStart(trained[k - 1])) / DAY);
-      if (limit !== undefined && days > limit) {
-        err(`segments[${to}]`, `${trained[k - 1]} 到 ${trained[k]} 断了 ${days} 天（超过 ${limit} 天）还接着练稳定期：断了八周以上要做触发评估（中断），回到起始期那一份，从标准段第 1 周开始`);
-        break;
-      }
+      if (limit === undefined || days <= limit) continue;
+      const next = ss.findIndex((x) => x.start > trained[k - 1]);
+      if (next >= 0 && phaseOf(ss[next]) === "起始") continue;
+      const at = next >= 0 ? next : productAtIndex(ss, trained[k]);
+      err(`segments[${at}]`, `${trained[k - 1]} 到 ${trained[k]} 断了 ${days} 天（超过 ${limit} 天）还接着练稳定期：断了八周以上要做触发评估（中断），回到起始期那一份，从标准段第 1 周开始`);
+      break;
     }
   }
   if (curInfo?.age === "a13") {
