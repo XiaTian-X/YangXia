@@ -8,8 +8,8 @@
 //   npm run course -- intake [年龄段]                              入口问卷：问题、阶段和目标睡眠、这个年龄段的筛查项
 //   npm run course -- bedtime <阶段> <起床时间>                    按公式算上床时间（如 初中 06:30）
 //   npm run course -- moves <成品名>                               这份成品能导出的动作：ID、短名、处方原文、呼吸节奏
-//   npm run course -- assess <档案目录> <入门|段末|触发> [记录.json]  评估：列出要问、要测的项；给了记录就重算结论、核对
-//   npm run course -- plan <档案目录> [第几周]                        生成这一周的个人计划单（计划/第N段-第N周.md）
+//   npm run course -- assess <档案目录> <入门|段末|周期末|触发> [记录.json]  评估：列出要问、要测的项；给了记录就重算结论、核对
+//   npm run course -- plan <档案目录>                               生成现在这一周的个人计划单（计划/第N段-第N周.md）
 //   npm run profile -- check <档案目录>                            检查档案（和模板核对）、练习记录、课程，以及写给这个人的复盘和菜单
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, sep } from "node:path";
@@ -24,13 +24,13 @@ import { loadTemplates, requirePlans, type Templates } from "./node.ts";
 import { currentSegment, exportCourse } from "./plan.ts";
 import { ASSESS_FORMAT, type AssessFile, ageAt, assessRules, cardioMode, cycleEnd, balanceHold, checkAssessments, checkRecord, doctorNeed, gap, param, productInfo, recordConclusion, segmentEnd, validateAssessment } from "./assess.ts";
 import { checkDeclaration, checkNotes, DECLARATION, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
-import { buildSheet, checkSheet } from "./sheet.ts";
+import { buildSheet, checkSheet, sheetFile } from "./sheet.ts";
 import type { Issue } from "./types.ts";
 
 const USAGE = `用法：
   npm run course -- export <档案目录> <第几周> <哪天> [--out <文件>] [--pick 组=动作] [--half]
-  npm run course -- assess <档案目录> <入门|段末|触发> [记录.json] [--product <成品名>]
-  npm run course -- plan <档案目录> [第几周]
+  npm run course -- assess <档案目录> <入门|段末|周期末|触发> [记录.json] [--product <成品名>]
+  npm run course -- plan <档案目录>
   npm run course -- check <课程.json> --profile <档案.json>
   npm run course -- check <课程.json> --no-profile
   npm run course -- summary <课程.json>
@@ -229,7 +229,7 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
     r.issues.push({ level: "error", path: "screening", message: `医生同意之前不出课程（${doc.reason}：医生同意的日期 doctorDate 要不早于 ${doc.after}）` });
   }
   const cm = info0(t, seg.product) ? cardioMode(t.rules, profile, info0(t, seg.product)!, seg.n, Number(weekArg), scan.reviewData) : null;
-  if (cm) r.notes.push(`有氧：这一周做${cm.mode}（${cm.why}）`);
+  if (cm) r.notes.push(`有氧：这一周做${cm.mode}${cm.mode === "稳态" && cm.interval ? "，不做间歇" : ""}（${cm.why}）`);
   if (balanceHold(ctx)) r.notes.push("摔倒过：医生同意之前不练平衡动作（6–9 号），照成品第十二章；力量动作也先问医生");
   const info = productInfo(t.manifest, seg.product);
   const today = localDate(new Date());
@@ -338,14 +338,14 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
   if (!file) {
     console.log(`${kind}评估 · ${product}（未经专业审核，不是医学建议${info.age === "a65" ? "；65 岁以上的测试在医生同意以后、家人在场时做" : ""}）`);
     if (kind === "触发") {
-      console.log(`原因（reasons）：跨段 / 满一年 / 身体变化 / 生病住院 / 生病 / 摔倒 / 换场地 / 中断 / 看完医生回来；摔倒、生病住院写那天 eventDate`);
+      console.log(`原因（reasons）：跨段 / 满一年 / 身体变化 / 生病住院 / 生病 / 摔倒 / 换场地 / 中断 / 看完医生回来 / 回起始期（稳定期的人自己要求）；摔倒、生病住院写那天 eventDate；医生建议从头来的加 doctorRestart: true`);
       console.log(`跨段、换场地：product 写新成品，带上新成品入门的项目（加 --product <新成品名> 列出来）${productArg ? "" : `；下面列的是「${product}」的`}`);
       const at = ageAt(profile, localDate(new Date()), ar.assess);
       if (at.age && at.age !== info.age) console.log(`现在推算是${at.stage}（${at.age}），「${product}」是 ${info.age}：跨段要换到 ${at.age} 的成品，用 --product 列它的项目`);
     }
     const timing = kind === "段末" || kind === "周期末" ? "段末" : "入门";
     for (const pr of ar.assess.prereqs.filter((x) => x.products.includes(info.code))) console.log(`开工前提 ${pr.id}：${pr.ask}（是 / 否；${pr.note}）`);
-    if (kind === "入门" && ["a18", "a40", "a13"].includes(info.age)) console.log("训练基础 base：最近 3 个月平均每周几天力量练习（0、1、2 及以上；只记录）");
+    if (kind === "入门" && ["a18", "a40", "a13"].includes(info.age)) console.log("训练基础 base：最近 3 个月平均每周几天力量练习（0、1、2 及以上；18–64 岁徒手、居家是直接进稳定期的门槛之一，其余只记录）");
     for (const x of ar.assess.tests.filter((x) => x.products.includes(info.code) && x.timing.includes(timing))) {
       if (x.id === "body" && profile.body !== "记") continue;
       console.log(`测试 ${x.id}：记 ${x.fields.join("、")}；${x.judge}（${x.note}）`);
@@ -398,8 +398,8 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
   return print([...validateAssessment(raw), ...checkRecord(ctx, { ...f, raw: { ...raw, conclusion: raw.conclusion ?? want } }, product, asEntry)]);
 }
 
-/** 个人计划单：这一周每天练什么、有氧、习惯、下次评估。档案目录先过检查，0 错误才写。 */
-async function planCmd(dir: string, weekArg?: string): Promise<number> {
+/** 个人计划单：现在这一周每天练什么、有氧、习惯、下次评估。档案目录先过检查，0 错误才写。 */
+async function planCmd(dir: string): Promise<number> {
   const t = await loadTemplates();
   requirePlans(t);
   const profile = readJson(join(dir, "档案.json")) as Record<string, any>;
@@ -414,10 +414,10 @@ async function planCmd(dir: string, weekArg?: string): Promise<number> {
     console.log("档案目录没通过检查，先改好再生成计划单（npm run profile -- check）：");
     return print(pre);
   }
-  const r = buildSheet(ctx, weekArg ? Number(weekArg) : undefined);
+  const r = buildSheet(ctx);
   if (!r.text || r.issues.length) return print(r.issues);
   const seg = currentSegment(profile)!;
-  const out = join(dir, "计划", `第${seg.n}段-第${weekArg ? Number(weekArg) : seg.week}周.md`);
+  const out = join(dir, ...sheetFile(seg.n, seg.week).split("/"));
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, r.text);
   console.log(`已生成：${out}`);
@@ -473,7 +473,8 @@ async function main(argv: string[]): Promise<number> {
       console.log(USAGE);
       return 2;
     }
-    return planCmd(file, rest[0]);
+    if (rest.length) { console.log("计划单只生成现在这一周的（档案 segments 最后一项）：不用写周次"); return 2; }
+    return planCmd(file);
   }
   if (cmd === "assess") {
     if (!file || !rest[0]) {

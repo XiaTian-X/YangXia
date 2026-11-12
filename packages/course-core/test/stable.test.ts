@@ -127,6 +127,15 @@ describe("段和轮次", () => {
     delete (old as Record<string, any>).stable;
     expect(errs({ ...ctx(p, [], [entry(p, { base: 2 })]), rules: old }).join()).toMatch(/更新到 v3\.1 之后/);
   });
+  it("不能回头导出上一轮更重的周：第 5 周（2 组）导不出第 4 周（3 组、放慢）；这一轮里前面的周可以", () => {
+    const msg = (now: number, week: number) => exportCourse({ plans, rules, manifest, profile: profile(weeks(1, "稳定", 1, now)), week, day: "A" })
+      .issues.filter((i) => i.level === "error").map((i) => i.message).join();
+    expect(msg(5, 4)).toMatch(/比现在这一周重，不能导出/);
+    expect(msg(5, 1)).toBe("");
+    expect(msg(7, 6)).toBe("");
+    expect(msg(7, 3)).toBe("");
+    expect(msg(7, 4)).toMatch(/不能导出/);
+  });
   it("档案的阶段和成品对不上：拦下", () => {
     const p = profile([[1, "起始", 1, "标准", STABLE]]);
     expect(exportCourse({ plans, rules, manifest, profile: p, week: 1, day: "A" }).issues.map((i) => i.message).join()).toMatch(/phase 要和成品一致/);
@@ -168,6 +177,16 @@ describe("进稳定期的两条路", () => {
     const r = profile([[1, "稳定", 1]]);
     expect(errs(ctx(r, [], [entry(r, { base: 2 })])).join()).toMatch(/方向要含/);
   });
+  it("俯卧撑测试的级要是阶梯里有的级：随手写第 99 级过不了门槛", () => {
+    const p = profile([[1, "稳定", 1]], { focus: { areas: ["训练"] } });
+    expect(errs(ctx(p, [], [entry(p, { base: 2, tests: [{ id: "pushup-test", level: 99, value: 8 }, bwT[1]] })])).join()).toMatch(/俯卧撑的难度级只有/);
+  });
+  it("没登记直接进入门槛的成品（如健身房）：不能直接进稳定期", () => {
+    const p = profile([[1, "稳定", 1]], { focus: { areas: ["训练"] } });
+    const r = clone(rules);
+    r.stable!.params = r.stable!.params.filter((x) => !x.name.startsWith("有基础"));
+    expect(errs({ ...ctx(p, [], [entry(p, { base: 2 })]), rules: r }).join()).toMatch(/不设直接进入/);
+  });
   it("focus 的写法", () => {
     expect(validateProfile(profile([[1, "稳定", 1]], { focus: { areas: ["减脂"] } })).map((i) => i.message).join()).toMatch(/focus 是/);
   });
@@ -191,13 +210,41 @@ describe("稳定期的进度规则", () => {
     c.progressLog = find(dc);
     expect(plog(c, reviews(c), [session(dc, [{ exercise: "pushup", feel: up }])])).toMatch(/稳定期的找级只给/);
   });
-  it("找级：断了四周以上、做过触发评估回来的头 14 天可以（不论周次），过了就不行", () => {
-    const p = profile([...weeks(1, "起始", 1, 4), ...weeks(2, "稳定", 1, 7)], { progress: { pushup: { level: 2 } } });
-    const d = p.segments[10].start;
-    p.progressLog = [{ date: d, move: "pushup", field: "level", to: 2, rule: "找级", evidence: `打卡/${d}.json` }];
-    const s = [session(d, [{ exercise: "pushup", feel: up }])];
-    expect(plog(p, reviews(p), s, [rec(plus(d, -3), "触发", { reasons: ["中断"] })])).toBe("");
-    expect(plog(p, reviews(p), s, [rec(plus(d, -20), "触发", { reasons: ["中断"] })])).toMatch(/稳定期的找级只给/);
+  describe("找级：真的断了四周以上、做过触发评估回来的头 14 天", () => {
+    // 稳定期第 3 周从 S 开始，练了一次（S+1）就断了，第 4 周拖到 S+42 才开始
+    const make = (logDate: number, evidence: number) => {
+      const p = profile([...weeks(1, "起始", 1, 4), ...weeks(2, "稳定", 1, 4)], { progress: { pushup: { level: 2 } } });
+      const S = p.segments[6].start;
+      p.segments[7].start = plus(S, 42);
+      p.progressLog = [{ date: plus(S, logDate), move: "pushup", field: "level", to: 2, rule: "找级", evidence: `打卡/${plus(S, evidence)}.json` }];
+      const ss = [session(plus(S, 1), [{ exercise: "pushup", feel: up }]), session(plus(S, 40), [{ exercise: "pushup", feel: up }]), session(plus(S, 45), [{ exercise: "pushup", feel: up }])];
+      return { p, S, ss };
+    };
+    const trig = (S: string, day: number) => [rec(plus(S, day), "触发", { reasons: ["中断"] })];
+    it("断了 38 天、触发评估之后练的那一次当依据：放行（不论周次）", () => {
+      const { p, S, ss } = make(40, 40);
+      expect(plog(p, reviews(p), ss, trig(S, 39))).toBe("");
+    });
+    it("没有真的断过（触发评估之前只断了 19 天）：写了\"中断\"评估也不能找级", () => {
+      const { p, S, ss } = make(40, 40);
+      expect(plog(p, reviews(p), ss, trig(S, 20))).toMatch(/稳定期的找级只给/);
+    });
+    it("拿中断之前的练习记录当依据：拦下", () => {
+      const { p, S, ss } = make(40, 1);
+      expect(plog(p, reviews(p), ss, trig(S, 39))).toMatch(/做完触发评估（[\d-]+）以后练的那一次/);
+    });
+    it("过了 14 天：拦下", () => {
+      const { p, S, ss } = make(45, 45);
+      expect(plog(p, reviews(p), ss, trig(S, 30))).toMatch(/稳定期的找级只给/);
+    });
+    it("每周都在练、没有中断：\"中断\"触发评估只给提醒，找级照样拦", () => {
+      const p = profile([...weeks(1, "起始", 1, 4), ...weeks(2, "稳定", 1, 6)], { progress: { pushup: { level: 2 } } });
+      const d = p.segments[9].start;
+      p.progressLog = [{ date: d, move: "pushup", field: "level", to: 2, rule: "找级", evidence: `打卡/${d}.json` }];
+      const a = [rec(plus(d, -1), "触发", { reasons: ["中断"], conclusion: {} })];
+      expect(plog(p, reviews(p), [session(d, [{ exercise: "pushup", feel: up }])], a)).toMatch(/稳定期的找级只给/);
+      expect(warns(ctx(p, reviews(p), [entry(p), endRec(p, 1, { result: "添装备", next: "标准" }), ...a])).join()).toMatch(/不算长时间中断/);
+    });
   });
   it("升级：每一轮第 4 周（稳定期第 4、8、12 周）；别的周不行", () => {
     const run = (wk: number) => {
@@ -256,6 +303,15 @@ describe("40–64 岁第 2 轮起的升级窗口（起始期、稳定期同一�
   it("第 2 周拿本轮第 1 周（2 组）的复盘当依据：拦下", () => expect(build(2, null)).toMatch(/上一轮第 3 或第 4 周/));
   it("第 3 周：拦下", () => expect(build(3, 4)).toMatch(/不能升级/));
   it("一周升两个动作：拦下", () => expect(build(1, 4, ["glute-bridge", "squat"])).toMatch(/一次只升一样/));
+  it("同一个动作第 1 周、第 2 周连升两级（两份依据都是在原来那一级做的）：拦下", () => {
+    const p = profile([...weeks(1, "起始", 1, 4), ...weeks(2, "起始", 1, 2)].map(([n, ph, w]) => [n, ph, w, "标准", BW40] as Seg));
+    Object.assign(p, { age: "a40", stage: "40–64 岁", birth: "1976-05" });
+    const ev = (k: number) => `复盘/${p.segments[k].start}-第${p.segments[k].week}周.json`;
+    p.progress = { squat: { level: 3, reps: 15 } };
+    p.progressLog = [{ date: p.segments[4].start, move: "squat", field: "level", to: 2, rule: "升级", evidence: ev(2) },
+      { date: p.segments[5].start, move: "squat", field: "level", to: 3, rule: "升级", evidence: ev(3) }];
+    expect(plog(p, reviews(p, () => ({ moves: [{ move: "squat", allAtTop: true, spare: 2 }] })))).toMatch(/这一轮已经按上一轮的复盘升过一级/);
+  });
   it("保加利亚分腿蹲（第 3 级）要到第 3 轮：第 2 轮导不出，第 3 轮可以", () => {
     const at = (segs: Seg[]) => {
       const p = profile(segs.map(([n, ph, w]) => [n, ph, w, "标准", BW40] as Seg), { progress: { "split-squat": { level: 3 } } });
@@ -329,6 +385,21 @@ describe("健身房双进阶（用起始期健身房版派生一份稳定期样�
     q.progressLog.push({ date: d(q, 6), move: MOVE, field: "weight", to: 45, rule: "加重" });
     expect(plog(q, reviews(q), [], [], pl)).toMatch(/稳定期不用"加重"/);
   });
+  it("依据要是最近一次练这个动作的记录：之后又练过一次（没做完），不能拿前一次的当依据", () => {
+    const p = base(1, [], { weight: 40, reps: 11 });
+    p.progressLog.push({ date: d(p, 4, 3), move: MOVE, field: "reps", to: 11, rule: "加次数", evidence: `打卡/${d(p, 4)}.json` });
+    const ss = [session(d(p, 4), [{ exercise: MOVE, spare: 3 }]), session(d(p, 4, 2), [{ exercise: MOVE, spare: 0, setsDone: 2 }])];
+    expect(plog(p, reviews(p), ss, [], pl)).toMatch(/最近一次练这个动作/);
+  });
+  it("上一轮有过不适：这一轮先有一周没有不适的复盘才接着加", () => {
+    const p = base(5, [], { weight: 40, reps: 11 });
+    p.progressLog.push({ date: d(p, 8, 1), move: MOVE, field: "reps", to: 11, rule: "加次数", evidence: `打卡/${d(p, 8)}.json` });
+    const rv = reviews(p, (i) => (i === 5 ? { symptoms: true } : {}));
+    expect(plog(p, rv, [session(d(p, 8), [{ exercise: MOVE, spare: 3 }])], [], pl)).toMatch(/上一轮有过疼痛、头晕或胸闷/);
+    const q = base(6, [], { weight: 40, reps: 11 });
+    q.progressLog.push({ date: d(q, 9, 1), move: MOVE, field: "reps", to: 11, rule: "加次数", evidence: `打卡/${d(q, 9)}.json` });
+    expect(plog(q, reviews(q, (i) => (i === 5 ? { symptoms: true } : {})), [session(d(q, 9), [{ exercise: MOVE, spare: 3 }])], [], pl)).toBe("");
+  });
   it("起始期不能用加一档", () => {
     const p = profile(weeks(1, "起始", 1, 3).map(([n, ph, w]) => [n, ph, w, "标准", GYM] as Seg));
     p.venue = "gym";
@@ -376,6 +447,24 @@ describe("周期末结论和下一段", () => {
     const ok = cycle(() => ({ trainings: 2 }), [2, "起始", 1, "减量"]);
     expect(errs(ctx(ok.p, ok.rv, [base(ok.p), endRec(ok.p, 1, { result: "训练没达标", next: { phase: "起始", type: "减量" } }, "周期末")]))).toEqual([]);
   });
+  it("结论是回起始期减量段：换场地到别的版本也得是减量段", () => {
+    const HOME = "18-39岁-居家版";
+    const make = (type: string) => {
+      const p = profile([...weeks(1, "稳定", 1, 12), [2, "起始", 1, type, HOME]], { focus: { areas: ["训练"] } });
+      p.venue = "home";
+      const sw = rec(p.segments[12].start, "触发", { reasons: ["换场地"], product: HOME, tests: bwT, conclusion: {} });
+      const end = endRec(p, 1, { result: "训练没达标", next: { phase: "起始", type: "减量" } }, "周期末");
+      return errs(ctx(p, reviews(p, () => ({ trainings: 2 })), [base(p), end, sw])).join();
+    };
+    expect(make("标准")).toMatch(/回起始期减量段，写的是标准段/);
+    expect(make("减量")).not.toMatch(/回起始期/);
+  });
+  it("稳定期中间断过超过 8 周、后来又接着练：不只看最近一次，照样拦", () => {
+    const p = profile(weeks(1, "稳定", 1, 5), { focus: { areas: ["训练"] } });
+    for (let k = 3; k < 5; k++) p.segments[k].start = plus(p.segments[k].start, 70);   // 第 3 周拖了 11 周
+    const out = errs(ctx(p, reviews(p), [base(p), rec(p.segments[3].start, "触发", { reasons: ["中断"], conclusion: {} })])).join();
+    expect(out).toMatch(/断了 \d+ 天（超过 56 天）还接着练稳定期/);
+  });
   it("周期中途回起始期：要有触发评估（中断、医生建议从头来、自己要求），回标准段", () => {
     const p = profile([...weeks(1, "稳定", 1, 6), [2, "起始", 1]], { focus: { areas: ["训练"] } });
     const rv = reviews(p);
@@ -398,6 +487,16 @@ describe("周期末结论和下一段", () => {
     expect(out).toMatch(/已经满 40 岁：先做触发评估/);
     expect(out).toMatch(/要在轮的边界换到对应年龄段的起始期/);
   });
+  it("新一轮的第 1 周是满 40 岁之前开始的，后来重复这一周：不算又开了一轮，接着练不拦", () => {
+    const p = profile([...weeks(1, "稳定", 1, 5), [1, "稳定", 5]], { focus: { areas: ["训练"] }, birth: "1986-01" });
+    p.segments.forEach((s: any, i: number) => (s.start = plus("2025-12-01", 7 * i)));   // 第 5 周 2025-12-29 开始（39 岁），重复的第 5 周 2026-01-05 开始（已满 40）
+    p.startDate = p.segments[0].start;
+    p.screening.date = p.startDate;
+    const e = rec(p.startDate, "入门", { tests: bwT, base: 2, conclusion: {} });
+    const out = errs(ctx(p, reviews(p), [e], "2026-01-08")).join();
+    expect(out).toMatch(/已经满 40 岁：先做触发评估/);      // 体检、血压还是要先补
+    expect(out).not.toMatch(/开始新的一轮时已经是/);
+  });
 });
 
 describe("有氧：每一轮先稳态、再间歇", () => {
@@ -410,6 +509,14 @@ describe("有氧：每一轮先稳态、再间歇", () => {
     expect(cardioMode(rules, p, info, 1, 7, rv(false))).toMatchObject({ mode: "稳态" });
     expect(cardioMode(rules, p, info, 1, 7, rv())).toMatchObject({ mode: "稳态", why: expect.stringMatching(/还没记/) });
   });
+  it("模板的有氧规则有不认识的写法、缺组合条件：一律稳态", () => {
+    const odd = clone(rules);
+    odd.cardio!.find((x) => x.mode === "间歇")!.when = "someNewRule";
+    expect(cardioMode(odd, p, info, 1, 7, rv(true))).toMatchObject({ mode: "稳态" });
+    const none = clone(rules);
+    none.derivedConditions = [];
+    expect(cardioMode(none, p, info, 1, 7, rv(true))).toMatchObject({ mode: "稳态" });
+  });
   it("有高血压（或没确认）而且没问过医生：一直稳态；问过医生才按自查", () => {
     const hyper = { ...p, conditions: { 高血压: true } };
     expect(cardioMode(rules, hyper, info, 1, 7, rv(true))).toMatchObject({ mode: "稳态", why: expect.stringMatching(/先问医生/) });
@@ -419,37 +526,70 @@ describe("有氧：每一轮先稳态、再间歇", () => {
 });
 
 describe("个人计划单", () => {
-  const p = profile(weeks(1, "稳定", 1, 7), { focus: { areas: ["训练"] } });
+  const p = profile(weeks(1, "稳定", 1, 7), { focus: { areas: ["训练"] }, progress: { pushup: { level: 2 } } });
+  p.progressLog = [{ date: START, move: "pushup", field: "level", to: 2, rule: "建档" }];
   const c = ctx(p, reviews(p, (i) => (i === 5 ? { steadyCheck: true } : {})), [entry(p, { base: 2 })]);
-  it("带声明和生成标记；每一天的动作、有氧、习惯、下次评估都有", () => {
+  const NAME = "计划/第1段-第7周.md";
+  const levels = (x: AssessContext, name: string, text: string) => checkSheet(x, name, text).map((i) => i.level);
+  it("带声明和生成标记；每一天的动作、有氧、习惯、下次评估都有；动作写中文名", () => {
     const { text, issues } = buildSheet(c);
     expect(issues).toEqual([]);
     expect(text).toMatch(/未经专业审核，不是医学建议/);
-    expect(text).toMatch(/<!-- 养夏计划单 段=1 周=7 模板=\S+ 进度=\d{4}-\d{2}-\d{2} -->/);
+    expect(text).toMatch(/<!-- 养夏计划单 段=1 周=7 开始=\d{4}-\d{2}-\d{2} 模板=\S+ 进度=\d{4}-\d{2}-\d{2} -->/);
     expect(text).toMatch(/第 2 轮 · 第 3 周/);
     expect(text).toMatch(/### A 日[\s\S]*### D 日/);
-    expect(text).toMatch(/有氧：这一周做\*\*间歇\*\*/);
+    expect(text).toMatch(/照成品做：徒手有氧——这一周做\*\*间歇\*\*/);
     expect(text).toMatch(/散步：每周 ≥ 5 天/);
     expect(text).toMatch(/周期末评估：第 12 周的周复盘之后/);
+    expect(text).not.toMatch(/[：（、] ?[a-z]+(-[a-z]+)+/);   // 不留动作编号（sl-rdl 这类）
   });
-  it("有高血压、没问过医生的人：计划单写稳态；手改成间歇会被拦下", () => {
+  it("有高血压、没问过医生的人：计划单写稳态、不做间歇；手改成间歇会被拦下", () => {
     const h = clone(p);
     h.conditions = { 高血压: true };
     const hc = { ...c, profile: h };
     const text = buildSheet(hc).text!;
-    expect(text).toMatch(/有氧：这一周做\*\*稳态\*\*（有高血压（或没确认）而且没问过医生/);
-    expect(checkSheet(hc, "计划/第1段-第7周.md", text)).toEqual([]);
-    expect(checkSheet(hc, "计划/第1段-第7周.md", text.replace("**稳态**", "**间歇**")).map((i) => i.level)).toEqual(["error"]);
+    expect(text).toMatch(/这一周做\*\*稳态\*\*，不做间歇（有高血压（或没确认）而且没问过医生/);
+    expect(text).not.toMatch(/按 D 日第一部分的时长和间歇做/);
+    expect(checkSheet(hc, NAME, text)).toEqual([]);
+    expect(levels(hc, NAME, text.replace("**稳态**", "**间歇**"))).toEqual(["error"]);
   });
-  it("和档案重新生成的一样：通过；手改过：拦下；进度后来变了：提醒重新生成；没有标记：拦下", () => {
+  it("和档案重新生成的一样：通过；手改过、没有标记：拦下", () => {
     const text = buildSheet(c).text!;
-    expect(checkSheet(c, "计划/第1段-第7周.md", text)).toEqual([]);
-    expect(checkSheet(c, "计划/第1段-第7周.md", text.replace(/\d组×/, "9组×")).map((i) => i.level)).toEqual(["error"]);
-    const q = clone(p);
-    q.progressLog = [{ date: START, move: "pushup", field: "level", to: 2, rule: "建档" }, { date: q.segments[6].start, move: "pushup", field: "level", to: 1, rule: "减量" }];
-    q.progress = { pushup: { level: 1 } };
-    expect(checkSheet({ ...c, profile: q }, "计划/第1段-第7周.md", text).map((i) => i.level)).toEqual(["warning"]);
+    expect(checkSheet(c, NAME, text)).toEqual([]);
+    expect(levels(c, NAME, text.replace(/\d组×/, "9组×"))).toEqual(["error"]);
     expect(checkSheet(c, "计划/x.md", "# 自己写的计划").map((i) => i.message).join()).toMatch(/由命令生成/);
+  });
+  it("手改内容再改标记：段号、周次、开始日期、模板版本、进度日期，哪一个都绕不过", () => {
+    const bad = buildSheet(c).text!.replace(/\d组×/, "9组×");
+    const tamper = (from: RegExp, to: string, name = NAME) => checkSheet(c, name, bad.replace(from, to)).map((i) => `${i.level}：${i.message}`).join();
+    expect(tamper(/段=1/, "段=2")).toMatch(/error：.*文件名和标记要一致/);
+    expect(tamper(/段=1/, "段=2", "计划/第2段-第7周.md")).toMatch(/error：.*还没到/);
+    expect(tamper(/周=7/, "周=12", "计划/第1段-第12周.md")).toMatch(/error：.*还没到/);
+    expect(tamper(/开始=[\d-]+/, "开始=2020-01-01")).toMatch(/error：.*重新生成/);
+    expect(tamper(/模板=\S+/, "模板=v0.1")).toMatch(/error：.*模板版本/);
+    expect(tamper(/进度=[\d-]+/, "进度=2020-01-01")).toMatch(/error：.*手改过/);
+  });
+  it("进度在生成之后往上改过：只提醒重新生成；往下调过：旧单子比现在重，报错", () => {
+    const text = buildSheet(c).text!;
+    const later = (to: number, rule: string) => {
+      const q = clone(p);
+      q.progressLog.push({ date: q.segments[6].start, move: "pushup", field: "level", to, rule });
+      q.progress = { pushup: { level: to } };
+      return checkSheet({ ...c, profile: q }, NAME, text).map((i) => `${i.level}：${i.message}`).join();
+    };
+    expect(later(3, "找级")).toMatch(/^warning：个人进度在这张计划单生成之后改过/);
+    expect(later(1, "减量")).toMatch(/^error：.*旧单子比现在重/);
+  });
+  it("以前几周的单子不再核对内容（周不是正好 7 天、重复过也不误报）；这一周重新开始过要重新生成", () => {
+    const old = buildSheet({ ...c, profile: { ...p, segments: p.segments.slice(0, 6) } }).text!;
+    expect(checkSheet(c, "计划/第1段-第6周.md", old)).toEqual([]);
+    const late = clone(p);
+    late.segments[6].start = plus(late.segments[6].start, 2);     // 第 7 周晚 2 天开始
+    expect(checkSheet({ ...c, profile: late }, "计划/第1段-第6周.md", old)).toEqual([]);
+    const again = clone(p);
+    again.segments.push({ ...again.segments[6], start: plus(again.segments[6].start, 7) });   // 重复第 7 周
+    const cur = buildSheet(c).text!;
+    expect(checkSheet({ ...c, profile: again }, NAME, cur).map((i) => i.message).join()).toMatch(/是按 [\d-]+ 开始的那一周生成的/);
   });
 });
 

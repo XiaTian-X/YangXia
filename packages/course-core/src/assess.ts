@@ -1,10 +1,10 @@
-// 评估（v4 阶段 2）：入门、段末、触发三种评估记录 yangxia.assessment/1，年龄段和学段推算，中断和摔倒。
+// 评估（v4 阶段 2–3）：入门、段末、周期末、触发四种评估记录 yangxia.assessment/1，年龄段和学段推算，中断和摔倒。
 // 参数全部来自模板 rules.json 的 assess、nextRound、habits（content/rules/评估.md、下一轮.md、打卡.md），
 // BMI 切点来自 manifest 的官方参数（BMI_CN、WEIGHT_LOW_CN）。结论由这里重算，评估记录里写的结论对不上就报错。
-// 周期末评估属于稳定期（阶段 3），现在遇到就报"阶段 3 才有"。
+// 稳定期（阶段 3）：周期末结论照 rules.json 的 stable.nextCycle 重算；进稳定期的两条路、有氧稳态 / 间歇（cardio）也在这里。
 import type { Manifest } from "./manifest.ts";
 import { type PlansData, ROUND_WEEKS, roundWeek, type RulesData, stableParam } from "./plan.ts";
-import { localDate, reviewDataName, type SegmentEntry, type SessionFile } from "./progress.ts";
+import { gapBefore, localDate, longGapDays, reviewDataName, type SegmentEntry, type SessionFile, trainingDates } from "./progress.ts";
 import type { Issue } from "./types.ts";
 
 type Obj = Record<string, any>;
@@ -504,6 +504,11 @@ export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, 
     if (!timing || !def.timing.includes(timing)) { err(`tests[${i}]`, `「${t.id}」只在${def.timing.join("、")}评估里记`); continue; }
     const extraKeys = Object.keys(t).filter((k) => k !== "id" && !def.fields.includes(k));
     if (extraKeys.length) err(`tests[${i}]`, `「${t.id}」只记 ${def.fields.join("、")}，多了 ${extraKeys.join("、")}`);
+    // 俯卧撑测试的级要是这份成品俯卧撑阶梯里有的级（直接进稳定期的门槛按它算，不能随手写一个大数）
+    const pushLadder = t.id === "pushup-test" ? ctx.plans?.products[product]?.ladders.pushup : undefined;
+    if (pushLadder && t.level !== undefined && !pushLadder.some((l) => l.level === t.level)) {
+      err(`tests[${i}].level`, `俯卧撑的难度级只有第 ${pushLadder.map((l) => l.level).join("、")} 级（${pushLadder.map((l) => `${l.level} ${l.name}`).join("，")}），记的是 ${t.level}`);
+    }
     if (t.id === "wallsit-test" && typeof t.value === "number") {
       const cap = param(ar.assess, "高血压静蹲上限", info.code)?.number;
       const hyper = ctx.profile.conditions?.["高血压"] !== false;   // 没确认按有
@@ -765,12 +770,13 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
         if (end.raw.date < prev.start || end.raw.date > s.start) err(end.name, `周期末评估的日期要在第 ${cycleWeeks} 周开始（${prev.start}）之后、下一段开始（${s.start}）之前`);
         const c = cycleEnd(ctx, prev.n);
         if ("error" in c) { err(end.name, c.error); continue; }
+        // 结论是回起始期的：不论换不换成品（换场地、跨段），段型都照结论（减量段换场地还是减量段）
+        if (c.next.phase === "起始" && curStable) err(`segments[${i}]`, `第 ${prev.n} 段周期末的结论是"${c.result}"：下一段回起始期（${c.next.type}段），不能接着开稳定期`);
+        if (c.next.phase === "起始" && !curStable && s.type !== c.next.type) err(`segments[${i}].type`, `第 ${prev.n} 段周期末的结论是"${c.result}"：回起始期${c.next.type}段，写的是${s.type}段`);
+        if (c.next.phase === "稳定" && !curStable && s.type !== "标准") err(`segments[${i}].type`, `第 ${prev.n} 段周期末的结论是"${c.result}"：离开稳定期（自己要求回起始期、换成品）从标准段第 1 周开始`);
         if (sameFam) {
           const back = A.some((a) => hasReason(a, "回起始期") && a.raw.date >= prevSeg[0].start && a.raw.date <= s.start);
           if (c.next.phase === "稳定" && !curStable && !back) err(`segments[${i}]`, `第 ${prev.n} 段周期末的结论是"${c.result}"，接着开下一个周期（稳定期）；自己想回起始期的，做一份触发评估（原因：回起始期）`);
-          if (c.next.phase === "起始" && curStable) err(`segments[${i}]`, `第 ${prev.n} 段周期末的结论是"${c.result}"：下一段回起始期（${c.next.type}段），不能接着开稳定期`);
-          if (c.next.phase === "起始" && !curStable && s.type !== c.next.type) err(`segments[${i}].type`, `第 ${prev.n} 段周期末的结论是"${c.result}"：回起始期${c.next.type}段，写的是${s.type}段`);
-          if (c.next.phase === "稳定" && !curStable && s.type !== "标准") err(`segments[${i}].type`, "自己要求回起始期：从标准段第 1 周开始");
         }
       } else if (sameFam && !curStable) {
         // 周期中途回起始期：断了超过 8 周、医生建议从头来、自己要求——都要有触发评估，回标准段
@@ -896,8 +902,10 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       warn("档案.json", `现在推算是${atNow.stage}：这一轮（4 周）练完，做触发评估（跨段）换到对应年龄段的起始期`);
       const pre = A.some((a) => isSwitch(a) && productInfo(ctx.manifest, a.raw.product)?.age === atNow.age && isObj(a.raw.prereqs) && a.raw.date >= curStart.start);
       if (atNow.age === "a40" && !pre) err("档案.json", "已经满 40 岁：先做触发评估（跨段，product 写 40–64 岁的起始期成品），补上体检、血压这两项开工前提，之前不出课程");
+      // 新的一轮从哪天开始：这一轮第 1 周第一次出现的那一项（有不适、没达标重复第 1 周的不算又开了一轮）
       for (let k = ss.length - 1; k >= 0 && ss[k].n === last.n; k--) {
-        if (roundWeek(ss[k].week) === 1 && ss[k].week > 1 && ageAt(p, ss[k].start, ar.assess).age !== curInfo.age) {
+        const roundStart = roundWeek(ss[k].week) === 1 && ss[k].week > 1 && !(k > 0 && ss[k - 1].n === ss[k].n && ss[k - 1].week === ss[k].week);
+        if (roundStart && ageAt(p, ss[k].start, ar.assess).age !== curInfo.age) {
           err(`segments[${k}]`, `第 ${ss[k].week} 周（${ss[k].start}）开始新的一轮时已经是${ageAt(p, ss[k].start, ar.assess).stage}：要在轮的边界换到对应年龄段的起始期，不能接着用这一版`);
           break;
         }
@@ -982,6 +990,25 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       const rv = ctx.reviewData[reviewDataName(s)];
       if (rv && rv.trainings === 0) warn(`复盘/${reviewDataName(s)}`, "这一周没有训练：回来第一次只做一半的量（course export 加 --half）");
     });
+    const trained = trainingDates(ss, ctx.sessions, ctx.reviewData, today);
+    const longDays = ctx.rules ? longGapDays(ctx.rules, code) : 28;
+    for (const a of A.filter((x) => hasReason(x, "中断"))) {
+      const d = gapBefore(trained, ss[0].start, a.raw.date);
+      if (d <= longDays) warn(a.name, `这份"中断"触发评估之前只断了 ${d} 天（不超过 ${longDays} 天）：不算长时间中断，稳定期不能按它找级`);
+    }
+    // 稳定期中间断过超过"回起始期的中断天数"、后来又接着练同一段稳定期：要回起始期（不只看最近一次）
+    for (let k = 1; k < trained.length; k++) {
+      const from = productAtIndex(ss, trained[k - 1]);
+      const to = productAtIndex(ss, trained[k]);
+      if (from < 0 || to < 0 || phaseOf(ss[to]) !== "稳定" || phaseOf(ss[from]) !== "稳定" || ss[from].n !== ss[to].n) continue;
+      const info2 = productInfo(ctx.manifest, ss[to].product);
+      const limit = info2 ? stableParam(ctx.rules, info2.code, "回起始期的中断天数")?.number : undefined;
+      const days = Math.round((dayStart(trained[k]) - dayStart(trained[k - 1])) / DAY);
+      if (limit !== undefined && days > limit) {
+        err(`segments[${to}]`, `${trained[k - 1]} 到 ${trained[k]} 断了 ${days} 天（超过 ${limit} 天）还接着练稳定期：断了八周以上要做触发评估（中断），回到起始期那一份，从标准段第 1 周开始`);
+        break;
+      }
+    }
   }
   if (curInfo?.age === "a13") {
     for (let i = 1; i < ss.length; i++) {
@@ -991,6 +1018,12 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
     }
   }
   return out;
+}
+
+/** 某一天落在 segments 的哪一项（早于第一项返回 -1）。 */
+function productAtIndex(ss: SegmentEntry[], date: string): number {
+  for (let i = ss.length - 1; i >= 0; i--) if (date >= ss[i].start) return i;
+  return -1;
 }
 
 function productAt(ss: SegmentEntry[], date: string): string | undefined {
@@ -1010,21 +1043,8 @@ export function gap(ctx: AssessContext, code: string, today: string): { last: st
   const longDays = param(ar.assess, "长时间中断天数", code)?.number;
   if (remindDays === undefined || longDays === undefined) return null;
   const ss = ctx.profile.segments as SegmentEntry[];
-  const dates: string[] = [ss[0].start];
-  for (const s of ctx.sessions) {
-    const t = Date.parse(s.raw?.startedAt);
-    if (!Number.isNaN(t)) dates.push(localDate(new Date(t)));
-  }
-  ss.forEach((s, i) => {
-    const rv = ctx.reviewData[reviewDataName(s)];
-    if (!(rv && rv.trainings > 0)) return;
-    // 这一周有练习记录的，以练习记录为准（上面已经算了）；没有的，按这一周开始后的第 7 天算，不按拖长的那一周的最后一天（宁可多报一次中断）
-    const next = i + 1 < ss.length ? ss[i + 1].start : "9999-12-31";
-    const hasSession = ctx.sessions.some((x) => { const t = Date.parse(x.raw?.startedAt); const d = Number.isNaN(t) ? "" : localDate(new Date(t)); return d >= s.start && d < next; });
-    if (hasSession) return;
-    const end = addDays(s.start, 6);
-    dates.push(end < today ? end : today);
-  });
+  // 这一周有练习记录的，以练习记录为准；没有的，按这一周开始后的第 7 天算（trainingDates）
+  const dates = [ss[0].start, ...trainingDates(ss, ctx.sessions, ctx.reviewData, today)];
   const last = dates.sort().pop()!;
   const days = Math.round((dayStart(today) - dayStart(last)) / DAY);
   return { last, days, remindDays, longDays, long: days > longDays };
@@ -1034,12 +1054,24 @@ export function gap(ctx: AssessContext, code: string, today: string): { last: st
  * 这一周的有氧做稳态还是间歇（有氧不导出、没有练习记录，拦不了，只能让计划单和导出时的提示写对）：
  * 规则在 rules.cardio；有间歇的周，高血压（或没确认）而且没问过医生的做稳态，这一轮第 2 周的稳态自查没过（或没记）的做稳态。
  */
-export function cardioMode(rules: RulesData | null, profile: Obj, product: { code: string; phase: string }, n: number, week: number, reviewData: Record<string, Obj>): { mode: string; why: string } | null {
+export function cardioMode(rules: RulesData | null, profile: Obj, product: { code: string; phase: string }, n: number, week: number, reviewData: Record<string, Obj>): { mode: string; why: string; interval: boolean } | null {
+  const r = cardioModeOf(rules, profile, product, n, week, reviewData);
+  if (!r) return null;
+  const k = product.phase === "稳定" ? roundWeek(week) : week;
+  // interval：成品这一周本来有间歇的安排（写"稳态"时要说清楚不做间歇）
+  return { ...r, interval: (rules?.cardio ?? []).some((c) => c.products.includes(product.code) && c.weeks.includes(k) && c.mode !== "稳态") };
+}
+
+function cardioModeOf(rules: RulesData | null, profile: Obj, product: { code: string; phase: string }, n: number, week: number, reviewData: Record<string, Obj>): { mode: string; why: string } | null {
   const k = product.phase === "稳定" ? roundWeek(week) : week;
   const rows = (rules?.cardio ?? []).filter((c) => c.products.includes(product.code) && c.weeks.includes(k));
   if (!rows.length || !rules) return null;
   if (!rows.some((c) => c.mode === "间歇")) return { mode: rows[0].mode, why: `每一轮第 ${k} 周` };
+  // 认不出的写法（新的 when、新的模式）、缺了组合条件：一律稳态（保守），提示先更新核心库或模板
+  const KNOWN = ["always", "selfCheckPassed", "selfCheckFailed", "hypertensionNoDoctor"];
+  if (rows.some((c) => !KNOWN.includes(c.when) || (c.mode !== "间歇" && c.mode !== "稳态"))) return { mode: "稳态", why: "模板的有氧规则有这里不认识的写法：先按稳态做" };
   const derived = rules.derivedConditions?.find((d) => d.name === "高血压没问过医生");
+  if (!derived && rows.some((c) => c.when === "hypertensionNoDoctor")) return { mode: "稳态", why: "模板缺少组合条件\"高血压没问过医生\"：先按稳态做" };
   const cond = (name: string): boolean => {
     const v = profile.conditions?.[name];
     return typeof v === "boolean" ? v : rules.conditions[name]?.default ?? true;

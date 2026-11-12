@@ -224,7 +224,35 @@
             "pattern": "^评估/.+\\.json$",
             "description": "同一成品中途从第 1 周重来（65 岁以上生病住院回来、6–12 岁生病超过 7 天）：依据的触发评估"
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "phase": {
+                  "const": "稳定"
+                }
+              },
+              "required": [
+                "phase"
+              ]
+            },
+            "then": {
+              "properties": {
+                "type": {
+                  "const": "标准"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "week": {
+                  "maximum": 4
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "conditions": {

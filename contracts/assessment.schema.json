@@ -204,6 +204,26 @@
           "eventDate"
         ]
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "段末",
+              "周期末"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "segment"
+        ]
+      }
     }
   ]
 }

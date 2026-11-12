@@ -77,7 +77,7 @@ npm test                                              # 单元测试（模板不
 npm run e2e                                           # 打包编排器并跑冒烟测试（Playwright）
 npm run course -- export profiles/<代号> <第几周> <哪天>     # 按训练单和档案导出一天的课程（自带检查，0 错误才写文件）
 npm run course -- assess profiles/<代号> <入门|段末|周期末|触发> [记录.json]   # 评估：列出要问、要测的项；给了记录就重算结论、核对
-npm run course -- plan profiles/<代号> [第几周]        # 个人计划单：这一周每天练什么、有氧、习惯达标线、下次评估（写 计划/第N段-第N周.md）
+npm run course -- plan profiles/<代号>                # 个人计划单：现在这一周每天练什么、有氧、习惯达标线、下次评估（写 计划/第N段-第N周.md）
 npm run course -- check <课程.json> --profile <档案.json>   # 检查课程：从训练单导出的按训练单和档案进度逐项核对
 npm run course -- summary <课程.json>                 # 总时长、动作、组数
 npm run course -- intake [年龄段]                     # 入口问卷、成品列表和这个年龄段的筛查项

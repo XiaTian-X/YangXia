@@ -370,9 +370,13 @@ describe("评估记录的 schema 和核心库判断一致", () => {
     { schema: ASSESS_FORMAT, date: "2026-06-01", kind: "入门", base: 2, tests: [{ id: "pushup-test", level: 2, value: 9 }], conclusion: {} },
     { schema: ASSESS_FORMAT, date: "2026-06-29", kind: "段末", segment: 1, tests: [{ id: "chair-stand-30s", value: 6, hands: "扶椅子", done: false, stopReason: "头晕" }], companion: true },
     { schema: ASSESS_FORMAT, date: "2026-07-01", kind: "触发", reasons: ["换场地"], product: "18-39岁-居家版", prereqs: { checkup: true } },
+    { schema: ASSESS_FORMAT, date: "2026-09-21", kind: "周期末", segment: 2, conclusion: { result: "达标", next: { phase: "稳定" } } },
+    { schema: ASSESS_FORMAT, date: "2026-07-01", kind: "触发", reasons: ["回起始期"], doctorRestart: false },
   ];
   const bad = [
     { schema: ASSESS_FORMAT, date: "2026-06-01", kind: "年中" },
+    { schema: ASSESS_FORMAT, date: "2026-06-01", kind: "周期末", conclusion: {} },   // 没写第几段
+    { schema: ASSESS_FORMAT, date: "2026-06-01", kind: "段末", conclusion: {} },
     { schema: ASSESS_FORMAT, date: "2026-06-01", kind: "触发", reasons: ["想换就换"] },
     { schema: ASSESS_FORMAT, date: "2026-06-01", kind: "入门", tests: [{ id: "chair-stand-30s", hands: "单手" }] },
     { schema: ASSESS_FORMAT, date: "2026-06-01", kind: "入门", body: { weight: 70, bmi: 24 } },

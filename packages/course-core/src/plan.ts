@@ -278,6 +278,11 @@ export function exportCourse(input: ExportInput): ExportResult {
     err("profile.product", `「${productName}」没有训练单（6–12 岁版、全家餐饮没有训练课程）`);
     return out;
   }
+  if (Number.isInteger(week) && week >= 1 && week < seg.week && seg.phase === "稳定" && roundWeek(week) > roundWeek(seg.week)) {
+    // 稳定期每一轮从第 1 周（2 组、常速）重新走：上一轮后面几周的处方比现在重，不能回头导出
+    err("week", `档案现在是稳定期第 ${seg.week} 周（这一轮第 ${roundWeek(seg.week)} 周）：第 ${week} 周是一轮的第 ${roundWeek(week)} 周，比现在这一周重，不能导出（只能导出不超过这一轮第 ${roundWeek(seg.week)} 周的周）`);
+    return out;
+  }
   if (!Number.isInteger(week) || week < 1 || week > seg.week) {
     err("week", `档案现在是第 ${seg.n} 段第 ${seg.week} 周，只能导出第 1–${seg.week} 周（下一周要等周复盘放行）`);
     return out;

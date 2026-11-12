@@ -117,7 +117,7 @@ npm run course -- bedtime <阶段> <HH:MM>                   # 按公式算上�
 npm run course -- moves <成品名>                           # 这份成品能导出的动作、处方原文、呼吸节奏
 npm run course -- export profiles/<代号> <第几周> <哪天>   # 按训练单和档案导出一天的课程（可加 --out <文件>、--pick 组=动作；中断、生病回来的第一次加 --half）
 npm run course -- assess profiles/<代号> <入门|段末|周期末|触发> [记录.json]   # 评估：列出要问、要测的项；给了记录就按规则重算结论、核对
-npm run course -- plan profiles/<代号> [第几周]            # 个人计划单（写 计划/第N段-第N周.md，不手写、不手改）
+npm run course -- plan profiles/<代号>                     # 现在这一周的个人计划单（写 计划/第N段-第N周.md，不手写、不手改）
 npm run course -- check <课程.json> --profile <档案.json>  # 检查课程：按训练单和档案进度逐项核对，连同安全筛查
 npm run course -- summary <课程.json>                      # 总时长、动作、组数
 npm run course -- srt <课程.json>                          # 打印 SRT 字幕

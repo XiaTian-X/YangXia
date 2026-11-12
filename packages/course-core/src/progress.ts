@@ -107,6 +107,29 @@ function periodIndex(ss: SegmentEntry[], t: number): number {
 }
 
 /**
+ * 训练过的日期（中断按它算）：练习记录的日期；某一周没有练习记录、复盘数据写了练过的，按这一周开始后的第 7 天算
+ * （不按拖长的那一周的最后一天，宁可多报一次中断），不晚于 today。升序、不重复。
+ */
+export function trainingDates(ss: SegmentEntry[], sessions: SessionFile[], reviewData: Record<string, Obj>, today: string): string[] {
+  const dates = new Set<string>();
+  const sessionDates: string[] = [];
+  for (const s of sessions) {
+    const t = Date.parse(s.raw?.startedAt);
+    if (!Number.isNaN(t)) sessionDates.push(localDate(new Date(t)));
+  }
+  for (const d of sessionDates) dates.add(d);
+  ss.forEach((s, i) => {
+    const rv = reviewData[reviewDataName(s)];
+    if (!(rv && rv.trainings > 0)) return;
+    const next = i + 1 < ss.length ? ss[i + 1].start : "9999-12-31";
+    if (sessionDates.some((d) => d >= s.start && d < next)) return;
+    const end = localDate(new Date(dayStart(s.start) + 6 * DAY + DAY / 2));
+    dates.add(end < today ? end : today);
+  });
+  return [...dates].sort();
+}
+
+/**
  * 按 segments 核对练习记录和周复盘：
  * - 除了正在进行的最后一周，每一周都要有复盘（.md 和 .json）；复盘数据的训练次数不能少于这一周的练习记录数，
  *   练习记录里有不适，复盘就不能写没有；
@@ -205,10 +228,23 @@ export function validateProgressShape(p: Obj): Issue[] {
   return out;
 }
 
-/**
- * 重放 progressLog，逐条按规则核对，最后要等于档案的 progress。
- * sessions：档案目录里的练习记录（name 是相对档案目录的路径）；reviewData：复盘/ 下的 .json（键是文件名）。
- */
+/** 健身房稳定期双进阶的余力门槛（设计值 GYM_DOUBLE_RULES；模板规则层登记了"双进阶加次数余力""双进阶加一档余力"就用登记的）。 */
+const GYM_REPS_SPARE = 3;
+const GYM_STEP_SPARE = 2;
+
+/** 长时间中断的天数（模板评估参数"长时间中断天数"，没有按 28）。 */
+export function longGapDays(rules: RulesData, code: string): number {
+  const ps = ((rules as Obj).assess?.params ?? []) as { name: string; products: string[]; number?: number }[];
+  return ps.find((x) => x.name === "长时间中断天数" && x.products.includes(code))?.number ?? 28;
+}
+
+/** date 那天之前最后一次训练（没有就按开始日期）到 date 隔了几天。 */
+export function gapBefore(trained: string[], start: string, date: string): number {
+  const before = trained.filter((d) => d < date);
+  const last = before.length ? before[before.length - 1] : start;
+  return Math.round((dayStart(date) - dayStart(last)) / DAY);
+}
+
 type State = Record<string, Partial<Record<Field, number>> & { product?: Partial<Record<Field, string>> }>;
 
 /**
@@ -260,6 +296,8 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
     const idx = (y: SegmentEntry) => (stableOf(y) ? Math.floor((y.week - 1) / ROUND_WEEKS) : 0);
     return ss.findIndex((y) => y.n === x.n && idx(y) === idx(x));
   };
+  const trained = trainingDates(ss, sessions, reviewData, localDate(now));
+  const lateUp = new Set<string>();               // 40–64 岁"下一轮升级"：这一轮已经按上一轮的复盘升过的动作
   const sessionAt = (name: string) => sessions.find((s) => s.name === name || s.name.endsWith(`/${name}`));
   const sessionPeriod = (s: SessionFile) => periodIndex(ss, Date.parse(s.raw?.startedAt));
   const sickPeriods = new Set<number>();
@@ -338,6 +376,13 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       return { rv, m: (rv.moves ?? []).find((x: Obj) => x.move === e.move) };
     };
     const weeksOf = (rule: string) => ruleValue(rules, p.code, rule);
+    // 双进阶：依据要是"上一次练这个动作"的记录——它和这条改动之间不能还有一次练这个动作的记录（改动当天的不算，分不清先后）
+    const notLatest = (): boolean => {
+      if (!sess) return false;
+      const at = Date.parse(sess.raw?.startedAt);
+      return sessions.some((x) => { const xt = Date.parse(x.raw?.startedAt); return x !== sess && !Number.isNaN(xt) && xt > at && xt < t && !!itemOf(x.raw); });
+    };
+    const spareNeed = (rule: string, fallback: number) => weeksOf(rule)?.min ?? fallback;
     const inWeeks = (rule: string) => {
       const v = weeksOf(rule);
       return !!v && kWeek >= v.min && kWeek <= v.max;
@@ -375,11 +420,14 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       const prevN = ss[start - 1].n;
       return assessments.some((a) => a.raw?.kind === "周期末" && a.raw?.segment === prevN && a.raw?.conclusion?.next?.hold === true);
     };
-    // 长时间中断回来的头 N 天可以找级（不论周次）
-    const gapReturn = () => {
+    // 长时间中断回来的头 N 天可以找级（不论周次）：那份"中断"触发评估之前真的断了超过"长时间中断天数"，返回评估的日期
+    const gapReturn = (): string | null => {
       const days = stableParam(rules, p.code, "找级窗口天数")?.number ?? 14;
-      return assessments.some((a) => a.raw?.kind === "触发" && Array.isArray(a.raw?.reasons) && a.raw.reasons.includes("中断")
-        && typeof a.raw.date === "string" && dayStart(a.raw.date) <= t && t < dayStart(a.raw.date) + days * DAY);
+      const longDays = longGapDays(rules, p.code);
+      const hit = assessments.filter((a) => a.raw?.kind === "触发" && Array.isArray(a.raw?.reasons) && a.raw.reasons.includes("中断")
+        && typeof a.raw.date === "string" && DATE.test(a.raw.date) && dayStart(a.raw.date) <= t && t < dayStart(a.raw.date) + days * DAY
+        && gapBefore(trained, ss[0].start, a.raw.date) > longDays).map((a) => a.raw.date as string).sort();
+      return hit.length ? hit[hit.length - 1] : null;
     };
     const before = from ?? (field === "level" && ladder ? startLevel(ladder) : field === "reps" && row?.reps ? row.reps.min : undefined);
     if (e.rule === "重来") {
@@ -430,14 +478,17 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
     switch (e.rule) {
       case "找级": {
         // 稳定期的找级只给三种人：直接进入的人的第 1 轮、家族外换了成品的人（走新成品的起始期）、长时间中断回来的头两周
-        const back = stable && gapReturn();
-        const findOk = stable ? back || (round === 1 && inWeeks("找级周")) : inWeeks("找级周");
-        const problem = sessOk(back ? undefined : "找级周");
+        const direct = stable && round === 1 && inWeeks("找级周");
+        const backDate = stable && !direct ? gapReturn() : null;
+        const back = backDate !== null;
+        const findOk = stable ? back || direct : inWeeks("找级周");
+        const problem = sessOk(back ? undefined : "找级周")
+          ?? (back && localDate(new Date(Date.parse(sess!.raw?.startedAt))) < backDate! ? `中断回来以后的找级，依据要是做完触发评估（${backDate}）以后练的那一次` : null);
         const it = sess ? itemOf(sess.raw) : null;
         const want = to > before! ? FEELS[2] : FEELS[0];
         if (field !== "level") err(i, "找级只改难度级");
         else if (!findOk) err(i, stable
-          ? "稳定期的找级只给：直接进稳定期的人的第 1 轮第 1–2 周、断了四周以上做过触发评估回来的头两周；其他时候只能往下调（减量、退回）"
+          ? "稳定期的找级只给：直接进稳定期的人的第 1 轮第 1–2 周、真的断了四周以上而且做过\"中断\"触发评估回来的头两周；其他时候只能往下调（减量、退回）"
           : `第 ${period.week} 周不是找级的周（${fmtWeeks(weeksOf("找级周"))}）`);
         else if (Math.abs(to - before!) !== 1) err(i, `找级一次只能上下调一级（第 ${before} 级 → 第 ${to} 级）`);
         else if (!allowed.has(to)) err(i, `第 ${to} 级这一周不能用（可以用第 ${[...allowed].join("、")} 级）`);
@@ -459,7 +510,10 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         // 18–39 岁：每一轮第 4 周（升级周）。40–64 岁：第 1 轮不升；第 2 轮起每一轮第 1–2 周，第 3–4 周不动，每周最多升一个动作，
         // 依据是上一轮第 3 或第 4 周的复盘（"下一轮从第 1 周起升级，一次只升一样"）
         const nextRound = weeksOf("下一轮升级");
-        const late = !inWeeks("升级周") && !!nextRound && round >= 2 && kWeek >= nextRound.min && kWeek <= nextRound.min + 1;
+        // 窗口：模板登记了"下一轮升级窗口"（设计值 A40_UPGRADE_WINDOW）就用它，没有就只有原文写的那一周
+        const win = weeksOf("下一轮升级窗口") ?? nextRound;
+        const late = !inWeeks("升级周") && !!nextRound && !!win && round >= 2 && kWeek >= win.min && kWeek <= win.max;
+        const lateKey = `${blockStart(pi)}|${e.move}`;
         const okWeek = inWeeks("升级周") || late;
         const rv = late ? prevRoundReview() : prevReview();
         if (field !== "level" || to !== before! + 1) err(i, "升级是难度级加一级");
@@ -469,7 +523,8 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         else if (!rv.m || rv.m.allAtTop !== true || !(rv.m.spare >= 1)) err(i, "升级要达标：依据的复盘数据里这个动作每组都做到区间上限、最后一组还有余力（成品的\"达标\"）");
         else if (late && !stable && carryBlocked(pi)) err(i, "上一段有过疼痛、头晕或胸闷：这一段要先有一周没有不适的复盘，才能按\"下一轮升级\"往上升（SYMPTOM_CARRY）");
         else if (late && upgradeWeeks.has(pi) && upgradeWeeks.get(pi) !== e.move) err(i, `这一周已经升过「${upgradeWeeks.get(pi)}」：40–64 岁一次只升一样（每周最多升一个动作）`);
-        if (late) upgradeWeeks.set(pi, upgradeWeeks.get(pi) ?? e.move);
+        else if (late && lateUp.has(lateKey)) err(i, `「${e.move}」这一轮已经按上一轮的复盘升过一级：上一轮是在原来那一级达标的，新的一级要先练到达标（下一轮再升）`);
+        if (late) { upgradeWeeks.set(pi, upgradeWeeks.get(pi) ?? e.move); lateUp.add(lateKey); }
         break;
       }
       case "加次数": {
@@ -481,7 +536,8 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
           else if (row?.reps && to > row.reps.max) err(i, `不能超过 ${row.reps.max} 次：3 组都做到 ${row.reps.max} 次就该加一档、回到 ${row.reps.min} 次`);
           else if (problem) err(i, `双进阶加次数：${problem}`);
           else if (lastTouch.has(e.move) && localDate(new Date(Date.parse(sess!.raw?.startedAt))) <= lastTouch.get(e.move)!) err(i, `依据要是上一次改动（${lastTouch.get(e.move)}）之后练的那一次`);
-          else if (it.setsDone !== it.setsPlanned || !(it.spare >= 3)) err(i, "双进阶加次数要依据的练习记录里这个动作每组都做完、\"还能做几下\"是 3 下以上（加完仍留 2 下余力）");
+          else if (notLatest()) err(i, "双进阶的依据要是最近一次练这个动作的练习记录（它之后又练过这个动作，按后面那一次）");
+          else if (it.setsDone !== it.setsPlanned || !(it.spare >= spareNeed("双进阶加次数余力", GYM_REPS_SPARE))) err(i, `双进阶加次数要依据的练习记录里这个动作每组都做完、"还能做几下"是 ${spareNeed("双进阶加次数余力", GYM_REPS_SPARE)} 下以上（加完仍留 2 下余力）`);
           break;
         }
         const step = weeksOf("加次数");
@@ -507,7 +563,8 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         else if (!row?.reps || reps !== row.reps.max) err(i, `加一档要先把次数做到 ${row?.reps?.max ?? "区间上限"} 次（现在是 ${reps ?? row?.reps?.min ?? "下限"} 次）`);
         else if (problem) err(i, `加一档：${problem}`);
         else if (lastTouch.has(e.move) && localDate(new Date(Date.parse(sess!.raw?.startedAt))) <= lastTouch.get(e.move)!) err(i, `依据要是上一次改动（${lastTouch.get(e.move)}）之后练的那一次`);
-        else if (it.setsDone !== it.setsPlanned || !(it.spare >= 2) || it.reverted === true) err(i, "加一档要依据的练习记录里这个动作每组都做完、\"还能做几下\"是 2 下以上、没有当场退回");
+        else if (notLatest()) err(i, "双进阶的依据要是最近一次练这个动作的练习记录（它之后又练过这个动作，按后面那一次）");
+        else if (it.setsDone !== it.setsPlanned || !(it.spare >= spareNeed("双进阶加一档余力", GYM_STEP_SPARE)) || it.reverted === true) err(i, `加一档要依据的练习记录里这个动作每组都做完、"还能做几下"是 ${spareNeed("双进阶加一档余力", GYM_STEP_SPARE)} 下以上、没有当场退回`);
         else if (cap !== undefined && to > before! * (1 + cap / 100) + 1e-9) err(i, `加一档最多加 ${cap}%（${before} → 最多 ${Math.round(before! * (1 + cap / 100) * 100) / 100}）`);
         break;
       }

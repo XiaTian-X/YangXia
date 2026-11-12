@@ -25,6 +25,8 @@ describe("个人档案", () => {
     ["起床时间格式不对", (p) => (p.wake = "6:20")],
     ["不认识的年龄段", (p) => (p.age = "a99")],
     ["答案不是是 / 否", (p) => (p.screening.answers[0].answer = "有")],
+    ["起始期的段写到第 5 周", (p) => (p.segments[p.segments.length - 1].week = 5)],
+    ["稳定期的段写减量", (p) => Object.assign(p.segments[p.segments.length - 1], { phase: "稳定", type: "减量" })],
   ];
   for (const [name, f] of bad) {
     it(`不合格：${name}`, () => {
