@@ -12,7 +12,7 @@ import subprocess
 import sys
 
 MAX_BYTES = 5 * 1024 * 1024
-SIZE_EXEMPT = {"dist/动作图解手册.pdf"}       # 模板的 PDF 手册是交付物
+SIZE_EXEMPT: set[str] = set()                # 没有例外；PDF 手册不提交，发版时放进 GitHub Release
 FIXTURE_PREFIXES = ("contracts/fixtures/",)  # 只有这里允许出现个人档案 / 练习记录格式的样例
 
 BLOCK_PATH = [
