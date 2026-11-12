@@ -498,6 +498,21 @@ describe("周期末结论和下一段", () => {
     const c = { ...ctx(p, reviews(p), [base(p), rec(plus(S5, 66), "触发", { reasons: ["中断"], conclusion: {} })]), sessions: ss };
     expect(errs(c).join()).not.toMatch(/还接着练稳定期/);
   });
+  it("断练期间照常每周复盘（练 0 次、重复本周），断到 62 天照规矩回起始期：不误拦", () => {
+    // 第 3 周第 2 天练过一次，之后每周复盘练 0 次、重复第 3 周；第 10 次复盘时做"中断"触发评估，新开起始期
+    const segs: Seg[] = [[1, "稳定", 1], [1, "稳定", 2], ...Array.from({ length: 9 }, (): Seg => [1, "稳定", 3]), [2, "起始", 1], [2, "起始", 2]];
+    const p = profile(segs, { focus: { areas: ["训练"] } });
+    const S3 = p.segments[2].start;
+    const ss = [session(plus(S3, 1), [{ exercise: "pushup" }])];
+    const rv = reviews(p, (i) => (i >= 2 && i <= 10 ? { trainings: i === 2 ? 1 : 0 } : {}));
+    const c = { ...ctx(p, rv, [base(p), rec(p.segments[11].start, "触发", { reasons: ["中断"], conclusion: {} })]), sessions: ss };
+    expect(errs(c).join()).not.toMatch(/还接着练稳定期/);
+    // 对照：同样断了 62 天，回来接着练第 4 周（还在稳定期）：拦下
+    const q = profile([[1, "稳定", 1], [1, "稳定", 2], ...Array.from({ length: 9 }, (): Seg => [1, "稳定", 3]), [1, "稳定", 4], [1, "稳定", 5]], { focus: { areas: ["训练"] } });
+    const rq = reviews(q, (i) => (i >= 2 && i <= 10 ? { trainings: i === 2 ? 1 : 0 } : {}));
+    const cq = { ...ctx(q, rq, [base(q), rec(q.segments[11].start, "触发", { reasons: ["中断"], conclusion: {} })]), sessions: [session(plus(q.segments[2].start, 1), [{ exercise: "pushup" }])] };
+    expect(errs(cq).join()).toMatch(/还接着练稳定期/);
+  });
   it("周期中途回起始期：要有触发评估（中断、医生建议从头来、自己要求），回标准段", () => {
     const p = profile([...weeks(1, "稳定", 1, 6), [2, "起始", 1]], { focus: { areas: ["训练"] } });
     const rv = reviews(p);

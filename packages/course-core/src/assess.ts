@@ -1005,7 +1005,9 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       const limit = info2 ? stableParam(ctx.rules, info2.code, "回起始期的中断天数")?.number : undefined;
       const days = Math.round((dayStart(trained[k]) - dayStart(trained[k - 1])) / DAY);
       if (limit === undefined || days <= limit) continue;
-      const next = ss.findIndex((x) => x.start > trained[k - 1]);
+      // 断了以后：第一项起始期，或者第一项真的练过的（中间 0 次、重复本周的那几周跳过）
+      const trainedIn = (j: number) => trained.some((d) => d >= ss[j].start && d < (j + 1 < ss.length ? ss[j + 1].start : "9999-12-31"));
+      const next = ss.findIndex((x, j) => x.start > trained[k - 1] && (phaseOf(x) === "起始" || trainedIn(j)));
       if (next >= 0 && phaseOf(ss[next]) === "起始") continue;
       const at = next >= 0 ? next : productAtIndex(ss, trained[k]);
       err(`segments[${at}]`, `${trained[k - 1]} 到 ${trained[k]} 断了 ${days} 天（超过 ${limit} 天）还接着练稳定期：断了八周以上要做触发评估（中断），回到起始期那一份，从标准段第 1 周开始`);
