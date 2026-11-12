@@ -2128,7 +2128,12 @@
    {
     "name": "周期周数",
     "products": [
-     "a18·bw"
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
     ],
     "value": "12",
     "quotes": [
@@ -2143,7 +2148,12 @@
    {
     "name": "每轮周数",
     "products": [
-     "a18·bw"
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
     ],
     "value": "4",
     "quotes": [
@@ -2158,7 +2168,10 @@
    {
     "name": "进稳定期的结论",
     "products": [
-     "a18·bw"
+     "a18·bw",
+     "a18·home",
+     "a40·bw",
+     "a40·home"
     ],
     "value": "添装备",
     "quotes": [
@@ -2170,9 +2183,27 @@
     "note": "起始期段末结论是进阶线那一条（纯徒手、居家\"添装备\"，健身房\"进入下一阶段\"）而且没被不适降级，才能进稳定期；\"换场地\"不能用来进"
    },
    {
+    "name": "进稳定期的结论",
+    "products": [
+     "a18·gym",
+     "a40·gym"
+    ],
+    "value": "进入下一阶段",
+    "quotes": [
+     {
+      "section": "谁用这一份",
+      "text": "4 周完成 ≥ 14 次训练，而且那一轮没有出现疼痛、头晕、胸闷"
+     }
+    ],
+    "note": "起始期段末结论是进阶线那一条（纯徒手、居家\"添装备\"，健身房\"进入下一阶段\"）而且没被不适降级，才能进稳定期；\"换场地\"不能用来进"
+   },
+   {
     "name": "找级窗口天数",
     "products": [
-     "a18·bw"
+     "a18·bw",
+     "a18·home",
+     "a40·bw",
+     "a40·home"
     ],
     "value": "14",
     "quotes": [
@@ -2187,7 +2218,12 @@
    {
     "name": "回起始期的中断天数",
     "products": [
-     "a18·bw"
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
     ],
     "value": "56",
     "quotes": [
@@ -2202,7 +2238,12 @@
    {
     "name": "周期达标训练数",
     "products": [
-     "a18·bw"
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
     ],
     "value": "36",
     "quotes": [
@@ -2217,7 +2258,12 @@
    {
     "name": "习惯达标周数",
     "products": [
-     "a18·bw"
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
     ],
     "value": "9",
     "quotes": [
@@ -2232,7 +2278,10 @@
    {
     "name": "有基础每周力量天数",
     "products": [
-     "a18·bw"
+     "a18·bw",
+     "a18·home",
+     "a40·bw",
+     "a40·home"
     ],
     "value": "2",
     "quotes": [
@@ -2247,7 +2296,10 @@
    {
     "name": "有基础俯卧撑级",
     "products": [
-     "a18·bw"
+     "a18·bw",
+     "a18·home",
+     "a40·bw",
+     "a40·home"
     ],
     "value": "3",
     "quotes": [
@@ -2262,7 +2314,10 @@
    {
     "name": "有基础俯卧撑次数",
     "products": [
-     "a18·bw"
+     "a18·bw",
+     "a18·home",
+     "a40·bw",
+     "a40·home"
     ],
     "value": "8",
     "quotes": [
@@ -2277,7 +2332,12 @@
    {
     "name": "不适按轮",
     "products": [
-     "a18·bw"
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
     ],
     "value": "是",
     "quotes": [
@@ -2454,6 +2514,218 @@
     }
    ],
    "note": "有高血压（或没确认）而且没问过医生：一直稳态"
+  },
+  {
+   "products": [
+    "a18·home",
+    "a40·home"
+   ],
+   "weeks": [
+    1,
+    2
+   ],
+   "mode": "稳态",
+   "when": "always",
+   "quotes": [
+    {
+     "section": "4 周强度递进",
+     "text": "稳态 15 分钟（含前 5 分钟低阻力热身，之后中等阻力）"
+    },
+    {
+     "section": "4 周强度递进",
+     "text": "稳态 20 分钟"
+    }
+   ],
+   "note": "第 1–2 周单车稳态"
+  },
+  {
+   "products": [
+    "a18·home",
+    "a40·home"
+   ],
+   "weeks": [
+    3,
+    4
+   ],
+   "mode": "间歇",
+   "when": "selfCheckPassed",
+   "quotes": [
+    {
+     "section": "4 周强度递进",
+     "text": "第 3 周上间歇之前先自查"
+    },
+    {
+     "section": "4 周强度递进",
+     "text": "骑完能说完整句子、第二天不觉得累，才上间歇"
+    }
+   ],
+   "note": "第 2 周自查过了才上单车间歇"
+  },
+  {
+   "products": [
+    "a18·home",
+    "a40·home"
+   ],
+   "weeks": [
+    3,
+    4
+   ],
+   "mode": "稳态",
+   "when": "selfCheckFailed",
+   "quotes": [
+    {
+     "section": "4 周强度递进",
+     "text": "做不到，第 3–4 周继续稳态 20 分钟，照样打勾"
+    }
+   ],
+   "note": "自查没过（或者没记）继续稳态"
+  },
+  {
+   "products": [
+    "a18·home",
+    "a40·home"
+   ],
+   "weeks": [
+    3,
+    4
+   ],
+   "mode": "稳态",
+   "when": "hypertensionNoDoctor",
+   "quotes": [
+    {
+     "section": "安全须知",
+     "text": "第 3–4 周的间歇训练先问医生；没问之前，继续做中等强度的稳态有氧"
+    }
+   ],
+   "note": "有高血压（或没确认）而且没问过医生：一直稳态"
+  },
+  {
+   "products": [
+    "a18·gym",
+    "a40·gym"
+   ],
+   "weeks": [
+    1
+   ],
+   "mode": "稳态",
+   "when": "always",
+   "quotes": [
+    {
+     "section": "4 周强度递进",
+     "text": "每次 10 分钟"
+    }
+   ],
+   "note": "坡度快走或椭圆机",
+   "phase": "起始",
+   "duration": "每次 10 分钟"
+  },
+  {
+   "products": [
+    "a18·gym",
+    "a40·gym"
+   ],
+   "weeks": [
+    2,
+    3
+   ],
+   "mode": "稳态",
+   "when": "always",
+   "quotes": [
+    {
+     "section": "4 周强度递进",
+     "text": "每次 15 分钟"
+    }
+   ],
+   "note": "第 3 周时长不变，坡度照 D5 每次往上加一点",
+   "phase": "起始",
+   "duration": "每次 15 分钟"
+  },
+  {
+   "products": [
+    "a18·gym",
+    "a40·gym"
+   ],
+   "weeks": [
+    4
+   ],
+   "mode": "稳态",
+   "when": "always",
+   "quotes": [
+    {
+     "section": "4 周强度递进",
+     "text": "每次 20 分钟"
+    }
+   ],
+   "note": "",
+   "phase": "起始",
+   "duration": "每次 20 分钟"
+  },
+  {
+   "products": [
+    "a18·gym",
+    "a40·gym"
+   ],
+   "weeks": [
+    3,
+    4
+   ],
+   "mode": "稳态",
+   "when": "hypertensionNoDoctor",
+   "quotes": [
+    {
+     "section": "安全须知",
+     "text": "有氧从第 2 周往后加时长、加坡度之前，先问医生；没问之前，保持第 2 周的强度"
+    }
+   ],
+   "note": "有高血压（或没确认）而且没问过医生：保持第 2 周",
+   "phase": "起始",
+   "duration": "每次 15 分钟，坡度不再往上加"
+  },
+  {
+   "products": [
+    "a18·gym",
+    "a40·gym"
+   ],
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "mode": "稳态",
+   "when": "always",
+   "quotes": [
+    {
+     "section": "有氧",
+     "text": "每次 20 分钟"
+    }
+   ],
+   "note": "设计值 GYM_STABLE_CARDIO：原文没写下一阶段的有氧，照第 4 周",
+   "phase": "稳定",
+   "duration": "每次 20 分钟"
+  },
+  {
+   "products": [
+    "a18·gym",
+    "a40·gym"
+   ],
+   "weeks": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "mode": "稳态",
+   "when": "hypertensionNoDoctor",
+   "quotes": [
+    {
+     "section": "安全须知",
+     "text": "有氧从第 2 周往后加时长、加坡度之前，先问医生；没问之前，保持第 2 周的强度"
+    }
+   ],
+   "note": "设计值 GYM_STABLE_CARDIO：有高血压（或没确认）而且没问过医生，保持第 2 周",
+   "phase": "稳定",
+   "duration": "每次 15 分钟，坡度不再往上加"
   }
  ],
  "derivedConditions": [

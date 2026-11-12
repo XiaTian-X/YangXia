@@ -56,7 +56,7 @@ export function buildSheet(ctx: AssessContext): { text: string | null; issues: I
     lines.push(`「${seg.product}」没有训练单（不用组数、次数）：照成品做。`, "");
   } else {
     const cm = cardioMode(rules, profile, info, seg.n, w, ctx.reviewData);
-    const cardioText = cm ? `这一周做**${cm.mode}**${cm.mode === "稳态" && cm.interval ? "，不做间歇" : ""}（${cm.why}）；时长照成品这一周的写法` : "";
+    const cardioText = cm ? `这一周做**${cm.mode}**${cm.mode === "稳态" && cm.interval ? "，不做间歇" : ""}${cm.duration ? `，**${cm.duration}**` : ""}（${cm.why}）${cm.duration ? "" : "；时长照成品这一周的写法"}` : "";
     let cardioShown = false;
     for (const day of p.segments[planType(seg)]?.days ?? []) {
       const r = exportCourse({ plans, rules, manifest, profile, week: w, day });

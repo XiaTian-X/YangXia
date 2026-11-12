@@ -1058,36 +1058,37 @@ export function gap(ctx: AssessContext, code: string, today: string): { last: st
  * 这一周的有氧做稳态还是间歇（有氧不导出、没有练习记录，拦不了，只能让计划单和导出时的提示写对）：
  * 规则在 rules.cardio；有间歇的周，高血压（或没确认）而且没问过医生的做稳态，这一轮第 2 周的稳态自查没过（或没记）的做稳态。
  */
-export function cardioMode(rules: RulesData | null, profile: Obj, product: { code: string; phase: string }, n: number, week: number, reviewData: Record<string, Obj>): { mode: string; why: string; interval: boolean } | null {
-  const r = cardioModeOf(rules, profile, product, n, week, reviewData);
-  if (!r) return null;
+export function cardioMode(rules: RulesData | null, profile: Obj, product: { code: string; phase: string }, n: number, week: number, reviewData: Record<string, Obj>): { mode: string; why: string; duration?: string; interval: boolean } | null {
   const k = product.phase === "稳定" ? roundWeek(week) : week;
-  // interval：成品这一周本来有间歇的安排（写"稳态"时要说清楚不做间歇）
-  return { ...r, interval: (rules?.cardio ?? []).some((c) => c.products.includes(product.code) && c.weeks.includes(k) && c.mode !== "稳态") };
-}
-
-function cardioModeOf(rules: RulesData | null, profile: Obj, product: { code: string; phase: string }, n: number, week: number, reviewData: Record<string, Obj>): { mode: string; why: string } | null {
-  const k = product.phase === "稳定" ? roundWeek(week) : week;
-  const rows = (rules?.cardio ?? []).filter((c) => c.products.includes(product.code) && c.weeks.includes(k));
+  // 这一阶段、这一轮第 k 周的行（阶段空着的两个阶段都用）
+  const rows = (rules?.cardio ?? []).filter((c) => c.products.includes(product.code) && c.weeks.includes(k) && (c.phase ?? product.phase) === product.phase);
   if (!rows.length || !rules) return null;
-  if (!rows.some((c) => c.mode === "间歇")) return { mode: rows[0].mode, why: `每一轮第 ${k} 周` };
-  // 认不出的写法（新的 when、新的模式）、缺了组合条件：一律稳态（保守），提示先更新核心库或模板
+  const interval = rows.some((c) => c.mode === "间歇");
+  const hyper = rows.find((c) => c.when === "hypertensionNoDoctor");
+  const out = (c: { mode: string; duration?: string } | undefined, why: string) => ({ mode: c?.mode === "间歇" ? "间歇" : "稳态", why, interval, ...(c?.duration ? { duration: c.duration } : {}) });
+  // 认不出的写法（新的 when、新的模式）、缺了组合条件：一律稳态（保守），有"高血压没问过医生"那一行就照它的时长
   const KNOWN = ["always", "selfCheckPassed", "selfCheckFailed", "hypertensionNoDoctor"];
-  if (rows.some((c) => !KNOWN.includes(c.when) || (c.mode !== "间歇" && c.mode !== "稳态"))) return { mode: "稳态", why: "模板的有氧规则有这里不认识的写法：先按稳态做" };
+  if (rows.some((c) => !KNOWN.includes(c.when) || (c.mode !== "间歇" && c.mode !== "稳态"))) return out(hyper ?? { mode: "稳态" }, "模板的有氧规则有这里不认识的写法：先按稳态做");
   const derived = rules.derivedConditions?.find((d) => d.name === "高血压没问过医生");
-  if (!derived && rows.some((c) => c.when === "hypertensionNoDoctor")) return { mode: "稳态", why: "模板缺少组合条件\"高血压没问过医生\"：先按稳态做" };
+  if (!derived && hyper) return out(hyper, "模板缺少组合条件\"高血压没问过医生\"：先按保守的做法");
   const cond = (name: string): boolean => {
     const v = profile.conditions?.[name];
     return typeof v === "boolean" ? v : rules.conditions[name]?.default ?? true;
   };
-  if (derived && derived.all.every((x) => cond(x.name) === x.value)) {
-    return { mode: "稳态", why: "有高血压（或没确认）而且没问过医生：间歇先问医生，没问之前继续做中等强度的稳态有氧" };
+  if (hyper && derived && derived.all.every((x) => cond(x.name) === x.value)) {
+    return out(hyper, interval
+      ? "有高血压（或没确认）而且没问过医生：间歇先问医生，没问之前继续做中等强度的稳态有氧"
+      : "有高血压（或没确认）而且没问过医生：加时长、加坡度之前先问医生，没问之前保持第 2 周的强度");
+  }
+  if (!interval) {
+    const always = rows.find((c) => c.when === "always");
+    return out(always ?? rows[0], `${product.phase === "稳定" ? "每一轮" : "起始期"}第 ${k} 周`);
   }
   // 这一轮第 2 周的复盘（重复的周取最后一份）
   const ss = (profile.segments as SegmentEntry[]).filter((s) => s.n === n && s.week === week - k + 2);
   const rv = ss.length ? reviewData[reviewDataName(ss[ss.length - 1])] : undefined;
-  if (rv?.steadyCheck === true) return { mode: "间歇", why: "这一轮第 2 周的稳态自查过了" };
-  return { mode: "稳态", why: rv?.steadyCheck === false ? "这一轮第 2 周的稳态自查没过：第 3–4 周继续稳态 20 分钟" : "这一轮第 2 周的稳态自查还没记：先自查，过了再上间歇" };
+  if (rv?.steadyCheck === true) return out(rows.find((c) => c.when === "selfCheckPassed"), "这一轮第 2 周的稳态自查过了");
+  return out(rows.find((c) => c.when === "selfCheckFailed"), rv?.steadyCheck === false ? "这一轮第 2 周的稳态自查没过：第 3–4 周继续稳态 20 分钟" : "这一轮第 2 周的稳态自查还没记：先自查，过了再上间歇");
 }
 
 /** 65 岁以上摔倒以后、医生同意之前：平衡动作不练。 */

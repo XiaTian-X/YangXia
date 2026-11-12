@@ -113,17 +113,22 @@ describe.skipIf(!hasTemplates || !t!.plans?.products[STABLE_BW])("稳定期：�
 });
 
 describe.skipIf(!hasTemplates || !t!.plans?.products[STABLE_BW])("稳定期：新手从起始期走到下一个周期", () => {
-  const STARTER = "18-39岁-纯徒手版";
+  let STARTER = "18-39岁-纯徒手版";
+  let STABLE = STABLE_BW;
+  let AGE = "a18";
+  let BIRTH = "1996-05";
+  let ENTRY: Record<string, unknown> = {};
+  let tests: Record<string, unknown>[] = [{ id: "pushup-test", level: 2, value: 12 }, { id: "wallsit-test", value: 30 }];
+  let endTests: Record<string, unknown>[] | null = null;
   const DECL = "> 本计划由养夏计划模板生成，未经专业审核，不是医学建议，不能替代医生的判断。";
   const back = (days: number) => { const d = new Date(Date.now() - days * 86_400_000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
-  const tests = [{ id: "pushup-test", level: 2, value: 12 }, { id: "wallsit-test", value: 30 }];
   /** plan：[第几段, 阶段, 第几周][]，最后一项从昨天开始，往前每周 7 天；每一周（除了最后一周）写复盘。 */
   function build(name: string, plan: [number, string, number][], ends: Record<number, [string, Record<string, unknown>]>, trainings = 4) {
-    const segs = plan.map(([n, phase, week], i) => ({ n, ...(phase === "稳定" ? { phase } : {}), type: "标准", week, start: back(7 * (plan.length - 1 - i) + 1), product: phase === "稳定" ? STABLE_BW : STARTER }));
-    const d = dir(name, segs[segs.length - 1].product, { birth: "1996-05", body: "不记", startDate: segs[0].start, segments: segs, conditions: { 高血压: false },
-      screening: undefined }, { [`评估/${segs[0].start}-入门.json`]: { schema: ASSESS_FORMAT, date: segs[0].start, kind: "入门", tests, conclusion: {} } });
+    const segs = plan.map(([n, phase, week], i) => ({ n, ...(phase === "稳定" ? { phase } : {}), type: "标准", week, start: back(7 * (plan.length - 1 - i) + 1), product: phase === "稳定" ? STABLE : STARTER }));
+    const d = dir(name, segs[segs.length - 1].product, { birth: BIRTH, body: "不记", startDate: segs[0].start, segments: segs, conditions: { 高血压: false },
+      screening: undefined }, { [`评估/${segs[0].start}-入门.json`]: { schema: ASSESS_FORMAT, date: segs[0].start, kind: "入门", tests: endTests ? [] : tests, conclusion: {}, ...ENTRY } });
     const p = JSON.parse(readFileSync(join(d, "档案.json"), "utf8"));
-    const items = t!.manifest.intake.screening.find((x) => x.age === "a18")!.items;
+    const items = t!.manifest.intake.screening.find((x) => x.age === AGE)!.items;
     p.screening = { answers: items.map((item) => ({ item, answer: "否" })), doctorCleared: false, date: segs[0].start };
     writeFileSync(join(d, "档案.json"), JSON.stringify(p));
     mkdirSync(join(d, "复盘"), { recursive: true });
@@ -137,7 +142,7 @@ describe.skipIf(!hasTemplates || !t!.plans?.products[STABLE_BW])("稳定期：�
       const last = segs.filter((s) => s.n === Number(n)).pop()!;
       const date = new Date(new Date(`${last.start}T12:00:00`).getTime() + 6 * 86_400_000);
       const ds = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-      writeFileSync(join(d, "评估", `${ds}-${kind}.json`), JSON.stringify({ schema: ASSESS_FORMAT, date: ds, kind, segment: Number(n), tests, conclusion }));
+      writeFileSync(join(d, "评估", `${ds}-${kind}.json`), JSON.stringify({ schema: ASSESS_FORMAT, date: ds, kind, segment: Number(n), tests: endTests ?? tests, conclusion }));
     }
     return d;
   }
@@ -151,6 +156,36 @@ describe.skipIf(!hasTemplates || !t!.plans?.products[STABLE_BW])("稳定期：�
     expect(run("plan", d).stdout).toMatch(/已生成/);
     expect(run("assess", d, "周期末").stdout).toMatch(/12 周训练 48 次[\s\S]*结论：达标/);
     expect(run("profile", "check", d).status).toBe(0);
+  });
+  it("健身房：起始期 4 周 → 段末\"进入下一阶段\" → 稳定期第 1 周：检查、导出（3 组 × 10 次）、计划单（有氧 20 分钟）", () => {
+    [STARTER, STABLE, AGE, BIRTH, ENTRY] = ["18-39岁-健身房版", "18-39岁-健身房版（稳定期）", "a18", "1996-05", {}];
+    endTests = [{ id: "gym-weights", move: "gym-smith-squat", value: 40 }, { id: "gym-weights", move: "gym-chest-press", value: 30 }, { id: "gym-weights", move: "gym-lat-pulldown", value: 35 }];
+    try {
+      const d = build("gym-ok", [...wk(1, "起始", 1, 4), [2, "稳定", 1]], { 1: ["段末", { result: "进入下一阶段", next: "标准" }] });
+      expect(run("profile", "check", d).stdout).toMatch(/0 个错误/);
+      const e = run("export", d, "1", "A", "--out", join(root, "gym-a.json"));
+      expect(e.stdout).toMatch(/有氧：这一周做稳态，每次 20 分钟/);
+      const c = JSON.parse(readFileSync(join(root, "gym-a.json"), "utf8"));
+      expect(c.blocks.flatMap((b: any) => b.items).find((i: any) => i.exercise === "gym-smith-squat")).toMatchObject({ sets: 3, reps: 10 });
+      expect(run("plan", d).stdout).toMatch(/已生成/);
+      expect(run("profile", "check", d).status).toBe(0);
+    } finally {
+      [STARTER, STABLE, AGE, BIRTH, ENTRY, endTests] = ["18-39岁-纯徒手版", STABLE_BW, "a18", "1996-05", {}, null];
+    }
+  });
+  it("40–64 岁纯徒手：起始期 4 周 → 段末到进阶线 → 稳定期第 1 周：检查、导出、计划单（第 1 周写出升级窗口）", () => {
+    [STARTER, STABLE, AGE, BIRTH, ENTRY] = ["40-64岁-纯徒手版", "40-64岁-纯徒手版（稳定期）", "a40", "1976-05", { prereqs: { checkup: true, bpOk: true }, conclusion: { needDoctor: false } }];
+    try {
+      const d = build("a40-ok", [...wk(1, "起始", 1, 4), [2, "稳定", 1]], { 1: ["段末", { result: "添装备", next: "标准" }] });
+      const p = JSON.parse(readFileSync(join(d, "档案.json"), "utf8"));
+      writeFileSync(join(d, "档案.json"), JSON.stringify({ ...p, stage: "40–64 岁" }));
+      const chk = run("profile", "check", d);
+      expect(chk.stdout).toMatch(/0 个错误/);
+      expect(run("export", d, "1", "A").stdout).toMatch(/已导出/);
+      expect(run("plan", d).stdout).toMatch(/已生成/);
+    } finally {
+      [STARTER, STABLE, AGE, BIRTH, ENTRY] = ["18-39岁-纯徒手版", STABLE_BW, "a18", "1996-05", {}];
+    }
   });
   it("只练了 12–13 次（没到进阶线）就进稳定期：拦下", () => {
     const d = build("nv-low", [...wk(1, "起始", 1, 4), [2, "稳定", 1]], { 1: ["段末", { result: "原样", next: "标准" }] }, 3);

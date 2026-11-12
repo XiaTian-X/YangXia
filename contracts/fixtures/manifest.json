@@ -82,6 +82,83 @@
    ]
   },
   {
+   "file": "18-39岁-健身房版（稳定期）.md",
+   "name": "18-39岁-健身房版（稳定期）",
+   "audience": "adult",
+   "age": "a18",
+   "venue": "gym",
+   "phase": "稳定",
+   "for": "18–39 岁，起始期练完一轮到了进阶线的健康成年人",
+   "venue_note": "健身房",
+   "version": "v3.0",
+   "review": "稳定期：每周照起始期第 4 周练、重量按原文的双进阶加，新定的只有周期和评估；未经专业审核",
+   "figures": [
+    "wu-activate",
+    "wu-mobility-gym",
+    "wu-greatest",
+    "wu-gym-extra",
+    "st-a",
+    "st-b",
+    "st-neck",
+    "st-c",
+    "gym-smith-squat",
+    "gym-rdl",
+    "gym-leg-press",
+    "gym-leg-curl",
+    "gym-calf-raise",
+    "plank",
+    "dead-bug",
+    "gym-chest-press",
+    "gym-incline-press",
+    "gym-seated-press",
+    "lateral-raise",
+    "gym-pushdown",
+    "gym-lat-pulldown",
+    "gym-seated-row",
+    "sa-db-row",
+    "gym-face-pull",
+    "db-curl",
+    "gym-goblet-squat",
+    "gym-cs-row",
+    "gym-standing-press",
+    "gym-farmer-walk",
+    "gym-treadmill"
+   ],
+   "params_used": [
+    "BMI_CN",
+    "SLEEP_ADULT",
+    "SED_ADULT_WHO",
+    "SED_ALL_CN",
+    "WATER_CN",
+    "PA_STEPS",
+    "EGG_CN",
+    "SALT_CN",
+    "LOW_NA_SALT_CAUTION",
+    "VEG_CN",
+    "FRUIT_CN",
+    "MILK_CN",
+    "MILK_PAGODA_CN",
+    "GRAIN_CN",
+    "ANIMAL_CN",
+    "ANIMAL_WEEK_CN",
+    "SOY_NUT_CN",
+    "OIL_CN",
+    "SUGAR_CN",
+    "NSS_WHO",
+    "ALCOHOL_WHO",
+    "ALCOHOL_CN"
+   ],
+   "params_related": [
+    "PA_ADULT_AEROBIC",
+    "PA_ADULT_STRENGTH",
+    "SLEEP_BEDTIME_ADULT",
+    "SUGAR_WHO",
+    "FIBER_WHO",
+    "WAIST_CN",
+    "LOSS_REF"
+   ]
+  },
+  {
    "file": "18-39岁-居家版.md",
    "name": "18-39岁-居家版",
    "audience": "adult",
@@ -503,6 +580,90 @@
    "venue_note": "纯徒手，零器械",
    "version": "v3.0",
    "review": "在 18–39 岁版基础上调整，未经专业审核",
+   "figures": [
+    "wu-activate",
+    "wu-mobility",
+    "wu-greatest",
+    "wu-home-extra",
+    "st-a",
+    "st-b",
+    "st-wrist",
+    "st-c",
+    "wu-balance",
+    "squat",
+    "split-squat",
+    "split-squat-stool",
+    "bss",
+    "glute-bridge",
+    "hip-hinge-wall",
+    "sl-rdl",
+    "wall-sit",
+    "calf-raise",
+    "plank",
+    "dead-bug",
+    "pushup",
+    "pushup-ladder",
+    "pike-pushup",
+    "chair-dip",
+    "wall-angel",
+    "shoulder-tap",
+    "side-plank",
+    "table-row",
+    "door-row",
+    "towel-row",
+    "ytw",
+    "reverse-snow-angel",
+    "superman",
+    "bird-dog",
+    "towel-curl",
+    "d-cardio-low",
+    "d-circuit-bw"
+   ],
+   "params_used": [
+    "BMI_CN",
+    "SLEEP_ADULT",
+    "SED_ADULT_WHO",
+    "SED_ALL_CN",
+    "WATER_CN",
+    "PA_STEPS",
+    "EGG_CN",
+    "SALT_CN",
+    "LOW_NA_SALT_CAUTION",
+    "VEG_CN",
+    "FRUIT_CN",
+    "MILK_CN",
+    "MILK_PAGODA_CN",
+    "GRAIN_CN",
+    "ANIMAL_CN",
+    "ANIMAL_WEEK_CN",
+    "SOY_NUT_CN",
+    "OIL_CN",
+    "SUGAR_CN",
+    "NSS_WHO",
+    "ALCOHOL_WHO",
+    "ALCOHOL_CN"
+   ],
+   "params_related": [
+    "PA_ADULT_AEROBIC",
+    "PA_ADULT_STRENGTH",
+    "SLEEP_BEDTIME_ADULT",
+    "SUGAR_WHO",
+    "FIBER_WHO",
+    "WAIST_CN",
+    "LOSS_REF"
+   ]
+  },
+  {
+   "file": "40-64岁-纯徒手版（稳定期）.md",
+   "name": "40-64岁-纯徒手版（稳定期）",
+   "audience": "adult",
+   "age": "a40",
+   "venue": "bw",
+   "phase": "稳定",
+   "for": "40–64 岁，起始期练完一轮到了进阶线、或有训练基础的健康成年人",
+   "venue_note": "纯徒手，零器械",
+   "version": "v3.0",
+   "review": "稳定期：照起始期的四周计划一轮一轮走，新定的只有周期和评估；未经专业审核",
    "figures": [
     "wu-activate",
     "wu-mobility",
@@ -1037,6 +1198,14 @@
      "line": 679
     },
     {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "深蹲（史密斯机）",
+     "prescription": "",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒（过了最吃力的那一段把气呼完）→ 站直后换一口气，再蹲下一次。**每一下都换气**，不要整组憋着。",
+     "line": 757
+    },
+    {
      "product": "40-64岁-健身房版",
      "code": "a40·gym",
      "title": "深蹲（史密斯机）",
@@ -1066,6 +1235,14 @@
      "prescription": "",
      "breathing": "吸气，屁股往后推、往下约 2 秒（进阶时数 3 秒）→ 呼气，臀部发力站直约 1 秒；不憋气。",
      "line": 694
+    },
+    {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "罗马尼亚硬拉（哑铃）",
+     "prescription": "",
+     "breathing": "吸气，屁股往后推、往下约 2 秒（进阶时数 3 秒）→ 呼气，臀部发力站直约 1 秒；不憋气。",
+     "line": 772
     },
     {
      "product": "40-64岁-健身房版",
@@ -1099,6 +1276,14 @@
      "line": 708
     },
     {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "腿举机",
+     "prescription": "",
+     "breathing": "吸气，屈膝下放约 2 秒 → 呼气，推起约 1 秒；不憋气。",
+     "line": 786
+    },
+    {
      "product": "40-64岁-健身房版",
      "code": "a40·gym",
      "title": "腿举机",
@@ -1130,6 +1315,14 @@
      "line": 722
     },
     {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "腿弯举（俯卧或坐姿）",
+     "prescription": "",
+     "breathing": "呼气，卷起约 1 秒 → 顶点停半秒（进阶停 1 秒），把气慢慢呼完 → 吸气，放回约 2 秒；不憋气。",
+     "line": 800
+    },
+    {
      "product": "40-64岁-健身房版",
      "code": "a40·gym",
      "title": "腿弯举（俯卧或坐姿）",
@@ -1159,6 +1352,14 @@
      "prescription": "",
      "breathing": "呼气，踮起约 1 秒 → 最高点停 1 秒，把气慢慢呼完 → 吸气，下放约 2 秒；不憋气。",
      "line": 736
+    },
+    {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "站姿提踵",
+     "prescription": "",
+     "breathing": "呼气，踮起约 1 秒 → 最高点停 1 秒，把气慢慢呼完 → 吸气，下放约 2 秒；不憋气。",
+     "line": 814
     },
     {
      "product": "40-64岁-健身房版",
@@ -1237,6 +1438,14 @@
      "line": 748
     },
     {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "平板支撑",
+     "prescription": "",
+     "breathing": "呼气，把身体撑起来（约 1 秒）→ 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 吸气，慢慢放下。",
+     "line": 826
+    },
+    {
      "product": "18-39岁-居家版",
      "code": "a18·home",
      "title": "平板支撑",
@@ -1267,6 +1476,22 @@
      "prescription": "30 秒",
      "breathing": "撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气。",
      "line": 1108
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "平板支撑",
+     "prescription": "3 组 × 30–60 秒",
+     "breathing": "呼气，把身体撑起来（约 1 秒）→ 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 吸气，慢慢放下。",
+     "line": 921
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "平板支撑",
+     "prescription": "30 秒",
+     "breathing": "撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气。",
+     "line": 1191
     },
     {
      "product": "40-64岁-健身房版",
@@ -1345,6 +1570,14 @@
      "line": 760
     },
     {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "死虫式",
+     "prescription": "",
+     "breathing": "呼气，手脚慢慢伸出去约 2 秒 → 吸气，收回来约 2 秒 → 换另一边；不憋气。",
+     "line": 838
+    },
+    {
      "product": "18-39岁-居家版",
      "code": "a18·home",
      "title": "死虫式",
@@ -1359,6 +1592,14 @@
      "prescription": "每侧 12 次",
      "breathing": "呼气，手脚慢慢伸出去约 2 秒 → 吸气，收回来约 2 秒 → 换另一边；不憋气。",
      "line": 844
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "死虫式",
+     "prescription": "每侧 12 次",
+     "breathing": "呼气，手脚慢慢伸出去约 2 秒 → 吸气，收回来约 2 秒 → 换另一边；不憋气。",
+     "line": 927
     },
     {
      "product": "40-64岁-健身房版",
@@ -1400,6 +1641,14 @@
      "line": 776
     },
     {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "器械推胸（坐姿）",
+     "prescription": "",
+     "breathing": "呼气，推出约 1 秒 → 吸气，收回约 2 秒；不憋气。",
+     "line": 854
+    },
+    {
      "product": "40-64岁-健身房版",
      "code": "a40·gym",
      "title": "器械推胸（坐姿）",
@@ -1429,6 +1678,14 @@
      "prescription": "",
      "breathing": "呼气，推起约 1 秒 → 吸气，下放到胸口高度约 2 秒；不憋气。",
      "line": 791
+    },
+    {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "上斜哑铃卧推",
+     "prescription": "",
+     "breathing": "呼气，推起约 1 秒 → 吸气，下放到胸口高度约 2 秒；不憋气。",
+     "line": 869
     },
     {
      "product": "40-64岁-健身房版",
@@ -1462,6 +1719,14 @@
      "line": 805
     },
     {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "坐姿哑铃肩推",
+     "prescription": "",
+     "breathing": "呼气，推起约 1 秒 → 吸气，降回耳侧约 2 秒；不憋气。",
+     "line": 883
+    },
+    {
      "product": "40-64岁-健身房版",
      "code": "a40·gym",
      "title": "坐姿哑铃肩推",
@@ -1493,6 +1758,14 @@
      "prescription": "",
      "breathing": "呼气，抬起约 1 秒 → 吸气，慢慢放下约 2 秒；进阶时顶点停 1 秒，把气慢慢呼完再放；不憋气。",
      "line": 819
+    },
+    {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "侧平举",
+     "prescription": "",
+     "breathing": "呼气，抬起约 1 秒 → 吸气，慢慢放下约 2 秒；进阶时顶点停 1 秒，把气慢慢呼完再放；不憋气。",
+     "line": 897
     },
     {
      "product": "18-39岁-居家版",
@@ -1542,6 +1815,14 @@
      "line": 832
     },
     {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "绳索下压",
+     "prescription": "",
+     "breathing": "呼气，往下压约 1 秒 → 压到底停半秒，把气呼完 → 吸气，回到胸前约 2 秒；不憋气。",
+     "line": 910
+    },
+    {
      "product": "40-64岁-健身房版",
      "code": "a40·gym",
      "title": "绳索下压",
@@ -1571,6 +1852,14 @@
      "prescription": "",
      "breathing": "先沉肩 → 呼气，把杆拉下约 1 秒 → 吸气，慢慢送回约 2 秒；不憋气。",
      "line": 849
+    },
+    {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "高位下拉",
+     "prescription": "",
+     "breathing": "先沉肩 → 呼气，把杆拉下约 1 秒 → 吸气，慢慢送回约 2 秒；不憋气。",
+     "line": 927
     },
     {
      "product": "40-64岁-健身房版",
@@ -1604,6 +1893,14 @@
      "line": 863
     },
     {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "坐姿划船",
+     "prescription": "",
+     "breathing": "呼气，拉约 1 秒 → 吸气，慢慢送回约 2 秒；进阶时顶点停 1 秒，把气慢慢呼完再送回；不憋气。",
+     "line": 941
+    },
+    {
      "product": "40-64岁-健身房版",
      "code": "a40·gym",
      "title": "坐姿划船",
@@ -1635,6 +1932,14 @@
      "prescription": "",
      "breathing": "呼气，拉起约 1 秒 → 吸气，放下约 2 秒；不憋气。",
      "line": 877
+    },
+    {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "单臂哑铃划船",
+     "prescription": "",
+     "breathing": "呼气，拉起约 1 秒 → 吸气，放下约 2 秒；不憋气。",
+     "line": 955
     },
     {
      "product": "18-39岁-居家版",
@@ -1700,6 +2005,14 @@
      "line": 890
     },
     {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "面拉",
+     "prescription": "",
+     "breathing": "呼气，拉向脸约 1 秒 → 吸气，慢慢送回约 2 秒；进阶时顶点停 1 秒，把气慢慢呼完再送回；不憋气。",
+     "line": 968
+    },
+    {
      "product": "40-64岁-健身房版",
      "code": "a40·gym",
      "title": "面拉",
@@ -1731,6 +2044,14 @@
      "prescription": "",
      "breathing": "呼气，弯起约 1 秒 → 吸气，放下约 2 秒（进阶时数 3 秒）；不憋气。",
      "line": 902
+    },
+    {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "哑铃弯举",
+     "prescription": "",
+     "breathing": "呼气，弯起约 1 秒 → 吸气，放下约 2 秒（进阶时数 3 秒）；不憋气。",
+     "line": 980
     },
     {
      "product": "18-39岁-居家版",
@@ -1780,6 +2101,14 @@
      "line": 919
     },
     {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "高脚杯深蹲",
+     "prescription": "",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒；进阶时最低点停 1 秒，停住时自然呼吸；不憋气。",
+     "line": 997
+    },
+    {
      "product": "40-64岁-健身房版",
      "code": "a40·gym",
      "title": "高脚杯深蹲",
@@ -1809,6 +2138,14 @@
      "prescription": "",
      "breathing": "呼气，拉起约 1 秒 → 吸气，慢慢放下约 2 秒；不憋气。",
      "line": 933
+    },
+    {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "支撑划船（胸靠斜凳）",
+     "prescription": "",
+     "breathing": "呼气，拉起约 1 秒 → 吸气，慢慢放下约 2 秒；不憋气。",
+     "line": 1011
     },
     {
      "product": "40-64岁-健身房版",
@@ -1842,6 +2179,14 @@
      "line": 948
     },
     {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "哑铃推举（站姿）",
+     "prescription": "",
+     "breathing": "呼气，推起约 1 秒 → 吸气，慢慢降回肩部约 2 秒；不憋气。",
+     "line": 1026
+    },
+    {
      "product": "40-64岁-健身房版",
      "code": "a40·gym",
      "title": "哑铃推举（站姿）",
@@ -1871,6 +2216,14 @@
      "prescription": "",
      "breathing": "吸气，蹲下抓住哑铃 → 呼气，站起来约 1–2 秒 → 走的 30–40 秒里自然呼吸，大约 2 步吸、2 步呼，用平时走路的步子，不用赶 → 吸气，蹲下放铃；不憋气。",
      "line": 961
+    },
+    {
+     "product": "18-39岁-健身房版（稳定期）",
+     "code": "a18·gym",
+     "title": "农夫行走",
+     "prescription": "",
+     "breathing": "吸气，蹲下抓住哑铃 → 呼气，站起来约 1–2 秒 → 走的 30–40 秒里自然呼吸，大约 2 步吸、2 步呼，用平时走路的步子，不用赶 → 吸气，蹲下放铃；不憋气。",
+     "line": 1039
     },
     {
      "product": "40-64岁-健身房版",
@@ -1971,6 +2324,22 @@
      "line": 1100
     },
     {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "徒手深蹲",
+     "prescription": "3 组 × 15–20 次",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒。难度阶梯里\"下放 3 秒\"那一级，吸气数满 3 秒；\"底部停 2 秒\"那一级，停住时自然呼吸；不憋气。",
+     "line": 800
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "徒手深蹲",
+     "prescription": "15",
+     "breathing": "吸气，下蹲约 2 秒 → 呼气，站起约 1 秒。",
+     "line": 1183
+    },
+    {
      "product": "40-64岁-居家版",
      "code": "a40·home",
      "title": "徒手深蹲",
@@ -2045,6 +2414,14 @@
      "line": 743
     },
     {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "原地分腿蹲",
+     "prescription": "每侧 3 组 × 10–12 次",
+     "breathing": "吸气，身体往下沉约 2 秒（第 3 周起放慢到 3 秒，见上表）→ 呼气，发力站回约 1 秒；不憋气。",
+     "line": 826
+    },
+    {
      "product": "40-64岁-居家版",
      "code": "a40·home",
      "title": "原地分腿蹲",
@@ -2100,6 +2477,14 @@
      "prescription": "",
      "breathing": "和原地分腿蹲一样——吸气，往下约 2 秒 → 呼气，站起约 1 秒；上凳、下凳时自然呼吸，站稳了再开始；不憋气。",
      "line": 757
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "后脚搭矮凳",
+     "prescription": "",
+     "breathing": "和原地分腿蹲一样——吸气，往下约 2 秒 → 呼气，站起约 1 秒；上凳、下凳时自然呼吸，站稳了再开始；不憋气。",
+     "line": 840
     },
     {
      "product": "40-64岁-居家版",
@@ -2160,6 +2545,15 @@
      "prescription": "",
      "breathing": "吸气，前腿屈膝往下约 2 秒 → 呼气，前脚跟发力站起约 1 秒；难度阶梯里\"下放 3 秒\"那一级，吸气数满 3 秒；不憋气。",
      "line": 766,
+     "from_round": 3
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "保加利亚分腿蹲",
+     "prescription": "",
+     "breathing": "吸气，前腿屈膝往下约 2 秒 → 呼气，前脚跟发力站起约 1 秒；难度阶梯里\"下放 3 秒\"那一级，吸气数满 3 秒；不憋气。",
+     "line": 849,
      "from_round": 3
     },
     {
@@ -2262,6 +2656,22 @@
      "line": 1106
     },
     {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "臀桥",
+     "prescription": "3 组 × 20 次",
+     "breathing": "呼气，往上顶约 1 秒 → 顶点停 2 秒，停住时自然呼吸 → 吸气，慢慢放下约 2 秒。难度阶梯里\"顶点停 3 秒\"那几级，照写的秒数停，停住时同样自然呼吸；不憋气。",
+     "line": 859
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "臀桥",
+     "prescription": "20",
+     "breathing": "呼气，往上顶约 1 秒 → 吸气，放下约 2 秒（顶点不停）。",
+     "line": 1189
+    },
+    {
      "product": "40-64岁-居家版",
      "code": "a40·home",
      "title": "臀桥",
@@ -2327,6 +2737,14 @@
      "line": 790
     },
     {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "单腿罗马尼亚硬拉（徒手）",
+     "prescription": "每侧 3 组 × 12 次",
+     "breathing": "吸气，屁股往后推、上身往下压约 2 秒 → 呼气，臀部发力站直约 1 秒；先学屈髋也这样呼吸；难度阶梯里\"下放 3 秒\"那一级，吸气数满 3 秒；不憋气。",
+     "line": 873
+    },
+    {
      "product": "40-64岁-居家版",
      "code": "a40·home",
      "title": "单腿罗马尼亚硬拉",
@@ -2384,6 +2802,14 @@
      "line": 806
     },
     {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "靠墙静蹲",
+     "prescription": "3 组 × 30–90 秒（撑到姿势快保持不住就停，40–64 岁版不撑到力竭）",
+     "breathing": "吸气，背贴墙往下滑约 2 秒 → 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 呼气，背贴墙滑回站直（约 1–2 秒）。",
+     "line": 889
+    },
+    {
      "product": "40-64岁-居家版",
      "code": "a40·home",
      "title": "靠墙静蹲",
@@ -2439,6 +2865,14 @@
      "prescription": "3 组 × 20 次（单腿则 15 次）",
      "breathing": "呼气，慢慢踮起约 2 秒 → 最高点停 1 秒，把气慢慢呼完 → 吸气，慢慢下沉约 2 秒；不要弹，不憋气。",
      "line": 819
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "提踵",
+     "prescription": "3 组 × 20 次（单腿则 15 次）",
+     "breathing": "呼气，慢慢踮起约 2 秒 → 最高点停 1 秒，把气慢慢呼完 → 吸气，慢慢下沉约 2 秒；不要弹，不憋气。",
+     "line": 902
     },
     {
      "product": "40-64岁-居家版",
@@ -2539,6 +2973,22 @@
      "line": 1102
     },
     {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "俯卧撑（阶梯动作，本日核心）",
+     "prescription": "3 组 × 8–15 次",
+     "breathing": "吸气，下放约 2 秒 → 呼气，推起约 1 秒；阶梯第 5 级\"下放 3 秒\"吸气数满 3 秒，推起还是约 1 秒；不憋气。",
+     "line": 936
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "俯卧撑（你的当前难度级）",
+     "prescription": "10",
+     "breathing": "吸气，下放约 2 秒 → 呼气，推起约 1 秒。",
+     "line": 1185
+    },
+    {
      "product": "40-64岁-居家版",
      "code": "a40·home",
      "title": "俯卧撑（阶梯动作，本日核心）",
@@ -2635,6 +3085,14 @@
      "line": 892
     },
     {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "椅上臂屈伸（三头）",
+     "prescription": "3 组 × 12–15 次",
+     "breathing": "吸气，屈肘下放约 2 秒 → 呼气，推起约 1 秒；难度阶梯里\"下放 3 秒\"那一级，吸气数满 3 秒；不憋气。",
+     "line": 975
+    },
+    {
      "product": "40-64岁-居家版",
      "code": "a40·home",
      "title": "椅上臂屈伸（三头）",
@@ -2703,6 +3161,14 @@
      "line": 927
     },
     {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "侧撑",
+     "prescription": "每侧 3 组 × 30 秒",
+     "breathing": "呼气，把髋顶起来（约 1 秒）→ 撑住时自然呼吸，吸约 2 秒、呼约 2 秒，可以小声数\"吸、二，呼、二\"，数得出声就说明没憋气 → 吸气，慢慢放下髋。",
+     "line": 1010
+    },
+    {
      "product": "40-64岁-居家版",
      "code": "a40·home",
      "title": "平板支撑侧撑",
@@ -2767,6 +3233,14 @@
      "prescription": "**4 组**（第 1 周 3 组）× 8–15 次｜**这一天唯一真正给背加负荷的动作，所以多做一组**",
      "breathing": "呼气，把胸拉向桌沿约 1 秒 → 顶点停约 1 秒，把气慢慢呼完 → 吸气，慢慢放下约 2 秒；不憋气。",
      "line": 950
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "桌下反向划船（家里有结实餐桌就选它，效果最好）",
+     "prescription": "**4 组**（第 1 周 3 组）× 8–15 次｜**这一天唯一真正给背加负荷的动作，所以多做一组**",
+     "breathing": "呼气，把胸拉向桌沿约 1 秒 → 顶点停约 1 秒，把气慢慢呼完 → 吸气，慢慢放下约 2 秒；不憋气。",
+     "line": 1033
     },
     {
      "product": "40-64岁-居家版",
@@ -2866,6 +3340,14 @@
      "line": 997
     },
     {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "俯卧 YTW",
+     "prescription": "每个字母 12 次 × 2 组（Y 做 12 次 → T 做 12 次 → W 做 12 次，算 1 组）",
+     "breathing": "每个字母：呼气，手臂抬起约 1 秒 → 停 1–2 秒，停住时自然呼吸 → 吸气，放下约 1 秒；不憋气。",
+     "line": 1080
+    },
+    {
      "product": "40-64岁-居家版",
      "code": "a40·home",
      "title": "俯卧 YTW",
@@ -2932,6 +3414,14 @@
      "line": 1020
     },
     {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "超人式",
+     "prescription": "3 组 × 15 次",
+     "breathing": "呼气，手臂和双腿抬起约 1 秒 → 停 2 秒，停住时自然呼吸 → 吸气，慢慢放下约 1–2 秒；不憋气。",
+     "line": 1103
+    },
+    {
      "product": "40-64岁-居家版",
      "code": "a40·home",
      "title": "超人式",
@@ -2977,6 +3467,14 @@
      "prescription": "3 组 × 8–12 次",
      "breathing": "吸气，屈肘让头慢慢往下落约 2 秒 → 呼气，推回倒 V 约 1 秒；难度阶梯里\"下放 3 秒\"那一级，吸气数满 3 秒；不憋气。",
      "line": 875
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "派克俯卧撑（练肩的主力）",
+     "prescription": "3 组 × 8–12 次",
+     "breathing": "吸气，屈肘让头慢慢往下落约 2 秒 → 呼气，推回倒 V 约 1 秒；难度阶梯里\"下放 3 秒\"那一级，吸气数满 3 秒；不憋气。",
+     "line": 958
     }
    ]
   },
@@ -3025,6 +3523,14 @@
      "prescription": "2 组 × 10 次",
      "breathing": "吸气，从 W 慢慢往上滑成 Y 约 2 秒 → 在 Y 停一下 → 呼气，慢慢滑回 W 约 2 秒 → 在 W 停一下，再开始下一次；不憋气。",
      "line": 905
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "墙面天使（肩部灵活性 + 体态）",
+     "prescription": "2 组 × 10 次",
+     "breathing": "吸气，从 W 慢慢往上滑成 Y 约 2 秒 → 在 Y 停一下 → 呼气，慢慢滑回 W 约 2 秒 → 在 W 停一下，再开始下一次；不憋气。",
+     "line": 988
     }
    ]
   },
@@ -3073,6 +3579,14 @@
      "prescription": "3 组 × 每侧 10 次",
      "breathing": "呼气，一只手抬起碰对侧肩约 1 秒 → 碰到停一下，把气呼完 → 吸气，放回约 1 秒 → 换另一只手；慢一点没关系，髋不晃比速度要紧；不憋气。",
      "line": 916
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "平板肩点",
+     "prescription": "3 组 × 每侧 10 次",
+     "breathing": "呼气，一只手抬起碰对侧肩约 1 秒 → 碰到停一下，把气呼完 → 吸气，放回约 1 秒 → 换另一只手；慢一点没关系，髋不晃比速度要紧；不憋气。",
+     "line": 999
     }
    ]
   },
@@ -3121,6 +3635,14 @@
      "prescription": "**4 组**（第 1 周 3 组）× 8–15 次｜**这一天唯一真正给背加负荷的动作，所以多做一组**",
      "breathing": "呼气，把胸口拉向门框约 1 秒 → 停约 1 秒，把气慢慢呼完 → 吸气，放回到手臂伸直约 2 秒；不憋气。",
      "line": 967
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "门框划船（没有合适的桌子就用它）",
+     "prescription": "**4 组**（第 1 周 3 组）× 8–15 次｜**这一天唯一真正给背加负荷的动作，所以多做一组**",
+     "breathing": "呼气，把胸口拉向门框约 1 秒 → 停约 1 秒，把气慢慢呼完 → 吸气，放回到手臂伸直约 2 秒；不憋气。",
+     "line": 1050
     }
    ]
   },
@@ -3160,6 +3682,14 @@
      "prescription": "3 组 × 6 次，每次对抗 10 秒",
      "breathing": "呼气，手肘拉到腰侧约 1 秒 → 对抗 10 秒：自然呼吸，小声数\"一、二、三……十\"，数得出声就没憋气 → 放松 5 秒：吸气，把气喘匀。",
      "line": 984
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "毛巾自阻划船（等长）",
+     "prescription": "3 组 × 6 次，每次对抗 10 秒",
+     "breathing": "呼气，手肘拉到腰侧约 1 秒 → 对抗 10 秒：自然呼吸，小声数\"一、二、三……十\"，数得出声就没憋气 → 放松 5 秒：吸气，把气喘匀。",
+     "line": 1067
     }
    ]
   },
@@ -3208,6 +3738,14 @@
      "prescription": "3 组 × 10 次",
      "breathing": "吸气，手臂往头顶划约 2 秒 → 在头顶停一下 → 呼气，划回身体两侧约 2 秒；不憋气。",
      "line": 1009
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "反向雪天使",
+     "prescription": "3 组 × 10 次",
+     "breathing": "吸气，手臂往头顶划约 2 秒 → 在头顶停一下 → 呼气，划回身体两侧约 2 秒；不憋气。",
+     "line": 1092
     }
    ]
   },
@@ -3247,6 +3785,14 @@
      "prescription": "3 组 × 10 次（每组换一条腿对抗）",
      "breathing": "呼气，手用约 3 秒慢慢把脚拉上来 → 吸气，用约 3 秒慢慢放回去；可以边做边小声数\"一、二、三\"，数得出声就没憋气。",
      "line": 1037
+    },
+    {
+     "product": "40-64岁-纯徒手版（稳定期）",
+     "code": "a40·bw",
+     "title": "毛巾自阻弯举（二头）",
+     "prescription": "3 组 × 10 次（每组换一条腿对抗）",
+     "breathing": "呼气，手用约 3 秒慢慢把脚拉上来 → 吸气，用约 3 秒慢慢放回去；可以边做边小声数\"一、二、三\"，数得出声就没憋气。",
+     "line": 1120
     }
    ]
   },

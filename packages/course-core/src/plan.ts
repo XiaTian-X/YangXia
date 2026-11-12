@@ -86,7 +86,7 @@ export interface RulesData {
     nextCycle: { order: number; when: { kind: string }[]; result: string; next: { phase: string; type?: string; hold?: boolean }; quotes: { section: string; text: string }[]; note: string }[];
   };
   /** 每一轮哪几周稳态、哪几周间歇。 */
-  cardio?: { products: string[]; weeks: number[]; mode: string; when: string; quotes: { section: string; text: string }[]; note: string }[];
+  cardio?: { products: string[]; phase?: string; weeks: number[]; mode: string; duration?: string; when: string; quotes: { section: string; text: string }[]; note: string }[];
   /** 由两项条件合起来的组合条件。 */
   derivedConditions?: { name: string; all: { name: string; value: boolean }[] }[];
 }
