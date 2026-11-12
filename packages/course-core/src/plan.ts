@@ -39,6 +39,8 @@ export interface PlanRow {
   evidence?: Record<string, string[]>;
   /** 这个位置在正文里写的呼吸节奏（D 日循环用循环那里的）。 */
   breathing?: string;
+  /** 健身房稳定期：这一行走双进阶（周表定次数的主项；原文的例外动作没有）。 */
+  double?: boolean;
 }
 
 export interface LadderLevel {

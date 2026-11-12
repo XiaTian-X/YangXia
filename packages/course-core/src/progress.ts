@@ -332,7 +332,8 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
     const ladder = p.ladders[e.move];
     const stable = stableOf(period);
     const kWeek = wk(period);
-    const gymDouble = stable && p.venue === "gym";
+    // 健身房稳定期双进阶只给训练单标了 double 的行（周表定次数的主项）；提踵、平板支撑、死虫式、面拉、农夫行走照起始期的规则
+    const gymDouble = stable && p.venue === "gym" && row?.double === true;
     const cur = (state[e.move] ??= {});
     cur.product ??= {};
     const field = e.field as Field;
@@ -447,9 +448,10 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       continue;
     }
     if (e.rule === "建档") {
-      const okDay = field === "weight" ? pi === productStart : e.date === ss[productStart].start;
+      // 重量：这份成品开始的那一周记；起始期没记下来的，到了稳定期第一周还可以补记（重量是记录，不是处方）
+      const okDay = field === "weight" ? pi === productStart || (stable && period.week === 1) : e.date === ss[productStart].start;
       if (from !== undefined) err(i, `「${e.move}」的 ${field} 在这份成品里已经有值，建档只能写一次（降、升按规则写）`);
-      else if (!okDay) err(i, field === "weight" ? "起始重量在这份成品开始的那一周里记" : `建档只能在这份成品开始那天（${ss[productStart].start}）写`);
+      else if (!okDay) err(i, field === "weight" ? "起始重量在这份成品开始的那一周里记（起始期没记的，稳定期第 1 周可以补记）" : `建档只能在这份成品开始那天（${ss[productStart].start}）写`);
       else if (field === "level" && !startAllowed.has(to)) err(i, `建档只能用这一周起步能用的级（第 ${[...startAllowed].join("、")} 级），写的是第 ${to} 级`);
       else if (field === "reps" && row?.reps && to !== row.reps.min) err(i, `建档时次数取区间下限 ${row.reps.min}，写的是 ${to}`);
     } else if (before === undefined) {
@@ -563,7 +565,9 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         const it = sess ? itemOf(sess.raw) : null;
         const cap = weeksOf("每档加重上限")?.min;
         const reps = state[e.move]?.reps;
-        if (!gymDouble) err(i, "加一档是健身房稳定期双进阶的规则（起始期用 调重量、加重）");
+        if (!gymDouble) err(i, stable && p.venue === "gym"
+          ? `加一档只给健身房稳定期走双进阶的主项；「${e.move}」照旧按动作库的次数或秒数，不往上加重量`
+          : "加一档是健身房稳定期双进阶的规则（起始期用 调重量、加重）");
         else if (field !== "weight" || !(to > before!)) err(i, "加一档是重量往上加一档");
         else if (!row?.reps || reps !== row.reps.max) err(i, `加一档要先把次数做到 ${row?.reps?.max ?? "区间上限"} 次（现在是 ${reps ?? row?.reps?.min ?? "下限"} 次）`);
         else if (problem) err(i, `加一档：${problem}`);

@@ -48,7 +48,8 @@ export function buildSheet(ctx: AssessContext): { text: string | null; issues: I
   const lines: string[] = [
     `# ${profile.code} · 第 ${seg.n} 段第 ${w} 周计划（${seg.product}）`, "", DECLARATION, "",
     `<!-- 养夏计划单 段=${seg.n} 周=${w} 开始=${cur.start} 模板=${plans.version} 进度=${progressDate(profile)} -->`, "",
-    stable ? `稳定期 12 周的第 ${w} 周：第 ${Math.floor((w - 1) / ROUND_WEEKS) + 1} 轮 · 第 ${roundWeek(w)} 周（照成品里这一轮第 ${roundWeek(w)} 周做）。`
+    stable && info.venue === "gym" ? `稳定期 12 周的第 ${w} 周：健身房每周一样，照第 4 周的组数（每个动作 3 组），主项次数和重量照《稳定期说明》的双进阶。`
+      : stable ? `稳定期 12 周的第 ${w} 周：第 ${Math.floor((w - 1) / ROUND_WEEKS) + 1} 轮 · 第 ${roundWeek(w)} 周（照成品里这一轮第 ${roundWeek(w)} 周做）。`
       : `起始期${seg.type}段第 ${w} 周。`,
     "", "## 训练", "",
   ];

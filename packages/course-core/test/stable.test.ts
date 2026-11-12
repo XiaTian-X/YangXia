@@ -342,7 +342,7 @@ describe("健身房双进阶（用起始期健身房版派生的样例验规则�
   pl.products[GS] = { ...clone(pl.products[GYM]), phase: "稳定", base: GYM, segments: { 稳定: { days: pl.products[GYM].segments["标准"].days } },
     rows: pl.products[GYM].rows.filter((r) => r.segments.includes("标准") && r.weeks.includes(4)).map((r) => ({
       ...clone(r), segments: ["稳定"], weeks: Array.from({ length: 12 }, (_, i) => i + 1),
-      ...(r.moves.includes(MOVE) ? { reps: { min: 10, max: 12, unit: "reps" as const }, reps_from: "progress" as const } : {}) })) };
+      ...(r.moves.includes(MOVE) ? { reps: { min: 10, max: 12, unit: "reps" as const }, reps_from: "progress" as const, double: true } : {}) })) };
   const base = (wk: number, log: Record<string, any>[], progress: Record<string, any>) => {
     const p = profile([...weeks(1, "起始", 1, 4).map(([n, ph, w]) => [n, ph, w, "标准", GYM] as Seg), ...weeks(2, "稳定", 1, wk).map(([n, ph, w]) => [n, ph, w, "标准", GS] as Seg)]);
     p.venue = "gym";

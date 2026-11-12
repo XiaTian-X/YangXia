@@ -93,11 +93,36 @@ describe("健身房稳定期：每周照第 4 周练、主项双进阶", () => {
     p.progress = { [SQUAT]: { weight: 45 } };
     expect(plog(p, reviews(p), [session(d0, [{ exercise: SQUAT, spare: 6 }])])).toMatch(/稳定期不用"调重量"/);
   });
+  it("提踵、平板支撑、死虫式、面拉、农夫行走不走双进阶：加次数、加一档都拦下（原文\"照旧按动作库\"）", () => {
+    const g = plans.products[GYM_S];
+    expect(g.rows.filter((r) => r.double).map((r) => r.moves[0])).toContain(SQUAT);
+    for (const m of ["gym-calf-raise", "plank", "dead-bug", "gym-face-pull", "gym-farmer-walk"]) expect(g.rows.some((r) => r.moves[0] === m && r.double)).toBe(false);
+    const make = (move: string, field: string, from: number, to: number, rule: string) => {
+      const p = profile([...run(1, 1, 4, GYM), ...run(2, 1, 2, GYM_S)], { venue: "gym", progress: { [move]: { [field]: to } } });
+      const d0 = p.segments[4].start;
+      p.progressLog = [{ date: START, move, field, to: from, rule: "建档" }, { date: plus(d0, 2), move, field, to, rule, evidence: `打卡/${d0}.json` }];
+      if (field === "reps") p.progressLog.shift();
+      return plog(p, reviews(p), [session(d0, [{ exercise: move, spare: 5 }])]);
+    };
+    expect(make("gym-face-pull", "reps", 15, 16, "加次数")).toMatch(/没有加次数的规则/);
+    expect(make("gym-calf-raise", "reps", 15, 16, "加次数")).toMatch(/没有加次数的规则/);
+    expect(make("plank", "reps", 30, 31, "加次数")).toMatch(/没有加次数的规则/);
+    expect(make("gym-face-pull", "weight", 10, 12, "加一档")).toMatch(/加一档只给健身房稳定期走双进阶的主项/);
+  });
+  it("起始期没记下起始重量的：稳定期第 1 周可以补记（建档），之后照双进阶加一档", () => {
+    const p = profile([...run(1, 1, 4, GYM), ...run(2, 1, 3, GYM_S)], { venue: "gym", progress: { [SQUAT]: { weight: 40 } } });
+    p.progressLog = [{ date: p.segments[4].start, move: SQUAT, field: "weight", to: 40, rule: "建档" }];
+    expect(plog(p, reviews(p))).toBe("");
+    p.progressLog[0].date = p.segments[5].start;   // 稳定期第 2 周才补：拦下
+    expect(plog(p, reviews(p))).toMatch(/起始重量在这份成品开始的那一周里记/);
+  });
   it("计划单：表头写第几周、有氧每次 20 分钟；有高血压没问过医生的每次 15 分钟、坡度不再往上加", () => {
     const p = profile([...run(1, 1, 4, GYM), ...run(2, 1, 5, GYM_S)], { venue: "gym" });
     const c = ctx(p, reviews(p), [rec(START, "入门")]);
     const text = buildSheet(c).text!;
     expect(text).toMatch(/这一周做\*\*稳态\*\*，\*\*每次 20 分钟\*\*/);
+    expect(text).toMatch(/健身房每周一样，照第 4 周的组数/);
+    expect(text).not.toMatch(/照成品里这一轮第 \d 周做|有氧按当周递进/);
     const h = { ...p, conditions: { 高血压: true } };
     expect(buildSheet({ ...c, profile: h }).text).toMatch(/\*\*每次 15 分钟，坡度不再往上加\*\*（有高血压（或没确认）而且没问过医生：加时长、加坡度之前先问医生/);
   });
