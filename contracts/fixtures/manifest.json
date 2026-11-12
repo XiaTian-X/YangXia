@@ -1,8 +1,8 @@
 {
  "format": "yangxia.manifest/1",
  "project": "养夏计划模板",
- "version": "v3.0",
- "released": "2026-11-10",
+ "version": "v3.1",
+ "released": "2026-11-12",
  "products": [
   {
    "file": "18-39岁-健身房版.md",
@@ -13,7 +13,7 @@
    "phase": "起始",
    "for": "18–39 岁健康成年人",
    "venue_note": "健身房",
-   "version": "v3.0",
+   "version": "v3.1",
    "review": "原健身房版（多轮自查）经 v1.2 独立审查修订，未经专业审核",
    "figures": [
     "wu-activate",
@@ -90,7 +90,7 @@
    "phase": "稳定",
    "for": "18–39 岁，起始期练完一轮到了进阶线的健康成年人",
    "venue_note": "健身房",
-   "version": "v3.0",
+   "version": "v3.1",
    "review": "稳定期：每周照起始期第 4 周练、重量按原文的双进阶加，新定的只有周期和评估；未经专业审核",
    "figures": [
     "wu-activate",
@@ -167,7 +167,7 @@
    "phase": "起始",
    "for": "18–39 岁健康成年人",
    "venue_note": "居家：徒手 + 2.5kg 哑铃 + 动感单车",
-   "version": "v3.0",
+   "version": "v3.1",
    "review": "原居家版（多轮自查）经 v1.2 独立审查修订，未经专业审核",
    "figures": [
     "wu-activate",
@@ -249,7 +249,7 @@
    "phase": "起始",
    "for": "18–39 岁健康成年人",
    "venue_note": "纯徒手，零器械",
-   "version": "v3.0",
+   "version": "v3.1",
    "review": "原纯徒手版（多轮自查）经 v1.2 独立审查修订，未经专业审核",
    "figures": [
     "wu-activate",
@@ -333,7 +333,7 @@
    "phase": "稳定",
    "for": "18–39 岁，起始期练完一轮到了进阶线、或有训练基础的健康成年人",
    "venue_note": "纯徒手，零器械",
-   "version": "v3.0",
+   "version": "v3.1",
    "review": "稳定期：照起始期的四周计划一轮一轮走，新定的只有周期和评估；未经专业审核",
    "figures": [
     "wu-activate",
@@ -417,7 +417,7 @@
    "phase": "起始",
    "for": "40–64 岁健康成年人",
    "venue_note": "健身房",
-   "version": "v3.0",
+   "version": "v3.1",
    "review": "在 18–39 岁版基础上调整，未经专业审核",
    "figures": [
     "wu-activate",
@@ -495,7 +495,7 @@
    "phase": "起始",
    "for": "40–64 岁健康成年人",
    "venue_note": "居家：徒手 + 2.5kg 哑铃 + 动感单车",
-   "version": "v3.0",
+   "version": "v3.1",
    "review": "在 18–39 岁版基础上调整，未经专业审核",
    "figures": [
     "wu-activate",
@@ -578,7 +578,7 @@
    "phase": "起始",
    "for": "40–64 岁健康成年人",
    "venue_note": "纯徒手，零器械",
-   "version": "v3.0",
+   "version": "v3.1",
    "review": "在 18–39 岁版基础上调整，未经专业审核",
    "figures": [
     "wu-activate",
@@ -662,7 +662,7 @@
    "phase": "稳定",
    "for": "40–64 岁，起始期练完一轮到了进阶线、或有训练基础的健康成年人",
    "venue_note": "纯徒手，零器械",
-   "version": "v3.0",
+   "version": "v3.1",
    "review": "稳定期：照起始期的四周计划一轮一轮走，新定的只有周期和评估；未经专业审核",
    "figures": [
     "wu-activate",
@@ -746,7 +746,7 @@
    "phase": "起始",
    "for": "65 岁以上、能独立行走的老年人",
    "venue_note": "家里两把稳固的椅子 + 厨房台面 + 户外平路步行",
-   "version": "v3.0",
+   "version": "v3.1",
    "review": "未经专业审核",
    "figures": [
     "a65-warmup",
@@ -802,7 +802,7 @@
    "phase": "起始",
    "for": "初中生、高中生",
    "venue_note": "纯徒手，零器械（家里或操场）",
-   "version": "v3.0",
+   "version": "v3.1",
    "review": "未经专业审核",
    "figures": [
     "wu-a13-activate",
@@ -874,7 +874,7 @@
    "phase": "起始",
    "for": "小学生（由家长使用）",
    "venue_note": "户外、家里、学校，不需要器械",
-   "version": "v3.0",
+   "version": "v3.1",
    "review": "未经专业审核",
    "figures": [],
    "params_used": [
