@@ -39,7 +39,7 @@ function dir(name: string, product: string, extra: Record<string, any>, files: R
 const run = (...args: string[]) => spawnSync("node", [join(REPO, "packages/course-core/src/cli.ts"), ...args], { encoding: "utf8" });
 const chair = [{ id: "chair-stand-30s", value: 10, hands: "扶椅子", done: true }];
 // 跌倒风险自查（阶段 3c）：一般性 3 问都"否"、两项步态都在线内
-const lowRisk = { askedOn: today, general: { fell: false, unsteady: false, fear: false }, needsSupport: false, hardToStand: false,
+const lowRisk = { askedOn: today, general: { fell: false, unsteady: false, fear: false }, needsSupport: false, hardToStand: false, dizzy: false,
   walk4m: { seconds: 3.6, cane: false, siteOk: true, testedOn: today }, tug: { seconds: 9.8, cane: false, siteOk: true, chairOk: true, testedOn: today } };
 const lowRiskConclusion = { level: "低", worst: null, effective: "低", gaitOfficial: false, gaitMargin: false, gaitIncomplete: false, doctorFirst: false, officialNeeded: false, reassessBy: null };
 

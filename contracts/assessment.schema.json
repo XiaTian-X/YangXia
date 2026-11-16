@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "yangxia.assessment/1",
   "title": "养夏评估记录",
-  "description": "放在 profiles/<代号>/评估/<日期>-<种类>.json，不提交。测试项、参数、下一轮的方向都来自模板规则层（rules.json 的 assess、nextRound、habits）；结论由 npm run course -- assess 重算，写的结论对不上就报错。6–17 岁不记身高、体重、腰围、BMI；65 岁以上不记这些数字；不记身材照片、血压数值、体检结果、跌倒风险等级。",
+  "description": "放在 profiles/<代号>/评估/<日期>-<种类>.json，不提交。测试项、参数、下一轮的方向都来自模板规则层（rules.json 的 assess、nextRound、habits）；结论由 npm run course -- assess 重算，写的结论对不上就报错。6–17 岁不记身高、体重、腰围、BMI；65 岁以上不记这些数字；不记身材照片、血压数值、体检结果；跌倒风险只记 65 岁以上自查的答案、秒数和测试条件（等级由命令算出写进结论）和正式评估时医生说的等级。",
   "type": "object",
   "required": [
     "schema",
@@ -189,7 +189,8 @@
         "askedOn",
         "general",
         "needsSupport",
-        "hardToStand"
+        "hardToStand",
+        "dizzy"
       ],
       "properties": {
         "askedOn": {
@@ -280,6 +281,10 @@
         "hardToStand": {
           "type": "boolean"
         },
+        "dizzy": {
+          "type": "boolean",
+          "description": "问卷那天安全筛查\"经常头晕，或者站起来时眼前发黑\"的答案：照那天的筛查填，以后重做筛查不改它"
+        },
         "walk4m": {
           "oneOf": [
             {
@@ -294,15 +299,14 @@
               "properties": {
                 "seconds": {
                   "type": "number",
-                  "exclusiveMinimum": 0
+                  "exclusiveMinimum": 0,
+                  "exclusiveMaximum": 600,
+                  "description": "往大里取到一位小数（5.04 秒记 5.1 秒）；一位小数由代码查（JSON Schema 的 multipleOf 对小数不可靠）"
                 },
                 "cane": {
                   "type": "boolean"
                 },
                 "siteOk": {
-                  "type": "boolean"
-                },
-                "chairOk": {
                   "type": "boolean"
                 },
                 "testedOn": {
@@ -342,6 +346,18 @@
                   "type": "string",
                   "format": "date"
                 }
+              },
+              "if": {
+                "properties": {
+                  "reason": {
+                    "const": "中途停下"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "stopReason"
+                ]
               }
             },
             {
@@ -377,12 +393,15 @@
                 "seconds",
                 "cane",
                 "siteOk",
+                "chairOk",
                 "testedOn"
               ],
               "properties": {
                 "seconds": {
                   "type": "number",
-                  "exclusiveMinimum": 0
+                  "exclusiveMinimum": 0,
+                  "exclusiveMaximum": 600,
+                  "description": "往大里取到一位小数（5.04 秒记 5.1 秒）；一位小数由代码查（JSON Schema 的 multipleOf 对小数不可靠）"
                 },
                 "cane": {
                   "type": "boolean"
@@ -430,6 +449,18 @@
                   "type": "string",
                   "format": "date"
                 }
+              },
+              "if": {
+                "properties": {
+                  "reason": {
+                    "const": "中途停下"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "stopReason"
+                ]
               }
             },
             {

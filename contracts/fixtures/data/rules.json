@@ -2888,7 +2888,7 @@
     "quotes": [
      {
       "section": "跌倒风险自查",
-      "text": "医生曾告诉你存在 5 种以上如下疾病"
+      "text": "医生曾告诉你存在 5 种以上如下疾病：高血压、糖尿病、急性心脏疾病发作、卒中、恶性肿瘤（微小皮肤癌除外）、充血性心力衰竭、哮喘、关节炎、慢性肺病、肾脏疾病、心绞痛等"
      }
     ],
     "note": "只记\"有没有 5 种或更多\"，不记病名；\"5 种以上\"含 5 种"
@@ -2979,15 +2979,16 @@
     "quotes": [
      {
       "section": "跌倒风险自查",
-      "text": "背靠到椅背上时停表"
+      "text": "背离开椅背时按秒表"
      }
     ],
-    "note": "官方线是秒：超过阳性；设计值 A65_TIMING_MARGIN"
+    "note": "官方线是秒：超过阳性；附录 D.4 从背离开椅背计到背靠回椅背（设计值 A65_TIMING_START、A65_TIMING_MARGIN）"
    }
   ],
   "frailMin": 3,
   "midDays": 182,
   "askedValidDays": 30,
+  "officialRecentDays": 90,
   "highFollowup": {
    "min": 30,
    "max": 90

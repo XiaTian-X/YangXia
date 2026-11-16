@@ -23,6 +23,8 @@ export interface FallRiskRules {
   frailMin: number;
   midDays: number;
   askedValidDays: number;
+  /** 正式评估的等级只在自查前后这么多天以内才并进结论（设计值 A65_OFFICIAL_RECENT）。 */
+  officialRecentDays: number;
   highFollowup: { min: number; max: number };
 }
 
@@ -41,7 +43,7 @@ export const UNTESTED = ["场地不够", "椅子不合要求", "家人不在", "
 export const SKIPPED = ["跌倒过", "高风险", "走路要扶", "站起困难", "经常头晕"] as const;
 const STOPS = ["头晕", "腿软", "身体晃"];
 const LEVELS = ["低", "中", "高"] as const;
-type Level = (typeof LEVELS)[number];
+export type Level = (typeof LEVELS)[number];
 const rank = (l: Level) => LEVELS.indexOf(l);
 const maxLevel = (a: Level, b: Level): Level => (rank(a) >= rank(b) ? a : b);
 
@@ -49,8 +51,8 @@ const maxLevel = (a: Level, b: Level): Level => (rank(a) >= rank(b) ? a : b);
 export function validateFallRisk(fr: unknown, path = "fallRisk"): Issue[] {
   const out: Issue[] = [];
   const err = (p: string, message: string) => out.push({ level: "error", path: `${path}${p ? "." + p : ""}`, message });
-  if (!isObj(fr)) return [{ level: "error", path, message: "fallRisk 是对象：{ askedOn, general, severity?, frail?, needsSupport, hardToStand, walk4m?, tug? }" }];
-  const KEYS = ["askedOn", "general", "severity", "frail", "needsSupport", "hardToStand", "walk4m", "tug"];
+  if (!isObj(fr)) return [{ level: "error", path, message: "fallRisk 是对象：{ askedOn, general, severity?, frail?, needsSupport, hardToStand, dizzy, walk4m?, tug? }" }];
+  const KEYS = ["askedOn", "general", "severity", "frail", "needsSupport", "hardToStand", "dizzy", "walk4m", "tug"];
   const extra = Object.keys(fr).filter((k) => !KEYS.includes(k));
   if (extra.length) err("", `只能有 ${KEYS.join("、")}；多了 ${extra.join("、")}（不记病名、用药、体重数字）`);
   if (typeof fr.askedOn !== "string" || !DATE.test(fr.askedOn)) err("askedOn", "askedOn 是问卷做的日期 YYYY-MM-DD");
@@ -63,6 +65,7 @@ export function validateFallRisk(fr: unknown, path = "fallRisk"): Issue[] {
   if (fr.severity !== undefined && !bools(fr.severity, SEVERITY)) err("severity", `severity 是 { ${SEVERITY.join(", ")} }，每项 true / false`);
   if (fr.frail !== undefined && !bools(fr.frail, FRAIL)) err("frail", `frail 是 { ${FRAIL.join(", ")} }，每项 true / false（疾病只记有没有 5 种或更多，不记病名；体重只记是 / 否）`);
   for (const k of ["needsSupport", "hardToStand"]) if (typeof fr[k] !== "boolean") err(k, `${k}（在家走路也要扶墙或用助行器 / 扶着椅子也很难自己站起来）是 true / false`);
+  if (typeof fr.dizzy !== "boolean") err("dizzy", "dizzy 是问卷那天安全筛查\"经常头晕，或者站起来时眼前发黑\"的答案（true / false）：照那天的筛查填，不按以后重做的");
   for (const t of ["walk4m", "tug"] as const) {
     const v = fr[t];
     if (v === undefined) continue;
@@ -109,15 +112,25 @@ export interface FallRiskConclusion {
   reassessBy: string | null;
 }
 
-/** 这份记录不在家测步态的原因（有就不能有秒数）。 */
-export function noHomeGait(fr: Obj, frailMin: number, dizzy: boolean): string | null {
+/** 这份记录不在家测步态的原因（有就不能有秒数）。officialHigh：并进来的正式评估说高风险。 */
+export function noHomeGait(fr: Obj, frailMin: number, officialHigh = false): string | null {
   const g = fr.general ?? {};
   if (g.fell === true) return "跌倒过";
-  if (severityPositive(fr, frailMin) === true) return "高风险";
+  if (severityPositive(fr, frailMin) === true || officialHigh) return "高风险";
   if (fr.needsSupport === true) return "走路要扶";
   if (fr.hardToStand === true) return "站起困难";
-  if (dizzy) return "经常头晕";
+  if (fr.dizzy === true) return "经常头晕";
   return null;
+}
+
+/**
+ * 并进这份自查的正式评估等级：自查前后 officialRecentDays 天以内做的、记了等级的（设计值 A65_OFFICIAL_RECENT）。
+ * 更早、更晚的正式评估只用来核对"跌倒过要先做正式评估"，不改这份自查的等级。
+ */
+export function officialLevel(fr: Obj, rr: FallRiskRules, official: Obj | undefined): { level: Level; date: string } | null {
+  if (!official || !(LEVELS as readonly string[]).includes(official.level) || typeof official.date !== "string" || typeof fr.askedOn !== "string") return null;
+  const days = Math.abs(dayStart(official.date) - dayStart(fr.askedOn)) / DAY;
+  return days <= rr.officialRecentDays ? { level: official.level, date: official.date } : null;
 }
 
 function severityPositive(fr: Obj, frailMin: number): boolean | null {
@@ -148,9 +161,9 @@ function gaitStatus(fr: Obj, rr: FallRiskRules): { pos: boolean | null; official
 
 /**
  * 结论（照 5.1.4、5.2.1；"未定"照设计值 A65_UNDETERMINED：没得到的项当阳性、当阴性各算一遍，不一样就是未定）。
- * dizzy：安全筛查"经常头晕，或者站起来时眼前发黑"答了"是"。official：这份记录里的正式评估。
+ * official：这份记录里的正式评估（自查前后 officialRecentDays 天以内的才并进等级）。
  */
-export function fallRiskConclusion(fr: Obj, rr: FallRiskRules, opts: { dizzy?: boolean; official?: Obj } = {}): FallRiskConclusion {
+export function fallRiskConclusion(fr: Obj, rr: FallRiskRules, opts: { official?: Obj } = {}): FallRiskConclusion {
   const g = fr.general ?? {};
   const gVals = GENERAL.map((k) => g[k]);
   const gen: boolean | null = gVals.some((v) => v === true) ? true : gVals.some((v) => v === null || v === undefined) ? null : false;
@@ -166,9 +179,7 @@ export function fallRiskConclusion(fr: Obj, rr: FallRiskRules, opts: { dizzy?: b
   const list = [...levels].sort((a, b) => rank(a) - rank(b));
   const level: Level | "未定" = list.length === 1 ? list[0] : "未定";
   const worst: Level | null = list.length === 1 ? null : list[list.length - 1];
-  const off = opts.official;
-  const offLevel: Level | null = off && (LEVELS as readonly string[]).includes(off.level) && typeof off.date === "string"
-    && Math.abs(dayStart(off.date) - dayStart(fr.askedOn)) <= 365 * DAY ? off.level : null;
+  const offLevel: Level | null = officialLevel(fr, rr, opts.official)?.level ?? null;
   const self: Level = level === "未定" ? worst! : level;
   const effective: Level = offLevel ? (level === "未定" ? offLevel : maxLevel(level, offLevel)) : self;
   const doctorFirst = g.fell === true || effective === "高";
@@ -179,13 +190,13 @@ export function fallRiskConclusion(fr: Obj, rr: FallRiskRules, opts: { dizzy?: b
     level, worst, effective,
     gaitOfficial: gait.official, gaitMargin: gait.margin && !gait.official,
     // 一般性全阴性的人（标准到这里就结束了）没测成不算"没测成"：标准等级就是低风险
-    gaitIncomplete: !general && gait.incomplete && noHomeGait(fr, rr.frailMin, !!opts.dizzy) === null,
+    gaitIncomplete: !general && gait.incomplete && noHomeGait(fr, rr.frailMin, offLevel === "高") === null,
     doctorFirst, officialNeeded: g.fell === true, reassessBy,
   };
 }
 
-/** 只看这一份记录就能查出来的矛盾。dizzy：筛查"经常头晕"答"是"。 */
-export function fallRiskIssues(fr: Obj, rr: FallRiskRules, opts: { dizzy?: boolean; path?: string } = {}): Issue[] {
+/** 只看这一份记录就能查出来的矛盾。official：这份记录里的正式评估。 */
+export function fallRiskIssues(fr: Obj, rr: FallRiskRules, opts: { official?: Obj; path?: string } = {}): Issue[] {
   const out: Issue[] = [];
   const path = opts.path ?? "fallRisk";
   const err = (p: string, message: string) => out.push({ level: "error", path: `${path}${p ? "." + p : ""}`, message });
@@ -194,9 +205,19 @@ export function fallRiskIssues(fr: Obj, rr: FallRiskRules, opts: { dizzy?: boole
   if (gen && (!isObj(fr.severity) || !isObj(fr.frail))) err("severity", "一般性 3 问有\"是\"（或者第 2、3 问老人说不清）：接着问严重程度 4 问和衰弱 5 条（severity、frail）");
   if (!gen && (fr.severity !== undefined || fr.frail !== undefined)) err("severity", "一般性 3 问都是\"否\"，问卷到这里结束：不写严重程度和衰弱");
   if (g.fell === false && isObj(fr.severity) && SEVERITY.some((k) => fr.severity[k] === true)) err("severity", "第 1 问说过去 12 个月没跌倒过，严重程度 4 问（问的都是跌倒的情况）却有\"是\"：前后对不上，照实重问");
-  const no = noHomeGait(fr, rr.frailMin, !!opts.dizzy);
+  const no = noHomeGait(fr, rr.frailMin);
+  // 正式评估说高风险（自查前后 officialRecentDays 天以内）：之后不在家测步态；正式评估以前测的不算错
+  const offHigh = officialLevel(fr, rr, opts.official);
   for (const def of rr.gait) {
     const v = fr[def.id];
+    if (v?.result === "没测成" && v.reason === "中途停下" && v.stopReason === "头晕") {
+      out.push({ level: "warning", path: `${path}.${def.id}`, message: "步态测试中途头晕停下：照坐站测试的口径算一次头晕，告诉医生；以后重做安全筛查时\"经常头晕\"照实答" });
+    }
+    if (!no && offHigh?.level === "高") {
+      if (typeof v?.seconds === "number" && !(typeof v.testedOn === "string" && v.testedOn < offHigh.date)) err(def.id, `正式评估（${offHigh.date}）说高风险：之后不在家测步态，不能记秒数`);
+      else if (v === undefined) err(def.id, "正式评估说高风险：写 { result: \"按规则不测\", reason: \"高风险\" }");
+      continue;
+    }
     if (no) {
       if (typeof v?.seconds === "number") err(def.id, `这个人不在家测步态（${no}）：不能记秒数——带着问卷结果去做正式的跌倒风险评估`);
       else if (v?.result === "没测成") err(def.id, `这个人按规则不在家测（${no}）：写 { result: "按规则不测", reason: "${no}" }`);

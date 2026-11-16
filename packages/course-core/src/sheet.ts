@@ -2,7 +2,7 @@
 // 由命令生成（npm run course -- plan），不手写；内容全部来自训练单、规则参数和档案，开头带声明。
 // 只生成现在这一周的单子；profile check 把现在这一周和以前几周的单子都按档案重新生成、逐字比对
 // （以前几周的按那一周、生成时的进度重新生成；对不上就删掉——以前几周的单子不用留）。
-import { type AssessContext, assessRules, cardioMode, productInfo } from "./assess.ts";
+import { type AssessContext, assessRules, cardioMode, fallRiskList, productInfo } from "./assess.ts";
 import { currentSegment, exportCourse, maxWeek, planType, ROUND_WEEKS, roundWeek } from "./plan.ts";
 import { DECLARATION } from "./profile.ts";
 import { localDate, progressOn } from "./progress.ts";
@@ -98,9 +98,15 @@ export function buildSheet(ctx: AssessContext): { text: string | null; issues: I
   const last = maxWeek(seg.phase, rules);
   lines.push("## 下次评估", "");
   lines.push(`- ${stable ? "周期末评估" : "段末评估"}：第 ${last} 周的周复盘之后（最早 ${addDays(cur.start, 7 * (last - w + 1))}）。`);
-  if (typeof profile.screening?.date === "string") {
-    const days = ar?.assess.params.find((x) => x.name === "筛查有效天数" && x.products.includes(info.code))?.number;
-    if (days) lines.push(`- 安全筛查：${addDays(profile.screening.date, days)} 之前重做一次。`);
+  const days = ar?.assess.params.find((x) => x.name === "筛查有效天数" && x.products.includes(info.code))?.number;
+  if (typeof profile.screening?.date === "string" && days) lines.push(`- 安全筛查：${addDays(profile.screening.date, days)} 之前重做一次。`);
+  // 65 岁以上的跌倒风险自查：这一周开始以前最近的一份；6 个月和每年的，先到的那个
+  const fr = info.age === "a65" ? fallRiskList(ctx).filter((x) => typeof x.file.raw.date === "string" && x.file.raw.date <= cur.start).pop() : undefined;
+  if (fr) {
+    const yearly = addDays(fr.askedOn, days ?? 365);
+    const mid = fr.conclusion.reassessBy && fr.conclusion.reassessBy < yearly ? fr.conclusion.reassessBy : null;
+    lines.push(`- 跌倒风险自查：${mid ?? yearly} 之前重做一次（${mid ? "约 6 个月" : "每年一次"}，照成品第〇章《跌倒风险自查》；这不是正式的跌倒风险评估）。`);
+    if (fr.conclusion.effective === "高") lines.push("- 自查是高风险：随访照医生、社区卫生服务中心的安排。");
   }
   lines.push("");
   return { text: lines.join("\n"), issues };
