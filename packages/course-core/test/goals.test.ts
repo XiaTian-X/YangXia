@@ -477,11 +477,34 @@ describe("阶段 5a：肥胖的减脂、重度肥胖、附册", () => {
     expect(severeObese(c, plus(stop, 365), "a18·bw")).toBe(true);
     expect(latestBmi(c, plus(stop, 1))).toBeNull();
   });
-  it("减脂复盘称到 BMI 28 以上、筛查\"BMI ≥ 28\"还是\"否\"：报出来，照实改、先问医生", () => {
+  it("减脂复盘称到 BMI 28 以上、筛查\"BMI ≥ 28\"还是\"否\"：提醒下一次评估确认（一次周称重不停训练）；评估里量到的照报错", () => {
     const p = profile(3, "减脂");
     const rv = [review(p, firstStable + 1, { weight: 82 })];
-    const m = checkAssessments(ctx(p, recs({ weight: 78, waist: 95 }), rv)).filter((i) => i.level === "error").map((i) => `${i.path}：${i.message}`).join("\n");
-    expect(m).toMatch(/复盘\/.*第2周\.json weight：BMI 28\.4（≥ 28），安全筛查".*BMI.*"却答了"否"/);
+    const all = checkAssessments(ctx(p, recs({ weight: 78, waist: 95 }), rv));
+    expect(all.filter((i) => i.level === "warning").map((i) => `${i.path}：${i.message}`).join("\n")).toMatch(/复盘\/.*第2周\.json weight：周复盘称的 BMI 28\.4（≥ 28），安全筛查".*BMI.*"还是"否"：下一次评估量体重确认/);
+    expect(all.filter((i) => i.level === "error" && /BMI/.test(i.message))).toEqual([]);
+    const m = checkAssessments(ctx(p, recs({ weight: 82, waist: 95 }))).filter((i) => i.level === "error").map((i) => `${i.path}：${i.message}`).join("\n");
+    expect(m).toMatch(/段末\.json body：BMI 28\.4（≥ 28），安全筛查".*BMI.*"却答了"否"/);
+  });
+  it("筛查以前、改成不记以前称的旧体重，不拿来推翻后来重做的筛查", () => {
+    const stop = plus(stableStart, 30);
+    const p = profile(1, "保持", { body: "不记", bodyLog: [{ date: START, body: "记" }, { date: stop, body: "不记" }] });
+    p.screening.date = plus(stop, 700);                                                   // 今年重做筛查，BMI 那一项答"否"
+    const c = { ...ctx(p, recs({ weight: 84, waist: 95 }, { goal: "保持" })), now: new Date(`${plus(stop, 702)}T12:00:00`) };
+    expect(checkAssessments(c).filter((i) => /BMI/.test(i.message))).toEqual([]);
+    // 一直记、最近一次量体重早于重做的筛查：也不报
+    const q = profile(1, "保持");
+    q.screening.date = plus(stableStart, 200);
+    const c2 = { ...ctx(q, recs({ weight: 84, waist: 95 }, { goal: "保持" })), now: new Date(`${plus(stableStart, 202)}T12:00:00`) };
+    expect(checkAssessments(c2).filter((i) => /BMI/.test(i.message))).toEqual([]);
+  });
+  it("肥胖的人（有 weightClear）减脂中生病住院：有氧提示让续减重的同意", () => {
+    const p = obese({ weightClear: [{ date: plus(stableStart, -3) }] });
+    p.segments = p.segments.slice(0, firstStable);
+    for (let w = 1; w <= 3; w++) p.segments.push({ n: 2, phase: "稳定", type: "标准", week: w, start: plus(START, 7 * (3 + w)), product: STABLE, goal: "减脂" });
+    const ill = plus(p.segments[firstStable + 1].start, 1);
+    const a = [...recs({ weight: 87, waist: 100 }), rec(ill, "触发", { reasons: ["生病住院"], eventDate: ill })];
+    expect(cutCardio(ctx(p, a), firstStable + 2)?.doctor).toMatch(/weightClear 里加一项日期（同时算有氧加量的同意）/);
   });
   it("开周期时超重，周期里称到 BMI 28 以上、没有减重的医生同意：下一周起退回保持", () => {
     const p = profile(3, "减脂");

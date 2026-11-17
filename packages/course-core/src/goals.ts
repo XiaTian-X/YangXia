@@ -353,9 +353,12 @@ export function cutCardio(ctx: AssessContext, index: number): CardioStep | null 
   if (!steps.length) return null;
   const doc = cardioDoctor(ctx, e.start, code);
   if (doc.needed && !doc.valid) {
-    return { minutes: 0, step: 0, steps: steps.length, why: "有高血压（或没确认）、或者安全筛查有\"是\"", doctor: doc.after
-      ? `先问医生"能不能把有氧逐步加到每周 250 分钟中等强度"，同意了在档案 cardioClear 里加一项日期（要在 ${doc.after} 之后）；没问之前有氧照保持的量`
-      : "先问医生\"能不能把有氧逐步加到每周 250 分钟中等强度\"，同意了在档案 cardioClear 里加一项日期；没问之前有氧照保持的量" };
+    // 走减重同意的肥胖的人：续减重的同意（同时算有氧加量的），只续有氧的那一周起减脂就退回保持了
+    const weight = Array.isArray(ctx.profile.weightClear) && ctx.profile.weightClear.length > 0;
+    const ask = weight ? "先问医生\"能不能按这份计划减重——每天比平时少吃约 300 kcal，有氧逐步加到每周 250 分钟中等强度\"，同意了在档案 weightClear 里加一项日期（同时算有氧加量的同意）"
+      : "先问医生\"能不能把有氧逐步加到每周 250 分钟中等强度\"，同意了在档案 cardioClear 里加一项日期";
+    return { minutes: 0, step: 0, steps: steps.length, why: "有高血压（或没确认）、或者安全筛查有\"是\"",
+      doctor: `${ask}${doc.after ? `（要在 ${doc.after} 之后）` : ""}；没问之前有氧照保持的量` };
   }
   const minWeeks = goalParam(gr, "有氧每档至少几周", code) ?? 2;
   const needRun = goalParam(gr, "有氧升档要连着做到几周", code) ?? 2;
