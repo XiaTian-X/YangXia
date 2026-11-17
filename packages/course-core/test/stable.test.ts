@@ -285,9 +285,9 @@ describe("稳定期的进度规则", () => {
     p.progressLog = [{ date: START, move: "pushup", field: "level", to: 1, rule: "建档" },
       { date: p.segments[i].start, move: "pushup", field: "level", to: 2, rule: "升级", evidence: `复盘/${p.segments[i - 1].start}-第3周.json` }];
     const rv = reviews(p, (k) => (k === i - 1 ? { moves: top("pushup") } : {}));
-    const hold = endRec(p, 1, { result: "习惯没达标", next: { phase: "稳定", hold: true } }, "周期末");
+    const hold = endRec(p, 1, { result: "习惯没达标", next: { phase: "稳定", hold: true }, goals: ["保持", "减脂", "增肌"] }, "周期末");
     expect(plog(p, rv, [], [hold])).toMatch(/第一轮（头 4 周）不升级/);
-    expect(plog(p, rv, [], [endRec(p, 1, { result: "达标", next: { phase: "稳定" } }, "周期末")])).toBe("");
+    expect(plog(p, rv, [], [endRec(p, 1, { result: "达标", next: { phase: "稳定" }, goals: ["保持", "减脂", "增肌"] }, "周期末")])).toBe("");
   });
   it("进度在同一家族里接着用：起始期定的级，稳定期不用重新建档", () => {
     const p = profile([...weeks(1, "起始", 1, 4), [2, "稳定", 1]], { progress: { pushup: { level: 3 } } });
@@ -448,14 +448,14 @@ describe("周期末结论和下一段", () => {
   it("连续两个周期习惯没达标：回起始期标准段", () => {
     const p = profile([...weeks(1, "稳定", 1, 12), ...weeks(2, "稳定", 1, 12), [3, "起始", 1]]);
     const rv = reviews(p, (i) => (i % 12 < 4 ? { habits: { 散步: 5, 冥想: 2 } } : {}));
-    const first = endRec(p, 1, { result: "习惯没达标", next: { phase: "稳定", hold: true } }, "周期末");
+    const first = endRec(p, 1, { result: "习惯没达标", next: { phase: "稳定", hold: true }, goals: ["保持", "减脂", "增肌"] }, "周期末");
     expect(cycleEnd(ctx(p, rv, [first]), 2)).toMatchObject({ result: "连续两个周期没达标", next: { phase: "起始", type: "标准" } });
   });
   it("周期练完没做周期末评估、结论写错、下一段不照结论：拦下；照结论：放行", () => {
     const { p, rv } = cycle();
     expect(errs(ctx(p, rv, [base(p)])).join()).toMatch(/周期末评估/);
-    expect(errs(ctx(p, rv, [base(p), endRec(p, 1, { result: "习惯没达标", next: { phase: "稳定", hold: true } }, "周期末")])).join()).toMatch(/重算的不一致/);
-    expect(errs(ctx(p, rv, [base(p), endRec(p, 1, { result: "达标", next: { phase: "稳定" } }, "周期末")]))).toEqual([]);
+    expect(errs(ctx(p, rv, [base(p), endRec(p, 1, { result: "习惯没达标", next: { phase: "稳定", hold: true }, goals: ["保持", "减脂", "增肌"] }, "周期末")])).join()).toMatch(/重算的不一致/);
+    expect(errs(ctx(p, rv, [base(p), endRec(p, 1, { result: "达标", next: { phase: "稳定" }, goals: ["保持", "减脂", "增肌"] }, "周期末")]))).toEqual([]);
     const low = cycle(() => ({ trainings: 2 }));
     const lowEnd = endRec(low.p, 1, { result: "训练没达标", next: { phase: "起始", type: "减量" } }, "周期末");
     expect(errs(ctx(low.p, low.rv, [base(low.p), lowEnd])).join()).toMatch(/不能接着开稳定期/);
@@ -485,7 +485,7 @@ describe("周期末结论和下一段", () => {
   it("断了超过 8 周、正好跨过周期末又接着开下一个周期：照样拦", () => {
     const p = profile([...weeks(1, "稳定", 1, 12), [2, "稳定", 1], [2, "稳定", 2]], { focus: { areas: ["训练"] } });
     for (let k = 12; k < p.segments.length; k++) p.segments[k].start = plus(p.segments[k].start, 70);   // 第 12 周拖了 11 周
-    const end = endRec(p, 1, { result: "达标", next: { phase: "稳定" } }, "周期末");
+    const end = endRec(p, 1, { result: "达标", next: { phase: "稳定" }, goals: ["保持", "减脂", "增肌"] }, "周期末");
     const out = errs(ctx(p, reviews(p), [base(p), end, rec(p.segments[12].start, "触发", { reasons: ["中断"], conclusion: {} })])).join();
     expect(out).toMatch(/断了 \d+ 天（超过 56 天）还接着练稳定期/);
   });
@@ -673,7 +673,7 @@ describe("阶段 1–2 的规则没被改坏", () => {
   it("没有警告以外的问题：从起始期升上来、练到稳定期第 12 周、周期末达标、开下一周期", () => {
     const p = profile([...weeks(1, "起始", 1, 4), ...weeks(2, "稳定", 1, 12), [3, "稳定", 1]]);
     const rv = reviews(p);
-    const a = [entry(p), endRec(p, 1, { result: "添装备", next: "标准" }), endRec(p, 2, { result: "达标", next: { phase: "稳定" } }, "周期末")];
+    const a = [entry(p), endRec(p, 1, { result: "添装备", next: "标准" }), endRec(p, 2, { result: "达标", next: { phase: "稳定" }, goals: ["保持", "减脂", "增肌"] }, "周期末")];
     expect(errs(ctx(p, rv, a))).toEqual([]);
     expect(warns(ctx(p, rv, a))).toEqual([]);
     expect(plog(p, rv, [], a)).toBe("");

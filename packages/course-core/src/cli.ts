@@ -23,6 +23,7 @@ import { checkProgress, checkProgressLog, localDate, progressOn, REVIEW_FORMAT, 
 import { loadTemplates, requirePlans, type Templates } from "./node.ts";
 import { currentSegment, exportCourse } from "./plan.ts";
 import { fallRiskRules } from "./fallrisk.ts";
+import { cycleGoals, goalCardioHint, goalIssues } from "./goals.ts";
 import { ASSESS_FORMAT, type AssessFile, ageAt, assessRules, cardioMode, cycleEnd, balanceHold, checkAssessments, checkRecord, doctorNeed, gap, param, productInfo, recordConclusion, segmentEnd, validateAssessment } from "./assess.ts";
 import { checkDeclaration, checkNotes, DECLARATION, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
 import { buildSheet, checkSheet, sheetFile } from "./sheet.ts";
@@ -192,6 +193,7 @@ function progressIssues(t: Templates, profile: Record<string, any>, scan: Return
   if (t.plans && t.rules) out.push(...checkProgressLog(profile, t.plans, t.rules, scan.sessions, scan.reviewData, new Date(), scan.assessments).map((i) => ({ ...i, path: `档案.json ${i.path}` })));
   else out.push({ level: "warning", path: "档案.json", message: "模板还没有训练单（dist/data/）：个人进度没核对，先更新模板" });
   out.push(...checkAssessments(assessCtx(t, profile, scan)));
+  out.push(...goalIssues(assessCtx(t, profile, scan)));
   return out;
 }
 
@@ -238,6 +240,8 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
   }
   const cm = info0(t, seg.product) ? cardioMode(t.rules, profile, info0(t, seg.product)!, seg.n, Number(weekArg), scan.reviewData) : null;
   if (cm) r.notes.push(`有氧：这一周做${cm.mode}${cm.mode === "稳态" && cm.interval ? "，不做间歇" : ""}${cm.duration ? `，${cm.duration}` : ""}（${cm.why}）`);
+  const gh = goalCardioHint(ctx, (profile.segments as any[]).length - 1);
+  if (gh) r.notes.push(gh);
   if (balanceHold(ctx)) r.notes.push("摔倒过：医生同意之前不练平衡动作（6–9 号），照成品第十二章；力量动作也先问医生");
   const info = productInfo(t.manifest, seg.product);
   const today = localDate(new Date());
@@ -388,6 +392,10 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
         console.log(`第 ${n} 段（稳定期）：12 周训练 ${end.trainings} 次；达标周数 ${Object.entries(end.habitWeeks).map(([h, w]) => `${h} ${w}`).join("、")}`);
         console.log(`结论：${end.result}；下一段：${end.next.phase === "稳定" ? `下一周期${end.next.hold ? "（第一轮不升级）" : ""}` : `回起始期${end.next.type}段`}`);
         for (const q of end.quotes) console.log(`  原文：${q}`);
+        if (end.next.phase === "稳定") {
+          const cg = cycleGoals(assessCtx(t, profile, scan), n);
+          if (cg) console.log(`下一周期能选的目标（还没算周期末量的体重腰围；写好记录再跑一次，结论的 goals 照重算的写）：${cg.goals.join("、")}——${cg.why}。选减脂、增肌的，照第八章开头原话问一次进食困扰（eatingCheck），记 goal`);
+        }
       }
     }
     if (kind === "段末" && seg) {

@@ -223,6 +223,14 @@
             "type": "string",
             "pattern": "^评估/.+\\.json$",
             "description": "同一成品中途从第 1 周重来（65 岁以上生病住院回来、6–12 岁生病超过 7 天）：依据的触发评估"
+          },
+          "goal": {
+            "enum": [
+              "保持",
+              "减脂",
+              "增肌"
+            ],
+            "description": "这一周的目标（阶段 4，只给 18–64 岁稳定期）：没写的是保持；一个周期（一段）里只能从减脂、增肌退回保持"
           }
         },
         "allOf": [
@@ -389,6 +397,46 @@
       "type": "string",
       "format": "date",
       "description": "body 改成停记的那天（停记时必填）：以前评估里记的身体数据保留，之后不再记"
+    },
+    "bodyLog": {
+      "type": "array",
+      "minItems": 1,
+      "description": "可选：每次改记 / 不记 / 停记体重腰围的日期，按日期从早到晚；最后一项等于 body，最后一次停记等于 bodyStopDate。没写的由 body、bodyStopDate 推",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "date",
+          "body"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "body": {
+            "enum": [
+              "记",
+              "不记",
+              "停记"
+            ]
+          }
+        }
+      }
+    },
+    "cardioClear": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "date"
+      ],
+      "description": "减脂加有氧的医生同意（有高血压或没确认、筛查有\"是\"的人）：医生说可以把有氧逐步加到每周 250 分钟中等强度的那天",
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date"
+        }
+      }
     },
     "habitBase": {
       "type": "object",

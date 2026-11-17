@@ -154,7 +154,7 @@ describe.skipIf(!hasTemplates || !t!.plans?.products[STABLE_BW])("稳定期：�
   const wk = (n: number, phase: string, a: number, b: number): [number, string, number][] => Array.from({ length: b - a + 1 }, (_, i) => [n, phase, a + i]);
   it("起始期 4 周 → 段末到进阶线 → 稳定期 12 周 → 周期末达标 → 下一周期第 1 周：检查、导出、计划单都通过", () => {
     const d = build("nv-ok", [...wk(1, "起始", 1, 4), ...wk(2, "稳定", 1, 12), [3, "稳定", 1]],
-      { 1: ["段末", { result: "添装备", next: "标准" }], 2: ["周期末", { result: "达标", next: { phase: "稳定" } }] });
+      { 1: ["段末", { result: "添装备", next: "标准" }], 2: ["周期末", { result: "达标", next: { phase: "稳定" }, goals: ["保持", "减脂", "增肌"] }] });
     const chk = run("profile", "check", d);
     expect(chk.stdout).toMatch(/0 个错误/);
     expect(run("export", d, "1", "A").stdout).toMatch(/已导出/);

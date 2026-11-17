@@ -3,6 +3,7 @@
 // 只生成现在这一周的单子；profile check 把现在这一周和以前几周的单子都按档案重新生成、逐字比对
 // （以前几周的按那一周、生成时的进度重新生成；对不上就删掉——以前几周的单子不用留）。
 import { type AssessContext, assessRules, cardioMode, fallRiskList, productInfo } from "./assess.ts";
+import { goalSheetLines } from "./goals.ts";
 import { currentSegment, exportCourse, maxWeek, planType, ROUND_WEEKS, roundWeek } from "./plan.ts";
 import { DECLARATION } from "./profile.ts";
 import { localDate, progressOn } from "./progress.ts";
@@ -82,6 +83,8 @@ export function buildSheet(ctx: AssessContext): { text: string | null; issues: I
     if (cm && !cardioShown) lines.push(`有氧：${cardioText}。`, "");
     lines.push("热身、拉伸不在这张单子里，照成品做。练的时候疼、头晕、胸闷，马上停下。", "");
   }
+  // 目标（阶段 4）：减脂、增肌这一周的有氧和吃（保持的不写）
+  lines.push(...goalSheetLines(ctx, entries.length - 1));
   // 习惯：打卡表里要数的项和这一段的习惯目标
   const ar = assessRules(rules);
   const targets: Obj = (entries.find((s) => s.n === seg.n) ?? {}).habitTargets ?? {};

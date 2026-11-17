@@ -117,6 +117,22 @@
     "steadyCheck": {
       "type": "boolean",
       "description": "这一轮第 2 周的稳态自查过没过（做完能说完整句子、第二天不觉得累）；没过或没记，这一轮第 3–4 周继续稳态"
+    },
+    "weight": {
+      "type": "number",
+      "minimum": 25,
+      "maximum": 300,
+      "description": "这一周称的体重（公斤，一位小数）：只给这一周按减脂、档案选了记的人，每周最多一次"
+    },
+    "cardioMinutes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2000,
+      "description": "这一周中等强度有氧大约做了几分钟（只给减脂）：升不升有氧台阶照它算"
+    },
+    "tired": {
+      "type": "boolean",
+      "description": "练完没力气（只给减脂）：是的话这一轮剩下的时间吃回到保持"
     }
   }
 }

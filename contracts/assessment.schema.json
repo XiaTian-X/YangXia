@@ -179,9 +179,38 @@
       "type": "boolean",
       "description": "65 岁以上：体重有没有明显下降（不记数字）"
     },
+    "goal": {
+      "enum": [
+        "保持",
+        "减脂",
+        "增肌"
+      ],
+      "description": "这个周期选的目标（写在开周期的那份：周期末、进稳定期的段末、直接进稳定期的入门）"
+    },
+    "eatingCheck": {
+      "enum": [
+        "问过",
+        "只能保持"
+      ],
+      "description": "选减脂、增肌前照第八章开头的原话问进食困扰：答了没有写\"问过\"；答了有只写\"只能保持\"，不记答案"
+    },
+    "goalConsent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "date"
+      ],
+      "description": "BMI 不到 18.5 的人选增肌：医生或营养师同意的那天",
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
     "conclusion": {
       "type": "object",
-      "description": "照 course assess 的输出写。周期末的 next 是 {phase, type?, hold?}"
+      "description": "照 course assess 的输出写。周期末的 next 是 {phase, type?, hold?}；接着开稳定期的，goals 是下一周期能选的目标"
     },
     "note": {
       "type": "string",

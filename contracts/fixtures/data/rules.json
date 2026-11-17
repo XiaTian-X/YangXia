@@ -1081,10 +1081,10 @@
     },
     {
      "section": "下一轮的方向",
-     "text": "进入下一阶段：明确选减脂或增肌"
+     "text": "进入下一阶段：换用健身房版的稳定期计划"
     }
    ],
-   "note": "双进阶和热量调整属于稳定期和目标模块（阶段 3、4），现在没有训练单；下一段先原样再跑，第 1 周接着用第 4 周的重量；40–64 岁每次只加最小的一档，加重后那一周关节不舒服就退回"
+   "note": "双进阶在稳定期（阶段 3），减脂、增肌在稳定期《目标》一节（阶段 4）；下一段先原样再跑，第 1 周接着用第 4 周的重量；40–64 岁每次只加最小的一档，加重后那一周关节不舒服就退回"
   },
   {
    "products": [
@@ -2993,5 +2993,545 @@
    "min": 30,
    "max": 90
   }
+ },
+ "goals": {
+  "params": [
+   {
+    "name": "身体数据有效天数",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 28,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "这个周期开始前 28 天以内量过一次"
+     }
+    ],
+    "note": "设计值 GOAL_BODY_FRESH"
+   },
+   {
+    "name": "低体重 BMI",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 18.5,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "BMI 不到 18.5"
+     }
+    ],
+    "note": "官方 WEIGHT_LOW_CN；不到这个数不能选减脂，增肌要先问医生或营养师（设计值 GOAL_GATE）"
+   },
+   {
+    "name": "超重 BMI",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 24,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "BMI 24.0–27.9"
+     }
+    ],
+    "note": "官方 BMI_CN；到这个数才能选减脂（腰围够的除外），到了就不能选增肌（设计值 GOAL_GATE）"
+   },
+   {
+    "name": "肥胖 BMI",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 28,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "BMI 28 以上"
+     }
+    ],
+    "note": "官方 BMI_CN；这一阶段只能保持，减脂等阶段 5（设计值 GOAL_GATE）"
+   },
+   {
+    "name": "减脂腰围",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 90,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "减脂按 90 cm、增肌按 85 cm 算"
+     }
+    ],
+    "note": "官方 WAIST_CN 的男性切点；不记性别，减脂取高的那个（设计值 GOAL_GATE）"
+   },
+   {
+    "name": "增肌腰围",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 85,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "减脂按 90 cm、增肌按 85 cm 算"
+     }
+    ],
+    "note": "官方 WAIST_CN 的女性切点；不记性别，增肌取低的那个（设计值 GOAL_GATE）"
+   },
+   {
+    "name": "连着减脂周期",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 2,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "连着两个减脂周期"
+     }
+    ],
+    "note": "设计值 GOAL_REST_CYCLE：之后先完整练一个保持周期"
+   },
+   {
+    "name": "减脂每天少",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 300,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "每天比保持少约 300 kcal"
+     }
+    ],
+    "note": "设计值 CUT_DIET"
+   },
+   {
+    "name": "增肌每天多",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 200,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "每天比保持多约 200 kcal"
+     }
+    ],
+    "note": "设计值 BULK_DIET"
+   },
+   {
+    "name": "全天下限",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 1200,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "算下来全天低于 1200 kcal 的，先问医生或注册营养师"
+     }
+    ],
+    "note": "设计值 ENERGY_FLOOR"
+   },
+   {
+    "name": "掉太快每周公斤",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 1,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "连着 4 次称重平均每周掉超过 1 kg"
+     }
+    ],
+    "note": "官方 LOSS_REF 的上限（每周 0.5–1kg）；设计值 GOAL_STOP"
+   },
+   {
+    "name": "掉太快称重次数",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 4,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "连着 4 次称重平均每周掉超过 1 kg"
+     }
+    ],
+    "note": "设计值 GOAL_STOP：相邻 4 次称重，按天数折算"
+   },
+   {
+    "name": "掉太快从第几周",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 3,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "第 3 周以后"
+     }
+    ],
+    "note": "设计值 GOAL_STOP：头两周多半是水分"
+   },
+   {
+    "name": "增肌体重涨百分比",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 3,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "12 周体重涨了超过 3%"
+     }
+    ],
+    "note": "设计值 GOAL_CYCLE_END"
+   },
+   {
+    "name": "增肌腰围涨",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 2,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "腰围涨了 2 cm 以上"
+     }
+    ],
+    "note": "设计值 GOAL_CYCLE_END"
+   },
+   {
+    "name": "有氧每周最少天数",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 5,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "分在每周至少 5 天"
+     }
+    ],
+    "note": "官方 WM_AEROBIC_LONG 的\"5~7 天\"取下限；设计值 CUT_CARDIO_SPLIT"
+   },
+   {
+    "name": "有氧每段最少分钟",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 10,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "每段不少于 10 分钟"
+     }
+    ],
+    "note": "设计值 CUT_CARDIO_SPLIT"
+   },
+   {
+    "name": "有氧每档至少几周",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym"
+    ],
+    "number": 2,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "每档至少练 2 周"
+     }
+    ],
+    "note": "设计值 CUT_CARDIO"
+   },
+   {
+    "name": "有氧每档至少几周",
+    "products": [
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 4,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "每档至少练 4 周"
+     }
+    ],
+    "note": "设计值 CUT_CARDIO：40–64 岁慢一档"
+   },
+   {
+    "name": "有氧升档要连着做到几周",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 2,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "连着两周都做到这一档"
+     }
+    ],
+    "note": "设计值 CUT_CARDIO"
+   },
+   {
+    "name": "有氧减半的中断天数",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 5,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "断了 5 天以上，回来第一次有氧也只做一半"
+     }
+    ],
+    "note": "设计值 CUT_CARDIO"
+   },
+   {
+    "name": "有氧回第一档的中断天数",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 28,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "断了四周以上，回到 100 分钟那一档"
+     }
+    ],
+    "note": "设计值 CUT_CARDIO：四周按 28 天"
+   },
+   {
+    "name": "健身房训练日有氧上限",
+    "products": [
+     "a18·gym",
+     "a40·gym"
+    ],
+    "number": 30,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "最多做到 30 分钟"
+     }
+    ],
+    "note": "设计值 CUT_CARDIO_SPLIT"
+   },
+   {
+    "name": "有氧医生同意有效天数",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 365,
+    "quotes": [],
+    "note": "设计值 CUT_CARDIO：带日期的医生同意，一年以内、不早于最近一次筛查和医生事件"
+   },
+   {
+    "name": "第几轮起生效（直接进入）",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a40·bw",
+     "a40·home"
+    ],
+    "number": 2,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "选的目标从第 2 轮才开始做"
+     }
+    ],
+    "note": "设计值 GOAL_GATE：直接进稳定期的人第 1 轮和起始期一模一样"
+   }
+  ],
+  "steps": [
+   {
+    "step": 1,
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "minutes": 100,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "100 → 150 → 200 → 250 分钟"
+     }
+    ],
+    "note": "设计值 CUT_CARDIO：官方\"由小运动量开始\""
+   },
+   {
+    "step": 2,
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "minutes": 150,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "100 → 150 → 200 → 250 分钟"
+     }
+    ],
+    "note": "官方 WM_AEROBIC_START（累计 150 分钟/周）；设计值 CUT_CARDIO"
+   },
+   {
+    "step": 3,
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "minutes": 200,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "100 → 150 → 200 → 250 分钟"
+     }
+    ],
+    "note": "设计值 CUT_CARDIO：中间一档"
+   },
+   {
+    "step": 4,
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "minutes": 250,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "100 → 150 → 200 → 250 分钟"
+     }
+    ],
+    "note": "官方 WM_AEROBIC_LONG（至少 250 分钟/周）当上限、取下限；设计值 CUT_CARDIO"
+   }
+  ]
  }
 }

@@ -4,6 +4,7 @@
 // - 一周里有疼痛、头晕、胸闷，下一周不能往上走，这一周之后的进度也不能往上加；
 // - 进度只能照成品的规则改（找级、升级、加次数、加重各有允许的周和依据），一次只改一样，重放日志要等于档案的 progress。
 import { allowedLevels, currentSegment, planType, type PlansData, progressRow, ROUND_WEEKS, roundOf, roundWeek, ruleValue, type RulesData, stableParam, startLevel } from "./plan.ts";
+import { validateGoalReview } from "./goals.ts";
 import type { Issue } from "./types.ts";
 
 export interface SegmentEntry {
@@ -19,6 +20,8 @@ export interface SegmentEntry {
   product: string;
   /** 阶段：起始（默认）/ 稳定。同一段里不变，要和成品的阶段一致。 */
   phase?: string;
+  /** 这一周的目标（阶段 4，稳定期才有）：保持（默认）/ 减脂 / 增肌。一段里只能往保持退。 */
+  goal?: string;
 }
 
 type Obj = Record<string, any>;
@@ -676,6 +679,7 @@ export function validateReview(raw: unknown): Issue[] {
   if (r.sickDays !== undefined && !(Number.isInteger(r.sickDays) && r.sickDays >= 0 && r.sickDays <= 7)) err("sickDays", "sickDays 是这一周生病几天（6–12 岁，0–7）");
   for (const k of ["sickOrMeds", "half", "weightDrop"]) if (r[k] !== undefined && typeof r[k] !== "boolean") err(k, `${k} 是 true / false`);
   if (Number.isInteger(r.dizzy) && r.dizzy > 0 && r.symptoms === false) err("symptoms", "这一周头晕过（dizzy），symptoms 要写 true：头晕也是不适，下周不加量");
+  out.push(...validateGoalReview(r));
   if (!Array.isArray(r.moves)) err("moves", "moves 是逐个动作的表现：[{ move, allAtTop, spare }]");
   else r.moves.forEach((m: Obj, i: number) => {
     if (typeof m !== "object" || m === null || typeof m.move !== "string" || typeof m.allAtTop !== "boolean" || !(Number.isInteger(m.spare) && m.spare >= 0)

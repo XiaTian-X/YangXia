@@ -5,6 +5,7 @@
 import type { Manifest } from "./manifest.ts";
 import { type PlansData, ROUND_WEEKS, roundWeek, type RulesData, stableParam } from "./plan.ts";
 import { fallRiskConclusion, fallRiskIssues, fallRiskRules, validateFallRisk, validateOfficial } from "./fallrisk.ts";
+import { cycleGoals, goalRules, validateGoalFields, validateGoalRecord } from "./goals.ts";
 import { gapBefore, localDate, longGapDays, reviewDataName, type SegmentEntry, type SessionFile, trainingDates } from "./progress.ts";
 import type { Issue } from "./types.ts";
 
@@ -14,7 +15,7 @@ export const KINDS = ["入门", "段末", "触发", "周期末"] as const;
 export const REASONS = ["跨段", "满一年", "身体变化", "生病住院", "生病", "摔倒", "换场地", "中断", "看完医生回来", "回起始期", "跌倒自查到期"] as const;
 const SWITCH_REASONS = ["跨段", "换场地"];
 const TOP_KEYS = ["schema", "date", "kind", "product", "segment", "reasons", "base", "prereqs", "body", "tests", "companion", "doctorCleared", "doctorDate",
-  "eventDate", "eventDates", "fallAssessDone", "weightDrop", "doctorRestart", "fallRisk", "fallRiskSeen", "official", "conclusion", "note"];
+  "eventDate", "eventDates", "fallAssessDone", "weightDrop", "doctorRestart", "fallRisk", "fallRiskSeen", "official", "goal", "eatingCheck", "goalConsent", "conclusion", "note"];
 const HANDS = ["不用手", "扶椅子", "手撑"];
 const STOPS = ["头晕", "腿软", "身体晃"];
 const BIKE = ["稳态分钟", "间歇轮数"];
@@ -186,6 +187,7 @@ export function validateAssessFields(p: Obj): Issue[] {
       err(`segments[${i}].restart`, "restart 写依据的触发评估：评估/<日期>-触发.json");
     }
   });
+  out.push(...validateGoalFields(p));
   return out;
 }
 
@@ -246,6 +248,7 @@ export function validateAssessment(raw: unknown): Issue[] {
   if (raw.eventDate !== undefined && !(typeof raw.eventDate === "string" && DATE.test(raw.eventDate))) err("eventDate", "eventDate 写成 YYYY-MM-DD");
   if (raw.conclusion !== undefined && !isObj(raw.conclusion)) err("conclusion", "conclusion 是对象（照 course assess 的输出写）");
   if (raw.note !== undefined && (typeof raw.note !== "string" || raw.note.length > 500)) err("note", "note 最多 500 字");
+  out.push(...validateGoalRecord(raw));
   return out;
 }
 
@@ -575,7 +578,7 @@ export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, 
     // 停记以前记的保留，只拦停记之后的新记录（第十三节第 2 条）
     else if (ctx.profile.body === "停记" && typeof ctx.profile.bodyStopDate === "string" && r.date < ctx.profile.bodyStopDate) { /* 停记以前的 */ }
     else if (ctx.profile.body !== "记") err("body", `档案选了${ctx.profile.body === "停记" ? `停记（${ctx.profile.bodyStopDate ?? "没写日期"} 起）` : "不记"}体重腰围，评估里不能有身体数据`);
-    else if (!timing) err("body", "身体数据只在入门、段末评估里记");
+    else if (!timing && !hasReason(f, "中断")) err("body", "身体数据只在入门、段末、周期末评估里记（\"记\"的人中断回来的触发评估也可以记一次）");
   }
   if (timing && BODY_AGES.includes(info.age) && ctx.profile.body === "记") {
     const want = timing === "入门" ? ["height", "weight", "waist"] : ["weight", "waist"];
@@ -627,7 +630,7 @@ export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, 
   return out;
 }
 
-function entryHeight(ctx: AssessContext): number | undefined {
+export function entryHeight(ctx: AssessContext): number | undefined {
   return ctx.assessments.map((a) => a.raw).filter((x) => x.kind === "入门" || x.kind === "触发").map((x) => x.body?.height).find((h) => typeof h === "number");
 }
 
@@ -657,6 +660,9 @@ export function recordConclusion(ctx: AssessContext, f: AssessFile, product: str
     if ("error" in end) return out;
     out.result = end.result;
     out.next = end.next;
+    // 下一周期能选什么目标（阶段 4，模板有目标规则时才算）
+    const cg = goalRules(ctx.rules) && end.next.phase === "稳定" ? cycleGoals(ctx, r.segment, f) : null;
+    if (cg) out.goals = cg.goals;
   }
   if (r.kind === "段末" && Number.isInteger(r.segment)) {
     const dizzy = ((r.tests ?? []) as Obj[]).filter((t) => t.stopReason === "头晕").length;
