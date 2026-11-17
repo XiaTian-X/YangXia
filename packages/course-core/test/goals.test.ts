@@ -5,6 +5,7 @@ import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 import { ASSESS_FORMAT, type AssessContext, validateAssessment } from "../src/assess.ts";
 import { bmrTwo, bodyStateOn, cutCardio, cycleGoals, goalCardioHint, goalGate, goalIssues, goalSheetLines, validateGoalFields } from "../src/goals.ts";
+import { checkNotes } from "../src/profile.ts";
 import { REVIEW_FORMAT, validateReview } from "../src/progress.ts";
 import { CONTRACTS, FIX, fitAge, fixtureManifest, fixturePlans, fixtureRules, readJson } from "./helpers.ts";
 
@@ -237,3 +238,14 @@ describe("计划单和导出提示", () => {
     expect(text).toMatch(/吃回到保持/);
   });
 });
+
+describe("菜单（4b）", () => {
+  it("选了目标的成年人，菜单上只写份量：写了减脂、增肌、千卡的拦下", () => {
+    const menu = (t: string) => checkNotes(manifest.redlines, ["fam", "a18"], "菜单/第1周.md", t).map((i) => i.message).join();
+    expect(menu("你那一份肉少盛一些、主食少半个馒头")).toBe("");
+    expect(menu("你那一份主食多半个馒头")).toBe("");
+    expect(menu("增肌的那一份主食多盛")).toMatch(/增肌/);
+    expect(menu("减脂期间少吃 300 千卡")).toMatch(/减脂|千卡/);
+  });
+});
+
