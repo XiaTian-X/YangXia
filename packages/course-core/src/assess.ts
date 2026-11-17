@@ -585,7 +585,8 @@ export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, 
     }
   }
   if (timing && BODY_AGES.includes(info.age) && bodyStateOn(ctx.profile, r.date) === "记") {
-    const want = timing === "入门" ? ["height", "weight", "waist"] : ["weight", "waist"];
+    const hadHeight = ctx.assessments.some((a) => a !== f && typeof a.raw?.body?.height === "number" && typeof a.raw.date === "string" && a.raw.date <= r.date);
+    const want = timing === "入门" || !hadHeight ? ["height", "weight", "waist"] : ["weight", "waist"];
     const lack = want.filter((k) => typeof b?.[k] !== "number");
     if (lack.length) err("body", `档案选了记体重腰围：${timing}要记 ${want.join("、")}，少了 ${lack.join("、")}`);
   }
@@ -657,7 +658,8 @@ export function recordConclusion(ctx: AssessContext, f: AssessFile, product: str
     if (pres.length) out.needDoctor = pres.some((p) => r.prereqs?.[p.id] === false);
   }
   const cuts = bmiCuts(ctx.manifest);
-  const bmi = bmiOf(r.body, entryHeight(ctx));
+  // BMI 一律用最早那份身高（这份就是最早的，就用它自己的）
+  const bmi = bmiOf(typeof r.body?.weight === "number" ? { weight: r.body.weight } : undefined, entryHeight(ctx) ?? r.body?.height);
   if (cuts && bmi !== null && BODY_AGES.includes(info.age)) {
     out.bmi = bmi;
     out.bmiClass = bmiClass(bmi, cuts);
@@ -1161,7 +1163,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
   if (bodies.length) {
     const cuts = bmiCuts(ctx.manifest);
     const lastBody = bodies[bodies.length - 1];
-    const bmi = bmiOf(lastBody.raw.body, entryHeight(ctx));
+    const bmi = bmiOf({ weight: lastBody.raw.body.weight }, entryHeight(ctx) ?? lastBody.raw.body.height);
     if (!cuts) warn(lastBody.name, "模板 manifest 里找不到 BMI 切点（BMI_CN、WEIGHT_LOW_CN）：BMI 没核对，先更新模板");
     else if (bmi !== null && bmi >= cuts.obese) {
       const it = screeningItem(p, /BMI/);

@@ -30,7 +30,7 @@ function profile(stableWeeks: number, goal: string | ((w: number) => string) = "
   }
   p.segments = segs;
   const prod = manifest.products.find((x) => x.name === STABLE)!;
-  Object.assign(p, { age: "a18", stage: "18–39 岁", product: STABLE, venue: prod.venue, startDate: START, birth: "1996-03", body: "记" });
+  Object.assign(p, { age: "a18", stage: "18–39 岁", product: STABLE, venue: prod.venue, startDate: START, birth: "1996-03", body: "记", bodyLog: [{ date: START, body: "记" }] });
   delete p.wake;
   delete p.bedtime;
   const items = manifest.intake.screening.find((s) => s.age === "a18")!.items;
@@ -66,7 +66,7 @@ describe("写法", () => {
     expect(validateGoalFields(q).map((i) => i.message).join()).toMatch(/最后一次停记是 2026-02-01/);
     q.bodyLog[1].date = "2026-03-01";
     expect(validateGoalFields(q)).toEqual([]);
-    expect(validateGoalFields(profile(1, "保持", { cardioClear: { date: START, note: "医生说可以" } })).map((i) => i.message).join()).toMatch(/cardioClear 是 \{ date \}/);
+    expect(validateGoalFields(profile(1, "保持", { cardioClear: [{ date: START, note: "医生说可以" }] })).map((i) => i.message).join()).toMatch(/cardioClear 是 \[\{ date \}\]/);
   });
   it("评估：选减脂、增肌要问过进食困扰；答了有只能保持", () => {
     const v = (x: Obj) => validateAssessment({ schema: ASSESS_FORMAT, date: START, kind: "段末", segment: 1, conclusion: {}, ...x }).map((i) => i.message).join();
@@ -86,9 +86,9 @@ describe("写法", () => {
     addFormats(ajv);
     const sch = (f: string) => ajv.compile(readJson(`${CONTRACTS}${f}`) as object);
     const prof = sch("profile.schema.json");
-    const p = profile(1, "减脂", { cardioClear: { date: START }, bodyLog: [{ date: START, body: "记" }] });
+    const p = profile(1, "减脂", { cardioClear: [{ date: START }], bodyLog: [{ date: START, body: "记" }] });
     expect(prof(p)).toBe(true);
-    expect(prof({ ...p, cardioClear: { date: START, by: "医生" } })).toBe(false);
+    expect(prof({ ...p, cardioClear: [{ date: START, by: "医生" }] })).toBe(false);
     const rv = sch("review.schema.json");
     expect(rv({ schema: REVIEW_FORMAT, start: START, week: 1, trainings: 3, symptoms: false, moves: [], weight: 70.2, cardioMinutes: 120, tired: false })).toBe(true);
     const as = sch("assessment.schema.json");
@@ -96,7 +96,7 @@ describe("写法", () => {
     expect(as({ schema: ASSESS_FORMAT, date: START, kind: "段末", segment: 1, goal: "塑形", conclusion: {} })).toBe(false);
   });
   it("没有 bodyLog 的老档案：停记那天以前按记", () => {
-    const p = profile(1, "保持", { body: "停记", bodyStopDate: "2026-03-01" });
+    const p = profile(1, "保持", { body: "停记", bodyStopDate: "2026-03-01", bodyLog: undefined });
     expect(bodyStateOn(p, "2026-02-28")).toBe("记");
     expect(bodyStateOn(p, "2026-03-01")).toBe("停记");
   });
@@ -116,7 +116,7 @@ describe("谁能选", () => {
     expect(gate({ weight: 52, waist: 70 }, {}, { goal: "增肌", eatingCheck: "问过", goalConsent: { date: plus(stableStart, -3) } }).allowed).toEqual(["保持", "增肌"]);
   });
   it("没选记、停记、进食困扰答了有、身体数据超过 28 天、12 周里满 40 岁：只保持", () => {
-    expect(gate({ weight: 75, waist: 80 }, { body: "不记" }).allowed).toEqual(["保持"]);
+    expect(gate({ weight: 75, waist: 80 }, { body: "不记", bodyLog: [{ date: START, body: "不记" }] }).allowed).toEqual(["保持"]);
     expect(gate({ weight: 75, waist: 80 }, {}, { goal: "保持", eatingCheck: "只能保持" }).allowed).toEqual(["保持"]);
     const old = goalGate(ctx(profile(1, "保持"), [rec(plus(START, -1), "入门", { body: { height: 170, weight: 76, waist: 89 } })]), firstStable);
     expect(old.why.join()).toMatch(/28 天以内没有量过/);
@@ -140,9 +140,9 @@ describe("中途退回保持", () => {
   });
   it("停记那一周起要退回保持", () => {
     const stop = plus(stableStart, 9);                 // 第 2 周里
-    const p = profile(3, "减脂", { body: "停记", bodyStopDate: stop });
+    const p = profile(3, "减脂", { body: "停记", bodyStopDate: stop, bodyLog: [{ date: START, body: "记" }, { date: stop, body: "停记" }] });
     expect(errs(ctx(p, recs({ weight: 75, waist: 80 })))).toMatch(/segments\[5\]\.goal：.*起不记（或停记）/);
-    const q = profile(3, (w) => (w === 1 ? "减脂" : "保持"), { body: "停记", bodyStopDate: stop });
+    const q = profile(3, (w) => (w === 1 ? "减脂" : "保持"), { body: "停记", bodyStopDate: stop, bodyLog: [{ date: START, body: "记" }, { date: stop, body: "停记" }] });
     expect(errs(ctx(q, recs({ weight: 75, waist: 80 })))).toBe("");
   });
   it("减脂第 3 周以后连着 4 次称重平均每周掉超过 1 kg：下一周起退回；头两周掉得快不算", () => {
@@ -184,9 +184,9 @@ describe("减脂的有氧台阶", () => {
     const p = profile(2, "减脂", { conditions: { 高血压: true } });
     const c = cutCardio(ctx(p, recs({ weight: 75, waist: 80 })), firstStable);
     expect(c?.doctor).toMatch(/先问医生/);
-    p.cardioClear = { date: plus(START, -10) };
+    p.cardioClear = [{ date: plus(START, -10) }];
     expect(cutCardio(ctx(p, recs({ weight: 75, waist: 80 })), firstStable)?.doctor).toMatch(/要在 2026-01-05 之后/);
-    p.cardioClear = { date: plus(stableStart, -2) };
+    p.cardioClear = [{ date: plus(stableStart, -2) }];
     expect(cutCardio(ctx(p, recs({ weight: 75, waist: 80 })), firstStable)).toMatchObject({ minutes: 100, step: 1 });
   });
   it("中断回来（触发评估：中断）：回到第一档", () => {
@@ -263,7 +263,7 @@ describe("实施审查的修订", () => {
   it("M1 没有医生同意的那几周不算进升档：同意以后从第一档开始", () => {
     const p = profile(8, "减脂", { conditions: { 高血压: true } });
     const rv = [110, 150, 160, 210, 210, 210].map((x, k) => review(p, firstStable + k, { cardioMinutes: x }));
-    p.cardioClear = { date: plus(p.segments[10].start, -1) };
+    p.cardioClear = [{ date: plus(p.segments[10].start, -1) }];
     expect(cutCardio(ctx(p, recs(ok), rv), 10)).toMatchObject({ minutes: 100, step: 1 });
     p.screening.date = plus(p.segments[10].start, 1);        // 之后重做了筛查：同意要重新问
     expect(cutCardio(ctx(p, recs(ok), rv), 11)?.doctor).toMatch(/先问医生/);
@@ -284,8 +284,9 @@ describe("实施审查的修订", () => {
     expect(errs(ctx(p, [...recs(ok), end]))).not.toMatch(/进食困扰|写的目标/);
   });
   it("M4 改过记不记却没有 bodyLog：拦下", () => {
-    expect(errs(ctx(profile(1, "保持", { body: "记", bodyStopDate: "2026-01-20" }), recs(ok, { goal: "保持" })))).toMatch(/停记以后又改回了记，要写 bodyLog/);
-    expect(errs(ctx(profile(1, "保持", { body: "不记" }), recs(ok, { goal: "保持" })))).toMatch(/以前记过体重腰围/);
+    expect(errs(ctx(profile(1, "保持", { body: "记", bodyStopDate: "2026-01-20", bodyLog: undefined }), recs(ok, { goal: "保持" })))).toMatch(/停记以后又改回了记，要写 bodyLog/);
+    expect(errs(ctx(profile(1, "保持", { body: "不记", bodyLog: undefined }), recs(ok, { goal: "保持" })))).toMatch(/以前记过体重腰围/);
+    expect(errs(ctx(profile(1, "减脂", { bodyLog: undefined }), recs(ok)))).toMatch(/选了减脂、增肌：档案要有 bodyLog/);
     const q = profile(1, "保持", { body: "不记", bodyLog: [{ date: START, body: "记" }, { date: plus(stableStart, 2), body: "不记" }] });
     expect(errs(ctx(q, recs(ok, { goal: "保持" })))).not.toMatch(/bodyLog/);
   });
@@ -356,3 +357,40 @@ describe("实施审查的修订", () => {
     expect(errs(ctx(p, [entryRec], rv.filter((_, k) => k >= 4).map(([n, r]) => [n, r]) as any))).not.toMatch(/掉了/);
   });
 });
+
+describe("复核后再修", () => {
+  const ok = { weight: 75, waist: 80 };
+  it("医生同意续过一次：以前几周照用当时那一次，台阶不回第一档", () => {
+    const p = profile(12, "减脂", { conditions: { 高血压: true }, cardioClear: [{ date: plus(stableStart, -1) }, { date: plus(stableStart, 60) }] });
+    const rv = Array.from({ length: 11 }, (_, k) => review(p, firstStable + k, { cardioMinutes: 260 }));
+    expect(cutCardio(ctx(p, recs(ok), rv), firstStable + 11)?.minutes).toBe(250);
+  });
+  it("连着两个减脂周期以后：下一周期不能选减脂", () => {
+    const p = profile(12, "减脂");
+    const last = p.segments[p.segments.length - 1];
+    for (let w = 1; w <= 12; w++) p.segments.push({ n: 3, phase: "稳定", type: "标准", week: w, start: plus(last.start, 7 * w), product: STABLE, goal: "减脂" });
+    const e2 = rec(plus(p.segments[15].start, 6), "周期末", { segment: 2, body: { weight: 73, waist: 80 }, goal: "减脂", eatingCheck: "问过" });
+    const e3 = rec(plus(p.segments[27].start, 6), "周期末", { segment: 3, body: { weight: 71, waist: 80 } });
+    expect(cycleGoals(ctx(p, [...recs(ok), e2, e3]), 3, e3)?.goals).toEqual(["保持"]);
+  });
+  it("改成记以后第一份评估要量身高（以前没记过身高的）", async () => {
+    const { checkRecord } = await import("../src/assess.ts");
+    const p = profile(1, "保持");
+    const r = [rec(START, "入门", {}), rec(plus(stableStart, -1), "段末", { segment: 1, body: { weight: 70, waist: 80 } })];
+    expect(checkRecord(ctx(p, r), r[1], STARTER, false).map((i) => i.message).join()).toMatch(/要记 height、weight、waist/);
+  });
+  it("换到有目标规则的模板以前写的周期末记录：只缺 goals 只提醒", async () => {
+    const { checkRecord, recordConclusion } = await import("../src/assess.ts");
+    const p = profile(12, "保持");
+    const end = rec(plus(p.segments[15].start, 6), "周期末", { segment: 2, body: { weight: 72, waist: 80 } });
+    const rv = Array.from({ length: 12 }, (_, k) => review(p, firstStable + k, { habits: { 散步: 5, 冥想: 5 } }));
+    const c = ctx(p, [...recs(ok, { goal: "保持" }), end], rv);
+    const want = recordConclusion(c, end, STABLE, false)!;
+    expect(want.goals).toEqual(["保持", "减脂"]);
+    const { goals: _g, ...rest } = want;
+    end.raw.conclusion = rest;
+    const issues = checkRecord(c, end, STABLE, false).filter((i) => /goals|结论/.test(i.message));
+    expect(issues.map((i) => i.level)).toEqual(["warning"]);
+  });
+});
+

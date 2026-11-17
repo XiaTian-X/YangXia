@@ -425,16 +425,20 @@
       }
     },
     "cardioClear": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "date"
-      ],
-      "description": "减脂加有氧的医生同意（有高血压或没确认、筛查有\"是\"的人）：医生说可以把有氧逐步加到每周 250 分钟中等强度的那天",
-      "properties": {
-        "date": {
-          "type": "string",
-          "format": "date"
+      "type": "array",
+      "minItems": 1,
+      "description": "减脂加有氧的医生同意（有高血压或没确认、筛查有\"是\"的人）：医生每次说可以把有氧逐步加到每周 250 分钟中等强度的那天，按日期从早到晚，续了就加一项；每一周用当时有效的那一次",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "date"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          }
         }
       }
     },

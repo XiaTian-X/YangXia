@@ -56,8 +56,10 @@ export function validateGoalFields(p: Obj): Issue[] {
       if (p.body === "停记" && stops.length && stops[stops.length - 1].date !== p.bodyStopDate) err("bodyLog", `最后一次停记是 ${stops[stops.length - 1].date}，bodyStopDate 写的是 ${p.bodyStopDate}：要一致`);
     }
   }
-  if (p.cardioClear !== undefined && !(isObj(p.cardioClear) && typeof p.cardioClear.date === "string" && DATE.test(p.cardioClear.date) && Object.keys(p.cardioClear).length === 1)) {
-    err("cardioClear", "cardioClear 是 { date }：医生说可以把有氧逐步加到每周 250 分钟中等强度的那天");
+  if (p.cardioClear !== undefined && !(Array.isArray(p.cardioClear) && p.cardioClear.length
+    && p.cardioClear.every((e: Obj) => isObj(e) && typeof e.date === "string" && DATE.test(e.date) && Object.keys(e).length === 1)
+    && p.cardioClear.every((e: Obj, i: number) => i === 0 || e.date >= p.cardioClear[i - 1].date))) {
+    err("cardioClear", "cardioClear 是 [{ date }]：医生每次说可以把有氧逐步加到每周 250 分钟中等强度的那天，按日期从早到晚，续了就加一项");
   }
   return out;
 }
@@ -237,8 +239,9 @@ export function cardioDoctor(ctx: AssessContext, date: string, code: string): { 
   const gr = goalRules(ctx.rules);
   const keep = gr ? goalParam(gr, "有氧医生同意有效天数", code) ?? 365 : 365;
   const after = [p.screening?.date, ...doctorEvents(ctx).map((x) => x.date)].filter((d) => typeof d === "string" && d <= date).sort().pop() ?? "";
-  const d = p.cardioClear?.date;
-  return { needed: true, valid: typeof d === "string" && d >= after && d <= date && days(d, date) <= keep, after };
+  // 每一周用当时有效的那一次同意（续过的不影响以前几周）
+  const d = (Array.isArray(p.cardioClear) ? p.cardioClear : []).map((e: Obj) => e?.date).filter((x: unknown) => typeof x === "string" && x <= date).sort().pop();
+  return { needed: true, valid: typeof d === "string" && d >= after && days(d, date) <= keep, after };
 }
 
 // ---------- 减脂的有氧台阶 ----------
@@ -258,8 +261,8 @@ export function cutCardio(ctx: AssessContext, index: number): CardioStep | null 
   const doc = cardioDoctor(ctx, e.start, code);
   if (doc.needed && !doc.valid) {
     return { minutes: 0, step: 0, steps: steps.length, why: "有高血压（或没确认）、或者安全筛查有\"是\"", doctor: doc.after
-      ? `先问医生"能不能把有氧逐步加到每周 250 分钟中等强度"，同意了把日期记进档案 cardioClear（要在 ${doc.after} 之后）；没问之前有氧照保持的量`
-      : "先问医生\"能不能把有氧逐步加到每周 250 分钟中等强度\"，同意了把日期记进档案 cardioClear；没问之前有氧照保持的量" };
+      ? `先问医生"能不能把有氧逐步加到每周 250 分钟中等强度"，同意了在档案 cardioClear 里加一项日期（要在 ${doc.after} 之后）；没问之前有氧照保持的量`
+      : "先问医生\"能不能把有氧逐步加到每周 250 分钟中等强度\"，同意了在档案 cardioClear 里加一项日期；没问之前有氧照保持的量" };
   }
   const minWeeks = goalParam(gr, "有氧每档至少几周", code) ?? 2;
   const needRun = goalParam(gr, "有氧升档要连着做到几周", code) ?? 2;
@@ -491,8 +494,9 @@ export function goalIssues(ctx: AssessContext): Issue[] {
       && a.raw.date >= last.start && a.raw.date <= addDays(last.start, 6));
     if (rv?.weight !== undefined && rec) err(`复盘/${reviewDataName(last)} weight`, `这一周的体重已经记在 ${rec.name} 里：每周最多称一次，复盘不再记`);
   }
-  // 改过记不记却没有 bodyLog：推不出以前哪天是记
+  // 改过记不记却没有 bodyLog：推不出以前哪天是记；选过减脂、增肌的一定要有（停记、改回记要查得出来）
   if (!(Array.isArray(p.bodyLog) && p.bodyLog.length)) {
+    if (ss.some((s) => weekGoal(s) !== "保持")) err("档案.json bodyLog", "选了减脂、增肌：档案要有 bodyLog（建档那天的状态，以后每次改记不记都加一项），停记、改回记才查得出来");
     const usedBody = ctx.assessments.some((a) => a.raw?.body !== undefined) || Object.values(ctx.reviewData).some((r) => (r as Obj)?.weight !== undefined) || any;
     if (p.body === "记" && typeof p.bodyStopDate === "string") err("档案.json bodyLog", `body 是"记"、bodyStopDate（${p.bodyStopDate}）还在：停记以后又改回了记，要写 bodyLog（建档那天的状态、停记那天、改回记那天）`);
     else if ((p.body ?? "不记") === "不记" && usedBody) err("档案.json bodyLog", "档案现在是\"不记\"，以前记过体重腰围（评估、复盘里有）：改记不记要写 bodyLog（建档那天的状态，加上这一次改的日期），不然以前的记录都对不上");
