@@ -311,15 +311,15 @@ export function severeObese(ctx: AssessContext, date: string, code?: string): bo
 
 /**
  * 最近一次称的体重（这一天以前）：评估里量的（记录那天是"记"），和减脂复盘里称的（算在那一周的最后一天，那一周是"记"）。
- * where 是给报错用的位置。
+ * where 是给报错用的位置；only 只看评估或只看复盘。
  */
-export function lastWeighed(ctx: AssessContext, date: string): { date: string; weight: number; where: string } | null {
+export function lastWeighed(ctx: AssessContext, date: string, only?: "评估" | "复盘"): { date: string; weight: number; where: string } | null {
   const p = ctx.profile;
   const pts: { date: string; weight: number; where: string }[] = [];
-  for (const a of ctx.assessments) {
+  if (only !== "复盘") for (const a of ctx.assessments) {
     if (typeof a.raw?.date === "string" && a.raw.date <= date && typeof a.raw.body?.weight === "number" && bodyStateOn(p, a.raw.date) === "记") pts.push({ date: a.raw.date, weight: a.raw.body.weight, where: `${a.name} body` });
   }
-  for (const s of (p.segments ?? []) as SegmentEntry[]) {
+  if (only !== "评估") for (const s of (p.segments ?? []) as SegmentEntry[]) {
     const w = ctx.reviewData[reviewDataName(s)]?.weight;
     const end = typeof s.start === "string" ? addDays(s.start, 6) : "";
     if (typeof w === "number" && end && end <= date && bodyStateOn(p, s.start) === "记") pts.push({ date: end, weight: w, where: `复盘/${reviewDataName(s)} weight` });

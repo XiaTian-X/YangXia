@@ -1158,25 +1158,31 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
     const known = new Set(ar.habits.filter((h) => h.products.includes(segCode(ctx.manifest, s.product))).map((h) => h.habit));
     for (const k of Object.keys(rv.habits ?? {})) if (!known.has(k)) err(`复盘/${reviewDataName(s)} habits.${k}`, `「${k}」不是这份成品的打卡项（有：${[...known].join("、") || "（没有）"}）`);
   }
-  // BMI：只看最近一次筛查以后称的体重（评估里量的、减脂复盘里称的），而且现在还是"记"——
-  // 筛查以前的、改成不记以前的旧体重不拿来推翻后来的筛查答案
+  // BMI：只看最近一次筛查以后称的体重（评估里量的、减脂复盘里称的；称的那天是"记"）——筛查以前的旧体重不拿来推翻后来的筛查答案，
+  // 改成不记也躲不开筛查以后量过的。评估里量的和复盘里称的分开核对：评估里量到 28 以上照实改筛查（报错），
+  // 复盘称到的只提醒、下一次评估确认（一次周称重不停训练），复盘的提醒不顶掉评估的报错
   const todayB = localDate(ctx.now ?? new Date());
-  const lastW = bodyStateOn(p, todayB) === "记" ? lastWeighed(ctx, todayB) : null;
-  if (lastW && (!sd || lastW.date >= sd)) {
-    const cuts = bmiCuts(ctx.manifest);
-    const h = entryHeight(ctx) ?? A.filter((a) => a.raw?.date === lastW.date && typeof a.raw?.body?.height === "number").pop()?.raw.body.height;
-    const bmi = bmiOf({ weight: lastW.weight }, h);
-    const fromReview = lastW.where.startsWith("复盘/");
-    if (!cuts) warn(lastW.where, "模板 manifest 里找不到 BMI 切点（BMI_CN、WEIGHT_LOW_CN）：BMI 没核对，先更新模板");
-    else if (bmi !== null && bmi >= cuts.obese) {
-      const it = screeningItem(p, /BMI/);
-      // 评估里量的：照实改筛查；周复盘称的只提醒（一次周称重不停训练），下一次评估量的时候确认
-      if (it && it.answer !== "是") {
-        if (fromReview) warn(lastW.where, `周复盘称的 BMI ${bmi}（≥ ${cuts.obese}），安全筛查"${it.item}"还是"否"：下一次评估量体重确认，到了照实改成"是"、先问医生（改了以后医生同意之前不出课程）；没有减重的医生同意的，减脂下一周起退回保持`);
-        else err(lastW.where, `BMI ${bmi}（≥ ${cuts.obese}），安全筛查"${it.item}"却答了"否"：改成"是"，先问医生`);
-      }
-    } else if (bmi !== null && bmi < cuts.low) warn(lastW.where, `BMI ${bmi}（< ${cuts.low}，低体重）：不选减脂；饮食照成品，拿不准问医生`);
+  type Weighed = ReturnType<typeof lastWeighed>;
+  const afterScreen = (w: Weighed): Weighed => (w && (!sd || w.date >= sd) ? w : null);
+  const lastA = afterScreen(lastWeighed(ctx, todayB, "评估"));
+  const lastR = afterScreen(lastWeighed(ctx, todayB, "复盘"));
+  const lastW = afterScreen(lastWeighed(ctx, todayB));
+  const cuts = bmiCuts(ctx.manifest);
+  const bmiAt = (w: { date: string; weight: number }) => bmiOf({ weight: w.weight }, entryHeight(ctx) ?? A.filter((a) => a.raw?.date === w.date && typeof a.raw?.body?.height === "number").pop()?.raw.body.height);
+  if (lastW && !cuts) warn(lastW.where, "模板 manifest 里找不到 BMI 切点（BMI_CN、WEIGHT_LOW_CN）：BMI 没核对，先更新模板");
+  else if (lastW && cuts) {
+    const it = screeningItem(p, /BMI/);
+    const bA = lastA ? bmiAt(lastA) : null;
+    if (lastA && bA !== null && bA >= cuts.obese && it && it.answer !== "是") err(lastA.where, `BMI ${bA}（≥ ${cuts.obese}），安全筛查"${it.item}"却答了"否"：改成"是"，先问医生`);
+    // 复盘称到的：只在它比最近一份评估新的时候提醒（评估量过、没到的，以评估为准）
+    const bR = lastR && (!lastA || lastR.date > lastA.date) ? bmiAt(lastR) : null;
+    if (lastR && bR !== null && bR >= cuts.obese && it && it.answer !== "是") {
+      warn(lastR.where, `周复盘称的 BMI ${bR}（≥ ${cuts.obese}），安全筛查"${it.item}"还是"否"：下一次评估量体重确认，到了照实改成"是"、先问医生（改了以后医生同意之前不出课程）；没有减重的医生同意的，减脂下一周起退回保持`);
+    }
+    const bW = bmiAt(lastW);
+    if (bW !== null && bW < cuts.low) warn(lastW.where, `BMI ${bW}（< ${cuts.low}，低体重）：不选减脂；饮食照成品，拿不准问医生`);
   }
+
 
   // 5. 中断、连着两周疼
   if (curInfo && curInfo.age !== "a06") {

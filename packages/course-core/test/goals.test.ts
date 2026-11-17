@@ -498,6 +498,19 @@ describe("阶段 5a：肥胖的减脂、重度肥胖、附册", () => {
     const c2 = { ...ctx(q, recs({ weight: 84, waist: 95 }, { goal: "保持" })), now: new Date(`${plus(stableStart, 202)}T12:00:00`) };
     expect(checkAssessments(c2).filter((i) => /BMI/.test(i.message))).toEqual([]);
   });
+  it("筛查以后量到 BMI 28 以上、筛查答\"否\"：改成不记也照样报；复盘的提醒不顶掉评估的报错", () => {
+    const p = profile(1, "保持");
+    const a = [rec(START, "入门", { body: { height: 170, weight: 84, waist: 95 } })];                // BMI 29.1，筛查同一天
+    const bmiErr = (c: AssessContext) => checkAssessments(c).filter((i) => i.level === "error" && /BMI/.test(i.message)).map((i) => i.path).join();
+    expect(bmiErr(ctx(p, a))).toMatch(/入门\.json body/);
+    Object.assign(p, { body: "不记", bodyLog: [{ date: START, body: "记" }, { date: plus(START, 20), body: "不记" }] });
+    expect(bmiErr(ctx(p, a))).toMatch(/入门\.json body/);
+    // 评估量到 28.5，之后一周复盘称到 28.3：评估的报错和复盘的提醒都在
+    const q = profile(3, "减脂");
+    const rv = [review(q, firstStable + 1, { weight: 81.8 })];
+    const all = checkAssessments(ctx(q, [rec(START, "入门", { body: { height: 170, weight: 76, waist: 89 } }), rec(q.segments[firstStable + 1].start, "触发", { reasons: ["身体变化"], body: { weight: 82.4, waist: 96 } })], rv));
+    expect(all.filter((i) => i.level === "error" && /BMI 28\.5/.test(i.message)).length).toBe(1);
+  });
   it("肥胖的人（有 weightClear）减脂中生病住院：有氧提示让续减重的同意", () => {
     const p = obese({ weightClear: [{ date: plus(stableStart, -3) }] });
     p.segments = p.segments.slice(0, firstStable);
