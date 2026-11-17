@@ -65,7 +65,7 @@ export function validateFallRisk(fr: unknown, path = "fallRisk"): Issue[] {
   if (fr.severity !== undefined && !bools(fr.severity, SEVERITY)) err("severity", `severity 是 { ${SEVERITY.join(", ")} }，每项 true / false`);
   if (fr.frail !== undefined && !bools(fr.frail, FRAIL)) err("frail", `frail 是 { ${FRAIL.join(", ")} }，每项 true / false（疾病只记有没有 5 种或更多，不记病名；体重只记是 / 否）`);
   for (const k of ["needsSupport", "hardToStand"]) if (typeof fr[k] !== "boolean") err(k, `${k}（在家走路也要扶墙或用助行器 / 扶着椅子也很难自己站起来）是 true / false`);
-  if (typeof fr.dizzy !== "boolean") err("dizzy", "dizzy 是问卷那天安全筛查\"经常头晕，或者站起来时眼前发黑\"的答案（true / false）：照那天的筛查填，不按以后重做的");
+  if (typeof fr.dizzy !== "boolean") err("dizzy", "dizzy（经常头晕，或者站起来时眼前发黑：问卷时另外问，和安全筛查同一句话）是 true / false");
   for (const t of ["walk4m", "tug"] as const) {
     const v = fr[t];
     if (v === undefined) continue;

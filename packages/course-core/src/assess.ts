@@ -14,7 +14,7 @@ export const KINDS = ["入门", "段末", "触发", "周期末"] as const;
 export const REASONS = ["跨段", "满一年", "身体变化", "生病住院", "生病", "摔倒", "换场地", "中断", "看完医生回来", "回起始期", "跌倒自查到期"] as const;
 const SWITCH_REASONS = ["跨段", "换场地"];
 const TOP_KEYS = ["schema", "date", "kind", "product", "segment", "reasons", "base", "prereqs", "body", "tests", "companion", "doctorCleared", "doctorDate",
-  "eventDate", "fallAssessDone", "weightDrop", "doctorRestart", "fallRisk", "fallRiskSeen", "official", "conclusion", "note"];
+  "eventDate", "eventDates", "fallAssessDone", "weightDrop", "doctorRestart", "fallRisk", "fallRiskSeen", "official", "conclusion", "note"];
 const HANDS = ["不用手", "扶椅子", "手撑"];
 const STOPS = ["头晕", "腿软", "身体晃"];
 const BIKE = ["稳态分钟", "间歇轮数"];
@@ -207,6 +207,15 @@ export function validateAssessment(raw: unknown): Issue[] {
     } else if (raw.reasons.some((x: string) => x === "摔倒" || x === "生病住院") && !(typeof raw.eventDate === "string" && DATE.test(raw.eventDate))) {
       err("eventDate", "摔倒、生病住院的触发评估要写那天的日期 eventDate（医生同意要在它之后）");
     }
+  }
+  // 一份"摔倒"触发评估记一周里的好几次摔倒：eventDates 是每次的日期，eventDate 写最近那次
+  if (raw.eventDates !== undefined) {
+    const ds = raw.eventDates;
+    if (!(Array.isArray(raw.reasons) && raw.reasons.includes("摔倒"))) err("eventDates", "eventDates 只给\"摔倒\"的触发评估（一次记了好几次摔倒）");
+    else if (!Array.isArray(ds) || !ds.length || ds.some((d: unknown) => typeof d !== "string" || !DATE.test(d)) || new Set(ds).size !== ds.length) {
+      err("eventDates", "eventDates 是每次摔倒的日期 [YYYY-MM-DD, …]，不重复（同一天摔了两次的，写两份触发评估）");
+    } else if (ds.slice().sort().pop() !== raw.eventDate) err("eventDates", "eventDates 要包含 eventDate，而且 eventDate 是最近的那一次（医生同意、问卷都要在它之后）");
+    else if (typeof raw.date === "string" && ds.some((d: string) => d > raw.date)) err("eventDates", "摔倒的日期不能晚于这份评估的日期");
   }
   if (raw.base !== undefined && ![0, 1, 2].includes(raw.base)) err("base", "base 是最近 3 个月平均每周几天力量练习：0、1、2（2 及以上）");
   if (raw.prereqs !== undefined && !(isObj(raw.prereqs) && Object.values(raw.prereqs).every((v) => typeof v === "boolean"))) err("prereqs", "prereqs 是 {checkup, bpOk}，只记是 / 否");
@@ -440,15 +449,16 @@ const isSwitch = (a: AssessFile) => a.raw?.kind === "触发" && Array.isArray(a.
 const segCode = (m: Manifest, name: string) => productInfo(m, name)?.code ?? "";
 
 /**
- * 摔倒，一次一项（日期可以重复）："摔倒"触发评估各算一次（有 eventDate 用它）；65 岁以上版周复盘里有 falls 的那一周，
+ * 摔倒，一次一项（日期可以重复）："摔倒"触发评估记的每个日期各算一次（eventDates，没有就用 eventDate）；65 岁以上版周复盘里有 falls 的那一周，
  * 这一周的次数取复盘 falls 和这一周触发评估个数里大的那个——同一次摔倒复盘记了、触发评估也记了，只算一次；
  * 复盘比触发评估多出来的那几次按这一周的最后一天算。
  */
 function fallDates(ctx: AssessContext): string[] {
   const ss = (ctx.profile.segments ?? []) as SegmentEntry[];
-  // "摔倒"触发评估：有 eventDate 用它，没写的按评估那天算（写法错误另外报）
+  // "摔倒"触发评估：记了 eventDates 的每个日期各算一次，没有的用 eventDate，都没写的按评估那天算（写法错误另外报）
   const trig = ctx.assessments.filter((a) => hasReason(a, "摔倒") && typeof a.raw.date === "string")
-    .map((a) => (typeof a.raw.eventDate === "string" ? a.raw.eventDate : a.raw.date) as string);
+    .flatMap((a) => (Array.isArray(a.raw.eventDates) && a.raw.eventDates.length && a.raw.eventDates.every((d: unknown) => typeof d === "string")
+      ? a.raw.eventDates : [typeof a.raw.eventDate === "string" ? a.raw.eventDate : a.raw.date]) as string[]);
   const out = [...trig];
   for (const s of ss) {
     const falls = ctx.reviewData[reviewDataName(s)]?.falls ?? 0;
@@ -1019,8 +1029,8 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       const ev = a.raw.eventDate;
       const evWhy = AFTER_EVENT.find((x) => hasReason(a, x));
       if (evWhy && typeof ev === "string" && fr.askedOn < ev) err(`${a.name} fallRisk.askedOn`, `${evWhy}（${ev}）之后要重新做一次问卷：这份问卷是 ${fr.askedOn} 做的，在那之前`);
-      const before = A.filter((b) => b !== a && typeof b.raw?.date === "string" && b.raw.date < d && typeof b.raw.fallRisk?.askedOn === "string" && b.raw.fallRisk.askedOn >= fr.askedOn);
-      if (before.length) err(`${a.name} fallRisk.askedOn`, `${why}要重新做一次问卷：这份问卷（${fr.askedOn}）不晚于之前 ${before[0].name} 那份（${before[0].raw.fallRisk.askedOn}），不能照抄`);
+      const same = A.find((b) => b !== a && b.raw?.fallRisk?.askedOn === fr.askedOn);
+      if (same) err(`${a.name} fallRisk.askedOn`, `${why}要重新做一次问卷：这份问卷和 ${same.name} 那份是同一天（${fr.askedOn}）的，不能照抄；两件事一起的，写成一份记录`);
     }
     const all = fallRiskList(ctx);
     const within = (x: string) => x <= today && (dayStart(today) - dayStart(x)) / DAY <= 365;
@@ -1030,14 +1040,22 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       const raw = fr.file.raw.fallRisk;
       const name = fr.file.name;
       const askedOn = fr.askedOn;
-      // 头晕照问卷那天的筛查（问卷之前做的筛查才是那天有效的那一份）
+      // 头晕：问卷时另外问；问卷之前做的筛查（那天有效的那一份）和它对得上；测步态那天有效的筛查说经常头晕的不在家测
       const dz = screeningItem(p, /经常头晕/);
       if (dz && sd && sd <= askedOn && typeof raw.dizzy === "boolean" && raw.dizzy !== (dz.answer === "是")) {
-        err(`${name} fallRisk.dizzy`, raw.dizzy ? `问卷记了经常头晕，安全筛查"${dz.item}"却是"否"：人现在经常头晕，照实重做安全筛查` : `问卷那天的安全筛查"${dz.item}"是"是"，dizzy 要照那天的筛查写 true（经常头晕的不在家测步态）`);
+        err(`${name} fallRisk.dizzy`, raw.dizzy ? `问卷说经常头晕，安全筛查"${dz.item}"却是"否"：人现在经常头晕，照实重做安全筛查` : `问卷之前做的安全筛查"${dz.item}"是"是"，问卷却说不经常头晕：照实答（经常头晕的不在家测步态）`);
+      }
+      if (dz?.answer === "是" && sd) {
+        for (const def of rr.gait) {
+          const v = raw[def.id];
+          if (typeof v?.seconds === "number" && typeof v.testedOn === "string" && sd <= v.testedOn) err(`${name} fallRisk.${def.id}`, `测的那天（${v.testedOn}）有效的安全筛查（${sd}）"${dz.item}"是"是"：经常头晕的不在家测步态，不能记秒数`);
+        }
       }
       if (!within(askedOn)) continue;
-      // 和档案对得上（问卷照实答）：问卷之前 12 个月里档案记着的摔倒，一次一项
-      const before = falls.filter((x) => x <= askedOn && (dayStart(askedOn) - dayStart(x)) / DAY <= 365);
+      // 和档案对得上（问卷照实答）：问卷之前 12 个月里档案记着的摔倒，一次一项。
+      // 问卷那天的摔倒分不清先后：说跌倒过的算上（"2 次以上"要照实），说没跌倒过的不追溯（之后要有一份新的问卷，见下面）
+      const fellNow = raw.general?.fell === true;
+      const before = falls.filter((x) => (x < askedOn || (x === askedOn && fellNow)) && (dayStart(askedOn) - dayStart(x)) / DAY <= 365);
       if (before.length && raw.general?.fell === false) err(`${name} fallRisk.general.fell`, `档案里 ${before[before.length - 1]} 摔倒过，"在过去 12 个月内，你是否跌倒过？"却答了"否"：照实答`);
       if (before.length >= 2 && raw.severity?.twoPlus === false) err(`${name} fallRisk.severity.twoPlus`, `档案里过去 12 个月摔倒过 ${before.length} 次，"跌倒的次数是否大于等于 2 次"却答了"否"：照实答`);
       // 前一份说一年内跌倒过、不到一年的后一份说没有：档案里没有建档以前那次摔倒的日期，只提醒
@@ -1074,7 +1092,8 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
     if (fr) {
       const raw = fr.file.raw.fallRisk;
       const name = fr.file.name;
-      const fallItem = screeningItem(p, /最近一年摔倒过/);
+      // 和问卷之前做的筛查对（之后单独重做的筛查是新的情况，不倒过来追溯）
+      const fallItem = sd && sd <= fr.askedOn ? screeningItem(p, /最近一年摔倒过/) : undefined;
       if (raw.general?.fell === true && fallItem && fallItem.answer !== "是") err("档案.json screening", `跌倒风险自查说过去 12 个月跌倒过，安全筛查"${fallItem.item}"却答了"否"：照实重做筛查`);
       if (raw.needsSupport === true && fallItem && fallItem.answer !== "是") err("档案.json screening", `跌倒风险自查说在家走路也要扶墙或用助行器，安全筛查"${fallItem.item}"却答了"否"：照实重做筛查`);
       const wItem = screeningItem(p, /体重/);
@@ -1085,9 +1104,10 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       const yearly = addDays(fr.askedOn, yearDays ?? 365);
       if (a65Now && yearly < today) err(name, `跌倒风险自查是 ${fr.askedOn} 做的，已经超过一年：做触发评估（满一年或跌倒自查到期），重做一次，之前不出课程`);
     }
-    // 摔倒以后要重做自查（档案里记着的摔倒晚于最近一份问卷）
+    // 摔倒以后要重做自查：档案里记着的最近一次摔倒，要有一份问卷在它之后（同一天的要说跌倒过）
     const lastFall = falls.filter((d) => d >= rr.effective && within(d)).pop();
-    if (a65Now && lastFall && !(fr && fr.askedOn >= lastFall)) {
+    const covered = (d: string) => all.some((x) => x.askedOn > d || (x.askedOn === d && x.file.raw.fallRisk.general?.fell === true));
+    if (a65Now && lastFall && !covered(lastFall)) {
       err("评估/", `${lastFall} 摔倒过，之后还没做跌倒风险自查：做触发评估（摔倒），带上问卷${fr ? `（最近一份是 ${fr.askedOn} 做的）` : ""}`);
     }
   } else if (A.some((a) => isObj(a.raw?.fallRisk))) warn("评估/", "模板还没有跌倒风险自查的规则（rules.json 的 fallRisk）：自查没核对，先把模板更新到 v3.2 之后");

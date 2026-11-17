@@ -367,9 +367,9 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
       console.log("第一部分 问卷（看医生之前可以做，原话照念）：");
       for (const q of fr.questions) console.log(`  ${q.id}（${q.clause}，问${q.who}${q.part === "严重程度" ? "；一般性有\"是\"或说不清才问" : ""}）：${q.quotes.map((x) => x.text).join("")}`);
       console.log(`  衰弱 5 条（${fr.frailMin} 条及以上算"是"）：${fr.frail.map((x) => `${x.id}「${x.quotes.map((q) => q.text).join("")}」`).join("；")}`);
-      console.log("  另问：needsSupport（在家走路也要扶墙或用助行器）、hardToStand（扶着椅子也很难自己站起来）");
+      console.log("  另问：needsSupport（在家走路也要扶墙或用助行器）、hardToStand（扶着椅子也很难自己站起来）、dizzy（经常头晕，或者站起来时眼前发黑）");
       const dz = (profile.screening?.answers ?? []).find((x: any) => /经常头晕/.test(x?.item ?? ""));
-      console.log(`  dizzy：照问卷那天的安全筛查"经常头晕，或者站起来时眼前发黑"填${dz ? `（档案现在的筛查是"${dz.answer}"，${profile.screening?.date ?? "没写日期"} 做的；人现在经常头晕而筛查是"否"的，先重做筛查）` : ""}`);
+      if (dz) console.log(`  （档案现在的安全筛查"经常头晕"是"${dz.answer}"，${profile.screening?.date ?? "没写日期"} 做的：问卷要和它对得上，不一样的先照实重做筛查；测步态那天有效的筛查是"是"的不在家测）`);
       console.log("第二部分 步态（医生同意以后、家人在场时做；过去 12 个月跌倒过、高风险（含正式评估说高风险）、走路要扶、站起困难、经常头晕的不在家测）：");
       console.log("  测之前照成品第〇章《跌倒风险自查》\"测之前\"那几条做：一人护在身边、一人计时，只有一个家人的先护后计时，护不过来就不测；地面防滑、清空、光线够，终点线外留减速的地方；穿包脚防滑的鞋，平时用手杖的照用；不把判定线念给老人听；头晕、腿软、身体晃立刻停下坐好");
       for (const g of fr.gait) console.log(`  ${g.id}：${g.id === "walk4m" ? `${g.distance} m，喊"开始"的同时按表、前脚脚跟超过终点线停表，用时超过 ${(g.distance ?? 4) / g.line} 秒阳性` : `背离开椅背时按表、背靠到椅背上时停表，超过 ${g.line} 秒阳性`}（按留余量的线 ${g.margin} 秒）；记 seconds（往大里取一位小数）、cane、siteOk${g.id === "tug" ? "、chairOk（有扶手和靠背、无轮子、约 46 cm）" : ""}、testedOn`);

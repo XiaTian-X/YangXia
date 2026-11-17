@@ -141,7 +141,7 @@ describe("记录本身的矛盾", () => {
     const v = (f: unknown) => validateAssessment({ schema: ASSESS_FORMAT, date: START, kind: "入门", fallRisk: f }).map((i) => i.message).join();
     expect(v(fr({ general: { fell: false, unsteady: "家人说有点", fear: false } }))).toMatch(/只问老人本人/);
     expect(v(fr({ diseases: ["高血压"] }))).toMatch(/不记病名/);
-    expect(v(fr({ dizzy: undefined }))).toMatch(/dizzy 是问卷那天安全筛查/);
+    expect(v(fr({ dizzy: undefined }))).toMatch(/dizzy（经常头晕，或者站起来时眼前发黑：问卷时另外问/);
   });
   it("JSON Schema 和代码校验一致", () => {
     const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -285,7 +285,7 @@ describe("档案目录：先问医生、正式评估、到期", () => {
     const ev = plus(START, 5);
     const fellQ = (askedOn: string) => fr({ askedOn, general: general(true), severity: sevNo, frail: frailNo, walk4m: skipped("跌倒过"), tug: skipped("跌倒过") });
     const copy = trig(plus(START, 6), ["摔倒"], fr(), { eventDate: ev });
-    expect(errs(ctx(p, [entry(fr()), copy], plus(START, 7)))).toMatch(/摔倒要重新做一次问卷：这份问卷（2026-12-01）不晚于之前/);
+    expect(errs(ctx(p, [entry(fr()), copy], plus(START, 7)))).toMatch(/摔倒要重新做一次问卷：这份问卷和 评估\/2026-12-01-入门.json 那份是同一天/);
     const early = trig(plus(START, 6), ["摔倒"], fellQ(plus(START, 4)), { eventDate: ev });
     expect(errs(ctx(p, [entry(fr()), early], plus(START, 7)))).toMatch(/摔倒（2026-12-06）之后要重新做一次问卷/);
     const ok = trig(plus(START, 6), ["摔倒"], fellQ(ev), { eventDate: ev });
@@ -338,7 +338,62 @@ describe("档案目录：先问医生、正式评估、到期", () => {
     expect(errs(ctx(p, [entry(fr())], plus(later, 1)))).not.toMatch(/不在家测步态|dizzy/);
     const q = profile();
     q.screening.answers = q.screening.answers.map((a: any) => (/经常头晕/.test(a.item) ? { ...a, answer: "是" } : a));
-    expect(errs(ctx(q, [entry(fr())]))).toMatch(/dizzy 要照那天的筛查写 true/);
+    expect(errs(ctx(q, [entry(fr())]))).toMatch(/问卷却说不经常头晕：照实答/);
+  });
+  it("问卷在重做筛查之前、步态在之后：按测的那天有效的筛查查头晕", () => {
+    const p = profile();
+    const d1 = plus(START, 1);
+    Object.assign(p.screening, { date: d1, doctorDate: d1 });
+    p.screening.answers = p.screening.answers.map((a: any) => (/经常头晕/.test(a.item) ? { ...a, answer: "是" } : a));
+    const e = entry(fr({ walk4m: walk(3.5, { testedOn: d1 }), tug: tug(9, { testedOn: d1 }) }), { date: d1, doctorDate: d1 });
+    expect(errs(ctx(p, [e], plus(START, 2)))).toMatch(/测的那天（2026-12-02）有效的安全筛查（2026-12-02）"经常头晕，或者站起来时眼前发黑"是"是"/);
+  });
+  it("问卷当天后来摔了一跤：旧问卷不追溯，之后那份照实写跌倒过就行", () => {
+    const p = profile();
+    const d1 = plus(START, 1), d2 = plus(START, 2);
+    Object.assign(p.screening, { date: d2, doctorDate: d2 });
+    p.screening.answers = p.screening.answers.map((a: any) => (/最近一年摔倒过/.test(a.item) ? { ...a, answer: "是" } : a));
+    const q = fr({ askedOn: d1, general: general(true), severity: sevNo, frail: frailNo, walk4m: skipped("跌倒过"), tug: skipped("跌倒过") });
+    const t = trig(d2, ["摔倒"], q, { eventDate: START, fallRiskSeen: true, doctorCleared: true, doctorDate: d2, official: { date: d2, afterFall: true } });
+    expect(errs(ctx(p, [entry(fr()), t], plus(START, 3)))).toBe("");
+    // 那天摔了、又没有之后的问卷：要做摔倒的触发评估
+    expect(errs(ctx(p, [entry(fr()), { ...t, raw: { ...t.raw, reasons: ["生病住院"], fallRisk: undefined, conclusion: {} } }], plus(START, 3)))).not.toMatch(/你是否跌倒过？"却答了"否"/);
+  });
+  it("一周摔了两次：一份\"摔倒\"触发评估把两次的日期都写进 eventDates，不按周日另算一次", () => {
+    const p = profile();
+    const mon = plus(START, 1), tue = plus(START, 2), wed = plus(START, 3), thu = plus(START, 4);
+    Object.assign(p.screening, { date: thu, doctorDate: thu });
+    p.screening.answers = p.screening.answers.map((a: any) => (/最近一年摔倒过/.test(a.item) ? { ...a, answer: "是" } : a));
+    const q = fr({ askedOn: wed, general: general(true), severity: { ...sevNo, twoPlus: true }, frail: frailNo, walk4m: skipped("跌倒过"), tug: skipped("跌倒过") });
+    const t = (extra: Record<string, unknown>) => trig(wed, ["摔倒"], q, { fallRiskSeen: true, doctorCleared: true, doctorDate: thu, official: { date: thu, afterFall: true }, ...extra });
+    // 记录写在周三，正式评估、医生在周四：记录日期要不早于它们
+    const rec = (extra: Record<string, unknown>) => { const x = t(extra); x.raw.date = thu; x.name = `评估/${thu}-触发-摔倒.json`; return x; };
+    const rv = { [`${START}-第1周.json`]: { schema: REVIEW_FORMAT, start: START, week: 1, trainings: 2, symptoms: true, moves: [], falls: 2 } };
+    expect(errs(ctx(p, [entry(fr()), rec({ eventDate: tue, eventDates: [mon, tue] })], plus(START, 8), rv))).toBe("");
+    expect(errs(ctx(p, [entry(fr()), rec({ eventDate: mon })], plus(START, 8), rv))).toMatch(/2026-12-07 摔倒过/);
+  });
+  it("eventDates 的写法：只给摔倒、包含 eventDate 而且它是最近的、不晚于记录", () => {
+    const v = (x: Record<string, unknown>) => validateAssessment({ schema: ASSESS_FORMAT, date: plus(START, 3), kind: "触发", reasons: ["摔倒"], eventDate: plus(START, 2), conclusion: {}, ...x }).map((i) => i.message).join();
+    expect(v({ eventDates: [START, plus(START, 2)] })).toBe("");
+    expect(v({ eventDates: [START, plus(START, 1)] })).toMatch(/eventDate 是最近的那一次/);
+    expect(v({ eventDates: [START, plus(START, 2), plus(START, 4)], eventDate: plus(START, 4) })).toMatch(/不能晚于这份评估的日期/);
+    expect(v({ reasons: ["生病住院"], eventDates: [plus(START, 2)] })).toMatch(/eventDates 只给"摔倒"/);
+  });
+  it("记录写得晚不算照抄：问卷日期不一样就行", () => {
+    const p = profile();
+    const fallDay = plus(START, 6);
+    Object.assign(p.screening, { date: plus(START, 30), doctorDate: plus(START, 30) });
+    p.screening.answers = p.screening.answers.map((a: any) => (/最近一年摔倒过/.test(a.item) ? { ...a, answer: "是" } : a));
+    const sick = trig(plus(START, 22), ["生病住院"], fr({ askedOn: plus(START, 21), general: general(true), severity: sevNo, frail: frailNo, walk4m: skipped("跌倒过"), tug: skipped("跌倒过") }), { eventDate: plus(START, 20) });
+    const fall = trig(plus(START, 30), ["摔倒"], fr({ askedOn: fallDay, general: general(true), severity: sevNo, frail: frailNo, walk4m: skipped("跌倒过"), tug: skipped("跌倒过") }), { eventDate: fallDay });
+    expect(errs(ctx(p, [entry(fr()), sick, fall], plus(START, 31)))).not.toMatch(/不能照抄/);
+  });
+  it("问卷之后单独重做的筛查不倒过来追溯\"跌倒过、走路要扶\"", () => {
+    const p = profile();
+    const later = plus(START, 100);
+    Object.assign(p.screening, { date: later, doctorDate: later });
+    const f = fr({ needsSupport: true, walk4m: skipped("走路要扶"), tug: skipped("走路要扶") });
+    expect(errs(ctx(p, [entry(f)], plus(later, 1)))).not.toMatch(/照实重做筛查/);
   });
   it("正式评估的日期不能晚于记录的日期", () => {
     expect(errs(ctx(profile(), [entry(fr(), { official: { date: plus(START, 1), afterFall: false } })]))).toMatch(/正式评估的日期不能晚于这份评估的日期/);
