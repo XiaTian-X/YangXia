@@ -191,7 +191,7 @@ describe("档案目录的评估核对", () => {
   it("身体数据：不记的人有数据拦下；记的人算 BMI，结论要对；BMI ≥ 28 而筛查答否拦下", () => {
     const p = bw();
     const body = { height: 170, weight: 70, waist: 80 };
-    expect(errs(ctx(p, [], [bwEntry(p, { body })])).join()).toMatch(/不记体重腰围/);
+    expect(errs(ctx(p, [], [bwEntry(p, { body })])).join()).toMatch(/档案是"不记"体重腰围，评估里不能有身体数据/);
     p.body = "记";
     expect(errs(ctx(p, [], [bwEntry(p, { body })])).join()).toMatch(/结论/);
     expect(errs(ctx(p, [], [bwEntry(p, { body, conclusion: { bmi: 24.2, bmiClass: "超重" } })]))).toEqual([]);

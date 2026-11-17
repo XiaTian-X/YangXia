@@ -5,7 +5,7 @@
 import type { Manifest } from "./manifest.ts";
 import { type PlansData, ROUND_WEEKS, roundWeek, type RulesData, stableParam } from "./plan.ts";
 import { fallRiskConclusion, fallRiskIssues, fallRiskRules, validateFallRisk, validateOfficial } from "./fallrisk.ts";
-import { cycleGoals, goalRules, validateGoalFields, validateGoalRecord } from "./goals.ts";
+import { bodyStateOn, cycleGoals, goalRules, validateGoalFields, validateGoalRecord } from "./goals.ts";
 import { gapBefore, localDate, longGapDays, reviewDataName, type SegmentEntry, type SessionFile, trainingDates } from "./progress.ts";
 import type { Issue } from "./types.ts";
 
@@ -575,12 +575,16 @@ export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, 
   if (b !== undefined) {
     if (a65Then && info.age !== "a65") err("body", "满 65 岁当月起不记身高、体重、腰围的数字（只问体重有没有明显下降）");
     else if (!BODY_AGES.includes(info.age)) err("body", info.age === "a65" ? "65 岁以上不记身高、体重、腰围的数字（只问体重有没有明显下降）" : "6–17 岁不记身高、体重、腰围、BMI");
-    // 停记以前记的保留，只拦停记之后的新记录（第十三节第 2 条）
-    else if (ctx.profile.body === "停记" && typeof ctx.profile.bodyStopDate === "string" && r.date < ctx.profile.bodyStopDate) { /* 停记以前的 */ }
-    else if (ctx.profile.body !== "记") err("body", `档案选了${ctx.profile.body === "停记" ? `停记（${ctx.profile.bodyStopDate ?? "没写日期"} 起）` : "不记"}体重腰围，评估里不能有身体数据`);
+    // 按记录那天"记 / 不记 / 停记"判断（bodyLog；没有的由 body、bodyStopDate 推：停记以前记的保留）
+    else if (bodyStateOn(ctx.profile, r.date) !== "记") err("body", `${r.date} 那天档案是"${bodyStateOn(ctx.profile, r.date)}"体重腰围，评估里不能有身体数据`);
     else if (!timing && !hasReason(f, "中断")) err("body", "身体数据只在入门、段末、周期末评估里记（\"记\"的人中断回来的触发评估也可以记一次）");
+    // 身高只记一次：入门、换成品的触发评估；建档时没记、改成记以后的第一份评估
+    if (typeof b?.height === "number" && !asEntry && !isSwitch(f)) {
+      const earlier = ctx.assessments.find((a) => a !== f && typeof a.raw?.body?.height === "number" && typeof a.raw.date === "string" && a.raw.date <= r.date);
+      if (earlier) err("body.height", `身高记在入门（或换成品的触发评估）里，已经有 ${earlier.name} 那一份：这里不再记（BMI 一律用最早那份身高算）`);
+    }
   }
-  if (timing && BODY_AGES.includes(info.age) && ctx.profile.body === "记") {
+  if (timing && BODY_AGES.includes(info.age) && bodyStateOn(ctx.profile, r.date) === "记") {
     const want = timing === "入门" ? ["height", "weight", "waist"] : ["weight", "waist"];
     const lack = want.filter((k) => typeof b?.[k] !== "number");
     if (lack.length) err("body", `档案选了记体重腰围：${timing}要记 ${want.join("、")}，少了 ${lack.join("、")}`);
@@ -624,14 +628,21 @@ export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, 
   if (hasReason(f, "满一年") && a65Then && typeof r.fallAssessDone !== "boolean") err("fallAssessDone", "65 岁以上满一年复评要问：这一年做过跌倒风险评估没有（是 / 否）");
   // 结论
   const want = recordConclusion(ctx, f, product, asEntry);
-  if (r.conclusion !== undefined && want && !sameJson(r.conclusion, want)) {
+  const { goals: wantGoals, ...wantRest } = want ?? {};
+  if (r.conclusion !== undefined && want && wantGoals !== undefined && r.conclusion.goals === undefined && sameJson(r.conclusion, wantRest)) {
+    // 换到有目标规则的模板以前写的周期末记录：只缺 goals，提醒补上，不算错
+    out.push({ level: "warning", path: `${f.name} conclusion`, message: `这份周期末记录是换模板以前写的，没有下一周期能选的目标：用 npm run course -- assess 重算一次，补上 goals（${JSON.stringify(wantGoals)}）` });
+  } else if (r.conclusion !== undefined && want && !sameJson(r.conclusion, want)) {
     err("conclusion", `写的结论和按规则重算的不一致：应该是 ${JSON.stringify(want)}（用 npm run course -- assess 算）`);
   } else if (r.conclusion === undefined && want && Object.keys(want).length) err("conclusion", `缺结论：应该是 ${JSON.stringify(want)}`);
   return out;
 }
 
+/** 算 BMI 用的身高：最早一份记了身高的评估（入门；建档时没记的，改成记以后的第一份）。 */
 export function entryHeight(ctx: AssessContext): number | undefined {
-  return ctx.assessments.map((a) => a.raw).filter((x) => x.kind === "入门" || x.kind === "触发").map((x) => x.body?.height).find((h) => typeof h === "number");
+  const list = ctx.assessments.filter((a) => typeof a.raw?.body?.height === "number" && typeof a.raw.date === "string")
+    .sort((x, y) => (x.raw.date < y.raw.date ? -1 : x.raw.date > y.raw.date ? 1 : 0));
+  return list[0]?.raw.body.height;
 }
 
 /** 一份记录应该写的结论。 */
@@ -1177,6 +1188,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
     for (const a of A.filter((x) => hasReason(x, "中断"))) {
       const d = gapBefore(trained, ss[0].start, a.raw.date);
       if (d <= longDays) warn(a.name, `这份"中断"触发评估之前只断了 ${d} 天（不超过 ${longDays} 天）：不算长时间中断，稳定期不能按它找级`);
+      if (d <= longDays && a.raw.body !== undefined) err(`${a.name} body`, `没有真的断过 ${longDays} 天以上：这份"中断"触发评估不能记身体数据（体重腰围只在入门、段末、周期末评估里记）`);
     }
     // 稳定期中间断过超过"回起始期的中断天数"、后来又接着练（不只看最近一次）：断之前在稳定期，
     // 断了以后新开的第一项要是起始期（跨周期、接着开下一个周期也算没回去）；断完以后没新开过一项、就在原来那一周接着练的也算

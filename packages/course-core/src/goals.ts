@@ -142,11 +142,35 @@ function bodyBefore(ctx: AssessContext, start: string, freshDays: number): Asses
   return list.pop() ?? null;
 }
 
-/** 开这个周期的那份评估：周期开始以前最近的、写了 goal 的记录。 */
-function openingRecord(ctx: AssessContext, start: string): AssessFile | null {
-  const list = ctx.assessments.filter((a) => typeof a.raw?.date === "string" && a.raw.date <= start && a.raw.goal !== undefined)
-    .sort((x, y) => (x.raw.date < y.raw.date ? -1 : 1));
-  return list.pop() ?? null;
+/** 开这个周期的那份评估（按位置认）：上一段是稳定期的，它的周期末；上一段是起始期的，它的段末；建档时直接进入的，入门。 */
+function openingRecord(ctx: AssessContext, index: number): AssessFile | null {
+  const all = segs(ctx.profile);
+  const k = all.findIndex((s) => s.first === index);
+  if (k < 0) return null;
+  if (k === 0) return ctx.assessments.find((a) => a.raw?.kind === "入门") ?? null;
+  const prev = all[k - 1];
+  const kind = stable(prev) ? "周期末" : "段末";
+  return ctx.assessments.filter((a) => a.raw?.kind === kind && a.raw.segment === prev.n).pop() ?? null;
+}
+
+/** 体重（公斤）按固定的身高算 BMI（身高一律用最早那份，不用记录里自己写的）。 */
+const bmiW = (w: unknown, h: number | undefined): number | null => (typeof w === "number" && typeof h === "number" ? bmiOf({ weight: w }, h) : null);
+
+/** BMI 和腰围对应能选的目标（GOAL_GATE 那张表；BMI < 18.5 的增肌要另看同意）。 */
+function tableGoals(gr: GoalRules, code: string, bmi: number, waist: number): { allowed: Goal[]; why: string[]; lowBmi: boolean } {
+  const low = goalParam(gr, "低体重 BMI", code) ?? 18.5;
+  const over = goalParam(gr, "超重 BMI", code) ?? 24;
+  const obese = goalParam(gr, "肥胖 BMI", code) ?? 28;
+  const cutWaist = goalParam(gr, "减脂腰围", code) ?? 90;
+  const bulkWaist = goalParam(gr, "增肌腰围", code) ?? 85;
+  if (bmi >= obese) return { allowed: ["保持"], why: [`BMI ${bmi}：肥胖的人这一阶段只选保持，减脂等《超重与肥胖》附册`], lowBmi: false };
+  if (bmi < low) return { allowed: ["保持"], why: [`BMI ${bmi} 不到 ${low}：增肌要先问医生或营养师（同意的那天记在开周期的评估 goalConsent）`], lowBmi: true };
+  if (bmi < over) {
+    if (waist >= cutWaist) return { allowed: ["保持", "减脂"], why: [], lowBmi: false };
+    if (waist < bulkWaist) return { allowed: ["保持", "增肌"], why: [], lowBmi: false };
+    return { allowed: ["保持"], why: [`腰围 ${waist} cm 在 ${bulkWaist}–${cutWaist - 1} 之间：不问性别，减脂、增肌都不选`], lowBmi: false };
+  }
+  return { allowed: ["保持", "减脂"], why: [], lowBmi: false };
 }
 
 const dietItem = (p: Obj) => (p.screening?.answers ?? []).find((a: Obj) => /糖尿病/.test(a?.item ?? "") && /痛风|高血脂/.test(a?.item ?? ""));
@@ -171,31 +195,21 @@ export function goalGate(ctx: AssessContext, index: number): GateResult {
   const age1 = ageAt(ctx.profile, addDays(e.start, cycle * 7 - 1), ar.assess).age;
   if (age0 !== info.age || age1 !== info.age) return only(`这 ${cycle} 周里会满 40 岁或 65 岁（到时候要换计划）：只选保持`);
   if (bodyStateOn(ctx.profile, e.start) !== "记") return only("档案没选\"记\"体重腰围（或者停记了）：只选保持");
-  const open = openingRecord(ctx, e.start);
+  const open = openingRecord(ctx, index);
   if (open?.raw.eatingCheck === "只能保持") return only("进食困扰那一问：这个周期只选保持");
   const fresh = goalParam(gr, "身体数据有效天数", code) ?? 28;
   const body = bodyBefore(ctx, e.start, fresh);
   if (!body) return only(`周期开始前 ${fresh} 天以内没有量过体重、腰围：只选保持`);
-  const bmi = bmiOf(body.raw.body, entryHeight(ctx));
+  const bmi = bmiW(body.raw.body.weight, entryHeight(ctx));
   const waist = body.raw.body.waist as number;
-  if (bmi === null) return only("算不出 BMI（入门评估没有身高）：只选保持");
-  const low = goalParam(gr, "低体重 BMI", code) ?? 18.5;
-  const over = goalParam(gr, "超重 BMI", code) ?? 24;
-  const obese = goalParam(gr, "肥胖 BMI", code) ?? 28;
-  const cutWaist = goalParam(gr, "减脂腰围", code) ?? 90;
-  const bulkWaist = goalParam(gr, "增肌腰围", code) ?? 85;
-  const allowed: Goal[] = ["保持"];
-  const why: string[] = [];
-  if (bmi >= obese) why.push(`BMI ${bmi}：肥胖的人这一阶段只选保持，减脂等《超重与肥胖》附册`);
-  else if (bmi < low) {
+  if (bmi === null) return only("算不出 BMI（没有记过身高）：只选保持");
+  const t = tableGoals(gr, code, bmi, waist);
+  const allowed: Goal[] = [...t.allowed];
+  const why: string[] = [...t.why];
+  if (t.lowBmi) {
     const consent = open?.raw.goalConsent?.date;
-    if (typeof consent === "string" && consent <= e.start) allowed.push("增肌");
-    else why.push(`BMI ${bmi} 不到 ${low}：增肌要先问医生或营养师（同意的那天记在开周期的评估 goalConsent）`);
-  } else if (bmi < over) {
-    if (waist >= cutWaist) allowed.push("减脂");
-    else if (waist < bulkWaist) allowed.push("增肌");
-    else why.push(`腰围 ${waist} cm 在 ${bulkWaist}–${cutWaist - 1} 之间：不问性别，减脂、增肌都不选`);
-  } else allowed.push("减脂");
+    if (typeof consent === "string" && consent <= e.start) { allowed.push("增肌"); why.length = 0; }
+  }
   // 减脂之前要隔满一个完整的保持周期：连着两个减脂周期以后、停记以后
   if (allowed.includes("减脂")) {
     const all = segs(ctx.profile);
@@ -257,17 +271,27 @@ export function cutCardio(ctx: AssessContext, index: number): CardioStep | null 
   let symptomRound = -1;
   const prev = all[k - 1];
   if (prev && stable(prev) && weekGoal(prev.entries[prev.entries.length - 1]) === "减脂") {
-    const last = cutCardio(ctx, prev.first + prev.entries.length - 1);
-    if (last && last.step > 0) step = last.step - 1;
+    // 接着上一周期最后"做到"的那一档：最后一周没做到那一档的，退一档
+    const lastIdx = prev.first + prev.entries.length - 1;
+    const last = cutCardio(ctx, lastIdx);
+    if (last && last.step > 0) {
+      const did = ctx.reviewData[reviewDataName(ss[lastIdx])]?.cardioMinutes;
+      step = Math.max(0, last.step - 1 - (typeof did === "number" && did >= last.minutes ? 0 : 1));
+    }
     const lastRound = roundOf(prev.entries[prev.entries.length - 1].week);
     if (prev.entries.some((x) => roundOf(x.week) === lastRound && ctx.reviewData[reviewDataName(x)]?.symptoms === true)) symptomRound = 0;
   }
+  // 上一周期周期末"第 1 轮不升级"：这个周期第 1 轮有氧也不升档
+  const holdFirst = !!prev && stable(prev) && ctx.assessments.some((a) => a.raw?.kind === "周期末" && a.raw.segment === prev.n && a.raw.conclusion?.next?.hold === true);
   const breaks = ctx.assessments.filter((a) => a.raw?.kind === "触发" && Array.isArray(a.raw.reasons) && a.raw.reasons.includes("中断")).map((a) => a.raw.date as string);
   let run = 0, atStep = 0;
   const from = seg.first;
   for (let j = from; j < index; j++) {
     const x = ss[j];
     if (effectiveGoal(ctx.profile, j, gr, code) !== "减脂") continue;
+    // 这一周没有有效的医生同意（要同意的人）：这一周不算，同意以后从第一档开始
+    const dj = cardioDoctor(ctx, x.start, code);
+    if (dj.needed && !dj.valid) { step = 0; run = 0; atStep = 0; continue; }
     const rv = ctx.reviewData[reviewDataName(x)];
     const sym = rv?.symptoms === true;
     if (sym) { symptomRound = roundOf(x.week); run = 0; atStep = 0; }
@@ -278,7 +302,7 @@ export function cutCardio(ctx: AssessContext, index: number): CardioStep | null 
     // 断了四周以上（中断的触发评估）：回第一档
     if (breaks.some((d) => d > x.start && d <= nx.start)) { step = 0; run = 0; atStep = 0; continue; }
     const r2 = roundOf(nx.week);
-    const blocked = symptomRound === r2 || (symptomRound === r2 - 1 && (nx.week - 1) % 4 === 0);
+    const blocked = symptomRound === r2 || (symptomRound === r2 - 1 && (nx.week - 1) % 4 === 0) || (holdFirst && r2 === 1);
     if (!blocked && run >= needRun && atStep >= minWeeks && step < steps.length - 1) { step++; run = 0; atStep = 0; }
   }
   if (breaks.some((d) => d > (ss[index - 1]?.start ?? "") && d <= e.start)) step = 0;
@@ -295,7 +319,7 @@ export function bmrTwo(ctx: AssessContext, date: string): { male: number; female
   const birth = ctx.profile.birth;
   if (typeof h !== "number" || typeof birth !== "string") return null;
   const ss = (ctx.profile.segments ?? []) as SegmentEntry[];
-  const fromReviews = ss.filter((s) => s.start <= date).map((s) => ({ d: s.start, w: ctx.reviewData[reviewDataName(s)]?.weight })).filter((x) => typeof x.w === "number");
+  const fromReviews = ss.filter((s) => s.start < date).map((s) => ({ d: s.start, w: ctx.reviewData[reviewDataName(s)]?.weight })).filter((x) => typeof x.w === "number");
   const fromRecords = ctx.assessments.filter((a) => typeof a.raw?.date === "string" && a.raw.date <= date && typeof a.raw.body?.weight === "number").map((a) => ({ d: a.raw.date, w: a.raw.body.weight }));
   const last = [...fromReviews, ...fromRecords].sort((x, y) => (x.d < y.d ? -1 : 1)).pop();
   if (!last) return null;
@@ -317,13 +341,16 @@ function cutStopFrom(ctx: AssessContext, seg: Seg, gr: GoalRules, code: string):
   const low = goalParam(gr, "低体重 BMI", code) ?? 18.5;
   const h = entryHeight(ctx);
   const ws: { i: number; d: string; w: number }[] = [];
+  let firstWeek = 0;
   for (let j = 0; j < seg.entries.length; j++) {
     const x = seg.entries[j];
     if (weekGoal(x) !== "减脂") break;
+    if (effectiveGoal(ctx.profile, seg.first + j, gr, code) !== "减脂") continue;   // 直接进入的第 1 轮按保持
+    if (!firstWeek) firstWeek = x.week;
     const w = ctx.reviewData[reviewDataName(x)]?.weight;
     if (typeof w !== "number") continue;
     if (typeof h === "number" && w / ((h / 100) ** 2) < low) return { index: seg.first + j + 1, why: `${x.start} 那一周称的体重 BMI 不到 ${low}` };
-    if (x.week < fromWeek) continue;
+    if (x.week - firstWeek + 1 < fromWeek) continue;
     ws.push({ i: seg.first + j, d: x.start, w });
     if (ws.length >= n) {
       const a = ws[ws.length - n], b = ws[ws.length - 1];
@@ -346,9 +373,14 @@ export function cycleGoals(ctx: AssessContext, n: number, record?: AssessFile): 
   const g = weekGoal(seg.entries[0]);
   const end = record?.raw.body;
   const h = entryHeight(ctx);
-  const bmi = end ? bmiOf(end, h) : null;
+  const bmi = end ? bmiW(end.weight, h) : null;
   const all3: Goal[] = ["保持", "减脂", "增肌"];
-  if (g === "保持") return { goals: all3, why: "这个周期是保持：下一周期照\"谁能选\"" };
+  const cycle = (ctx.rules as Obj)?.stable?.cycleWeeks ?? 12;
+  if (g === "保持") {
+    if (bmi === null || typeof end?.waist !== "number") return { goals: all3, why: "这个周期是保持：下一周期照\"谁能选\"（这份记录没有体重腰围，开周期时再对）" };
+    const t = tableGoals(gr, code, bmi, end.waist);
+    return { goals: t.lowBmi ? ["保持", "增肌"] : t.allowed, why: t.lowBmi ? `BMI ${bmi}：增肌要先问医生或营养师` : `这个周期是保持：按周期末量的 BMI ${bmi}、腰围 ${end.waist} cm` };
+  }
   const stopped = seg.entries.some((x) => weekGoal(x) === "保持");
   if (g === "减脂") {
     const safety = cutStopFrom(ctx, seg, gr, code) !== null || seg.entries.some((x) => bodyStateOn(ctx.profile, addDays(x.start, 6)) !== "记");
@@ -358,7 +390,7 @@ export function cycleGoals(ctx: AssessContext, n: number, record?: AssessFile): 
     if (bmi !== null && bmi < over && typeof end.waist === "number" && end.waist < cutWaist) return { goals: ["保持"], why: `BMI ${bmi}、腰围 ${end.waist} cm：到了，下一周期保持，把体重维持住` };
     let run = 0;
     for (let j = all.indexOf(seg); j >= 0; j--) {
-      if (fullMaintain(all[j], 12)) break;
+      if (fullMaintain(all[j], cycle)) break;
       if (stable(all[j]) && weekGoal(all[j].entries[0]) === "减脂") run++;
     }
     if (run >= (goalParam(gr, "连着减脂周期", code) ?? 2)) return { goals: ["保持"], why: `连着 ${run} 个减脂周期：下一周期保持（官方"6 个月内……并维持"）` };
@@ -408,9 +440,10 @@ export function goalIssues(ctx: AssessContext): Issue[] {
     if (g0 !== "保持") {
       const gate = goalGate(ctx, seg.first);
       if (!gate.allowed.includes(g0)) err(path(0), `这个周期选了${g0}，可是只能选 ${gate.allowed.join("、")}：${gate.why.join("；")}`);
-      const open = openingRecord(ctx, seg.entries[0].start);
-      if (!open) err(path(0), `选了${g0}：开这个周期的那份评估（周期末、进稳定期的段末、直接进入的入门）要写 goal 和 eatingCheck`);
-      else if (open.raw.goal !== g0) err(path(0), `开这个周期的 ${open.name} 写的目标是${open.raw.goal}，档案这一周是${g0}：要一致`);
+      const open = openingRecord(ctx, seg.first);
+      if (!open) err(path(0), `选了${g0}：开这个周期的那份评估（上一段的周期末、进稳定期的段末、直接进入的入门）要写 goal 和 eatingCheck`);
+      else if (open.raw.goal !== g0) err(path(0), `开这个周期的 ${open.name} 写的目标是${open.raw.goal ?? "（没写）"}，档案这一周是${g0}：要一致，选减脂、增肌要在这一份里问进食困扰（eatingCheck）`);
+      else if (open.raw.eatingCheck !== "问过") err(path(0), `开这个周期的 ${open.name} 没问进食困扰（eatingCheck 要是"问过"）：每次选减脂、增肌都要问`);
     }
     // 周期末的结论：下一段（同一家族的稳定期）第 1 周的目标要在里面
     const k = all.indexOf(seg);
@@ -435,7 +468,7 @@ export function goalIssues(ctx: AssessContext): Issue[] {
         const over = goalParam(gr, "超重 BMI", code) ?? 24;
         const bulkWaist = goalParam(gr, "增肌腰围", code) ?? 85;
         const hit = ctx.assessments.find((a) => typeof a.raw?.date === "string" && a.raw.date >= seg.entries[0].start && a.raw.date < x.start && a.raw.body
-          && ((bmiOf(a.raw.body, entryHeight(ctx)) ?? 0) >= over || (typeof a.raw.body.waist === "number" && a.raw.body.waist >= bulkWaist)));
+          && ((bmiW(a.raw.body.weight, entryHeight(ctx)) ?? 0) >= over || (typeof a.raw.body.waist === "number" && a.raw.body.waist >= bulkWaist)));
         if (hit) err(path(j), `${hit.name} 量的 BMI 到了 ${over} 或者腰围到了 ${bulkWaist} cm：之后的周退回保持`);
       }
     });
@@ -449,6 +482,20 @@ export function goalIssues(ctx: AssessContext): Issue[] {
       }
       if (cut && rv.weight !== undefined && bodyStateOn(p, x.start) !== "记") err(`复盘/${reviewDataName(x)} weight`, "这一周不记体重腰围：复盘里不能有体重");
     });
+  }
+  // 周期末那一周：复盘的体重和周期末评估的体重合起来只算一次
+  for (const seg of all.filter(stable)) {
+    const last = seg.entries[seg.entries.length - 1];
+    const rv = ctx.reviewData[reviewDataName(last)];
+    const rec = ctx.assessments.find((a) => a.raw?.kind === "周期末" && a.raw.segment === seg.n && typeof a.raw.body?.weight === "number"
+      && a.raw.date >= last.start && a.raw.date <= addDays(last.start, 6));
+    if (rv?.weight !== undefined && rec) err(`复盘/${reviewDataName(last)} weight`, `这一周的体重已经记在 ${rec.name} 里：每周最多称一次，复盘不再记`);
+  }
+  // 改过记不记却没有 bodyLog：推不出以前哪天是记
+  if (!(Array.isArray(p.bodyLog) && p.bodyLog.length)) {
+    const usedBody = ctx.assessments.some((a) => a.raw?.body !== undefined) || Object.values(ctx.reviewData).some((r) => (r as Obj)?.weight !== undefined) || any;
+    if (p.body === "记" && typeof p.bodyStopDate === "string") err("档案.json bodyLog", `body 是"记"、bodyStopDate（${p.bodyStopDate}）还在：停记以后又改回了记，要写 bodyLog（建档那天的状态、停记那天、改回记那天）`);
+    else if ((p.body ?? "不记") === "不记" && usedBody) err("档案.json bodyLog", "档案现在是\"不记\"，以前记过体重腰围（评估、复盘里有）：改记不记要写 bodyLog（建档那天的状态，加上这一次改的日期），不然以前的记录都对不上");
   }
   // 评估记录：goal 只写在开稳定期周期的记录上
   for (const a of ctx.assessments) {
@@ -468,7 +515,7 @@ export function goalSheetLines(ctx: AssessContext, index: number): string[] {
   const chosen = weekGoal(e);
   if (chosen === "保持") return [];
   const g = effectiveGoal(ctx.profile, index, gr, info.code);
-  const lines = [`## 目标：${chosen}`, ""];
+  const lines = [`## 目标：${chosen}${g === "保持" ? "（第 2 轮起）" : ""}`, ""];
   if (g === "保持") {
     lines.push(`- 直接从稳定期开始的人：第 1 轮照起始期，${chosen}从第 2 轮起才做；这一周有氧、吃都照保持。`, "");
     return lines;

@@ -41,7 +41,7 @@ function profile(stableWeeks: number, goal: string | ((w: number) => string) = "
   return Object.assign(p, extra);
 }
 const stableStart = plus(START, 28);
-const rec = (date: string, kind: string, fields: Obj = {}) => ({ name: `评估/${date}-${kind}.json`, raw: { schema: ASSESS_FORMAT, date, kind, conclusion: {}, ...fields } });
+const rec = (date: string, kind: string, fields: Obj = {}): { name: string; raw: Obj } => ({ name: `评估/${date}-${kind}.json`, raw: { schema: ASSESS_FORMAT, date, kind, conclusion: {}, ...fields } });
 /** 入门（身高 170）和第 1 段段末（开稳定期，带体重腰围）。 */
 const recs = (body: Obj = { weight: 75, waist: 88 }, open: Obj = { goal: "减脂", eatingCheck: "问过" }) => [
   rec(START, "入门", { body: { height: 170, weight: 76, waist: 89 } }),
@@ -213,8 +213,10 @@ describe("周期末下一周期能选什么", () => {
     expect(cycle("增肌", { weight: 64, waist: 85 }, { weight: 63, waist: 80 })?.goals).toEqual(["保持"]);
     expect(cycle("增肌", { weight: 64, waist: 81 }, { weight: 63, waist: 80 })?.goals).toEqual(["保持", "增肌"]);
   });
-  it("保持的周期：下一周期照谁能选", () => {
-    expect(cycle("保持", { weight: 72, waist: 80 })?.goals).toEqual(["保持", "减脂", "增肌"]);
+  it("保持的周期：按周期末量的 BMI、腰围过一遍那张表；没量的照谁能选", () => {
+    expect(cycle("保持", { weight: 72, waist: 80 })?.goals).toEqual(["保持", "减脂"]);     // BMI 24.9
+    expect(cycle("保持", { weight: 62, waist: 80 })?.goals).toEqual(["保持", "增肌"]);     // BMI 21.5
+    expect(cycle("保持", { weight: 62, waist: 87 })?.goals).toEqual(["保持"]);
   });
 });
 
@@ -249,3 +251,108 @@ describe("菜单（4b）", () => {
   });
 });
 
+
+describe("实施审查的修订", () => {
+  const ok = { weight: 75, waist: 80 };
+  /** 再接一段稳定期（第 3 段）weeks 周。 */
+  const addSeg = (p: Obj, weeks: number, goal: string) => {
+    const last = p.segments[p.segments.length - 1];
+    for (let w = 1; w <= weeks; w++) p.segments.push({ n: 3, phase: "稳定", type: "标准", week: w, start: plus(last.start, 7 * w), product: STABLE, ...(goal !== "保持" ? { goal } : {}) });
+    return p;
+  };
+  it("M1 没有医生同意的那几周不算进升档：同意以后从第一档开始", () => {
+    const p = profile(8, "减脂", { conditions: { 高血压: true } });
+    const rv = [110, 150, 160, 210, 210, 210].map((x, k) => review(p, firstStable + k, { cardioMinutes: x }));
+    p.cardioClear = { date: plus(p.segments[10].start, -1) };
+    expect(cutCardio(ctx(p, recs(ok), rv), 10)).toMatchObject({ minutes: 100, step: 1 });
+    p.screening.date = plus(p.segments[10].start, 1);        // 之后重做了筛查：同意要重新问
+    expect(cutCardio(ctx(p, recs(ok), rv), 11)?.doctor).toMatch(/先问医生/);
+  });
+  it("M2 BMI 一律用最早那份身高：段末里写别的身高不改结论，还报错", async () => {
+    const { checkRecord } = await import("../src/assess.ts");
+    const r = recs({ height: 160, weight: 68, waist: 80 });
+    expect(goalGate(ctx(profile(1, "保持"), r), firstStable).allowed).toEqual(["保持", "增肌"]);    // 170 cm 算 23.5
+    expect(checkRecord(ctx(profile(1, "保持"), r), r[1], STARTER, false).map((i) => i.message).join()).toMatch(/身高记在入门/);
+  });
+  it("M3 开周期的评估按位置认：第二个减脂周期的周期末没问进食困扰，不能拿上一份顶替", () => {
+    const p = addSeg(profile(12, "减脂"), 1, "减脂");
+    const end = rec(plus(p.segments[15].start, 6), "周期末", { segment: 2, body: { weight: 73, waist: 80 } });
+    expect(errs(ctx(p, [...recs(ok), end]))).toMatch(/写的目标是（没写）/);
+    end.raw.goal = "减脂";
+    expect(errs(ctx(p, [...recs(ok), end]))).toMatch(/没问进食困扰/);
+    end.raw.eatingCheck = "问过";
+    expect(errs(ctx(p, [...recs(ok), end]))).not.toMatch(/进食困扰|写的目标/);
+  });
+  it("M4 改过记不记却没有 bodyLog：拦下", () => {
+    expect(errs(ctx(profile(1, "保持", { body: "记", bodyStopDate: "2026-01-20" }), recs(ok, { goal: "保持" })))).toMatch(/停记以后又改回了记，要写 bodyLog/);
+    expect(errs(ctx(profile(1, "保持", { body: "不记" }), recs(ok, { goal: "保持" })))).toMatch(/以前记过体重腰围/);
+    const q = profile(1, "保持", { body: "不记", bodyLog: [{ date: START, body: "记" }, { date: plus(stableStart, 2), body: "不记" }] });
+    expect(errs(ctx(q, recs(ok, { goal: "保持" })))).not.toMatch(/bodyLog/);
+  });
+  it("M5 评估里的身体数据按记录那天：以前记的不报，停记那段时间记的报", async () => {
+    const { checkRecord } = await import("../src/assess.ts");
+    const q = profile(1, "保持", { body: "不记", bodyLog: [{ date: START, body: "记" }, { date: plus(stableStart, 2), body: "不记" }] });
+    const r = recs(ok, { goal: "保持" });
+    expect(checkRecord(ctx(q, r), r[0], STARTER, true).map((i) => i.message).join()).not.toMatch(/不能有身体数据/);
+    const s = profile(1, "保持", { bodyLog: [{ date: START, body: "记" }, { date: plus(START, 3), body: "停记" }, { date: plus(stableStart, 2), body: "记" }], body: "记" });
+    expect(checkRecord(ctx(s, r), r[1], STARTER, false).map((i) => i.message).join()).toMatch(/那天档案是"停记"/);
+  });
+  it("M6 上一周期\"第 1 轮不升级\"：新的减脂周期第 1 轮有氧也不升档", () => {
+    const p = addSeg(profile(12, "保持"), 6, "减脂");
+    const end = rec(plus(p.segments[15].start, 6), "周期末", { segment: 2, body: ok, goal: "减脂", eatingCheck: "问过", conclusion: { result: "习惯没达标", next: { phase: "稳定", hold: true } } });
+    const rv = [100, 100, 100, 100, 150].map((x, k) => review(p, 16 + k, { cardioMinutes: x }));
+    const at = (i: number) => cutCardio(ctx(p, [...recs(ok, { goal: "保持" }), end], rv), i)?.minutes;
+    expect([at(18), at(19), at(20)]).toEqual([100, 100, 150]);
+  });
+  it("M8 计划单的基础代谢只用这一周开始以前的体重（以前几周的单子不会因为后来记了体重对不上）", () => {
+    const p = profile(2);
+    const c = ctx(p, recs(ok), [review(p, firstStable, { weight: 74.2, cardioMinutes: 100 })]);
+    expect(bmrTwo(c, p.segments[firstStable].start)?.weight).toBe(75);
+    expect(bmrTwo(c, p.segments[firstStable + 1].start)?.weight).toBe(74.2);
+  });
+  it("减脂中途 BMI 掉到 18.5 以下：下一周起退回", () => {
+    const p = profile(3);
+    expect(errs(ctx(p, recs(ok), [review(p, firstStable, { weight: 53 })]))).toMatch(/segments\[5\]\.goal：.*BMI 不到 18\.5/);
+  });
+  it("增肌中途：中断回来的触发评估量到腰围 85，之后的周退回", () => {
+    const p = profile(4, "增肌");
+    const back = rec(plus(p.segments[6].start, -1), "触发", { reasons: ["中断"], body: { weight: 64, waist: 86 } });
+    expect(errs(ctx(p, [...recs({ weight: 63, waist: 80 }, { goal: "增肌", eatingCheck: "问过" }), back]))).toMatch(/segments\[6\]\.goal：.*腰围到了 85/);
+  });
+  it("周期末：减脂因为掉太快退回过 → 下一周期只能保持；自己说不减的照常选", () => {
+    const fast = profile(12, (w) => (w <= 7 ? "减脂" : "保持"));
+    const ws = [74, 73, 72, 70.8, 69.6, 68.4, 67.2];
+    const rv = ws.map((w, k) => review(fast, firstStable + k, { weight: w }));
+    const end = rec(plus(fast.segments[15].start, 6), "周期末", { segment: 2, body: { weight: 70, waist: 80 } });
+    expect(cycleGoals(ctx(fast, [...recs(ok), end], rv), 2, end)?.goals).toEqual(["保持"]);
+    const quit = profile(12, (w) => (w <= 4 ? "减脂" : "保持"));
+    const end2 = rec(plus(quit.segments[15].start, 6), "周期末", { segment: 2, body: { weight: 74, waist: 80 } });
+    expect(cycleGoals(ctx(quit, [...recs(ok), end2]), 2, end2)?.goals).toEqual(["保持", "减脂"]);
+  });
+  it("停记以后：要先完整练一个保持周期才能再选减脂", () => {
+    const p = profile(1, "保持", { body: "记", bodyLog: [{ date: START, body: "记" }, { date: plus(START, 3), body: "停记" }, { date: plus(START, 20), body: "记" }] });
+    expect(goalGate(ctx(p, recs(ok, { goal: "减脂", eatingCheck: "问过" })), firstStable).why.join()).toMatch(/停记过体重：先完整练一个保持周期/);
+  });
+  it("周期末那一周：复盘的体重和周期末评估的体重只算一次", () => {
+    const p = profile(12);
+    const end = rec(plus(p.segments[15].start, 6), "周期末", { segment: 2, body: { weight: 72, waist: 80 } });
+    expect(errs(ctx(p, [...recs(ok), end], [review(p, 15, { weight: 72 })]))).toMatch(/已经记在 评估\//);
+  });
+  it("S4 没真的断够 28 天的\"中断\"触发评估：不能记身体数据", async () => {
+    const { checkAssessments } = await import("../src/assess.ts");
+    const p = profile(3, "保持");
+    const rv = p.segments.slice(0, -1).map((_: unknown, i: number) => review(p, i));
+    const fake = rec(plus(p.segments[6].start, 1), "触发", { reasons: ["中断"], body: { weight: 74, waist: 80 } });
+    expect(checkAssessments(ctx(p, [...recs(ok, { goal: "保持" }), fake], rv)).map((i) => i.message).join()).toMatch(/不能记身体数据/);
+  });
+  it("直接进稳定期：第 1 轮按保持（计划单标题写第 2 轮起），掉太快从第 2 轮开始数", () => {
+    const p = profile(1);
+    p.segments = Array.from({ length: 9 }, (_, k) => ({ n: 1, phase: "稳定", type: "标准", week: k + 1, start: plus(START, 7 * k), product: STABLE, goal: "减脂" }));
+    const entryRec = rec(START, "入门", { body: { height: 170, weight: 75, waist: 80 }, goal: "减脂", eatingCheck: "问过", base: 2 });
+    expect(goalSheetLines(ctx(p, [entryRec]), 0)[0]).toBe("## 目标：减脂（第 2 轮起）");
+    expect(cutCardio(ctx(p, [entryRec]), 3)).toBeNull();
+    const rv = [75, 75, 75, 75, 73.5, 72.3, 71.1, 69.9].map((w, k) => review(p, k, { weight: w }));
+    // 第 5、6 周（生效的头两周）掉得快不算；第 7 周起才数
+    expect(errs(ctx(p, [entryRec], rv.filter((_, k) => k >= 4).map(([n, r]) => [n, r]) as any))).not.toMatch(/掉了/);
+  });
+});
