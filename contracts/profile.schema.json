@@ -445,7 +445,7 @@
     "weightClear": {
       "type": "array",
       "minItems": 1,
-      "description": "肥胖（BMI 28.0–32.4）选减脂的医生同意：医生每次说可以按这份计划减重（每天少吃约 300 kcal、有氧逐步加到每周 250 分钟）的那天，按日期从早到晚；一年有效，同时算作有氧加量的同意",
+      "description": "肥胖（BMI 28.0–32.4）选减脂的医生同意：医生每次说可以按这份计划减重（每天少吃约 300 kcal、有氧逐步加到每周 250 分钟）的那天，按日期从早到晚；一年有效，同时算作有氧加量的同意；重做筛查、有了新的要问医生的事以后，看医生时一起续",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -461,8 +461,26 @@
       }
     },
     "dietByPro": {
-      "type": "boolean",
-      "description": "医生或营养师给了自己的减重方案：目标只选保持，计划单写吃照他们的"
+      "type": "array",
+      "minItems": 1,
+      "description": "医生或营养师给了自己的减重方案（pro: true，吃照他们的）、不再照它（pro: false）的那天，按日期从早到晚，每次变了加一项：周期开始时是 true 的只选保持；周期中途记的，之后开始的周起退回保持；计划单按那一周开始时的写",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "date",
+          "pro"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "pro": {
+            "type": "boolean"
+          }
+        }
+      }
     },
     "habitBase": {
       "type": "object",

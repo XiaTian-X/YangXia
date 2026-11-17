@@ -89,10 +89,14 @@ async function moves(product: string): Promise<number> {
     console.log(`没有成品「${product}」。可用：${manifest.products.map((x) => x.name).join("、")}`);
     return 2;
   }
+  if ((p as { phase?: string }).phase === "附册") {
+    console.log(`「${product}」是附册：配合同一年龄段的纯徒手、居家或健身房版看，没有训练，也不能选成档案的成品`);
+    return 0;
+  }
   const code = `${p.age}·${p.venue}`;
   const list = manifest.exercises.filter((e) => e.used.includes(code));
   if (!list.length) {
-    console.log(`「${product}」没有可以导出的动作（6–12 岁版不用组数次数，全家餐饮没有训练）`);
+    console.log(`「${product}」没有可以导出的动作（6–12 岁版不用组数次数，全家餐饮、附册没有训练）`);
     return 0;
   }
   for (const e of list) {
@@ -240,9 +244,10 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
   if (r.course && doc.needed && !doc.ok) {
     r.issues.push({ level: "error", path: "screening", message: `医生同意之前不出课程（${doc.reason}：医生同意的日期 doctorDate 要不早于 ${doc.after}）` });
   }
-  const ctx0 = assessCtx(t, profile, scan);
+  // 重度肥胖按导出的这一周开始那天推（和计划单一样）
+  const weekStart = (profile.segments as any[]).filter((s) => s.n === seg.n && s.week === Number(weekArg)).pop()?.start ?? localDate(new Date());
   const cm = info0(t, seg.product) ? cardioMode(t.rules, profile, info0(t, seg.product)!, seg.n, Number(weekArg), scan.reviewData,
-    { severe: severeObese(ctx0, localDate(new Date()), info0(t, seg.product)!.code) }) : null;
+    { severe: severeObese(ctx, weekStart, info0(t, seg.product)!.code) }) : null;
   if (cm) r.notes.push(`有氧：这一周做${cm.mode}${cm.mode === "稳态" && cm.interval ? "，不做间歇" : ""}${cm.duration ? `，${cm.duration}` : ""}（${cm.why}）`);
   const gh = goalCardioHint(ctx, (profile.segments as any[]).length - 1);
   if (gh) r.notes.push(gh);
