@@ -1,6 +1,6 @@
 {
  "format": "yangxia.rules/1",
- "version": "v3.1",
+ "version": "v3.2",
  "conditions": {
   "高血压": {
    "ask": "有没有高血压（包括吃药控制住的）",
@@ -2745,7 +2745,7 @@
   }
  ],
  "fallRisk": {
-  "effective": "2026-11-12",
+  "effective": "2026-11-17",
   "questions": [
    {
     "id": "fell",
