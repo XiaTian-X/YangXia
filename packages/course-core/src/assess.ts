@@ -5,7 +5,7 @@
 import type { Manifest } from "./manifest.ts";
 import { type PlansData, ROUND_WEEKS, roundWeek, type RulesData, stableParam } from "./plan.ts";
 import { fallRiskConclusion, fallRiskIssues, fallRiskRules, validateFallRisk, validateOfficial } from "./fallrisk.ts";
-import { bodyStateOn, cycleGoals, goalRules, validateGoalFields, validateGoalRecord } from "./goals.ts";
+import { bodyStateOn, cycleGoals, goalRules, lastWeighed, validateGoalFields, validateGoalRecord } from "./goals.ts";
 import { gapBefore, localDate, longGapDays, reviewDataName, type SegmentEntry, type SessionFile, trainingDates } from "./progress.ts";
 import type { Issue } from "./types.ts";
 
@@ -1158,17 +1158,17 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
     const known = new Set(ar.habits.filter((h) => h.products.includes(segCode(ctx.manifest, s.product))).map((h) => h.habit));
     for (const k of Object.keys(rv.habits ?? {})) if (!known.has(k)) err(`复盘/${reviewDataName(s)} habits.${k}`, `「${k}」不是这份成品的打卡项（有：${[...known].join("、") || "（没有）"}）`);
   }
-  // BMI：只看最新一份身体数据
-  const bodies = A.filter((a) => typeof a.raw?.body?.weight === "number").sort((x, y) => (x.raw.date < y.raw.date ? -1 : 1));
-  if (bodies.length) {
+  // BMI：只看最新一次称的体重（评估里量的、减脂复盘里称的）
+  const lastW = lastWeighed(ctx, "9999-12-31");
+  if (lastW) {
     const cuts = bmiCuts(ctx.manifest);
-    const lastBody = bodies[bodies.length - 1];
-    const bmi = bmiOf({ weight: lastBody.raw.body.weight }, entryHeight(ctx) ?? lastBody.raw.body.height);
-    if (!cuts) warn(lastBody.name, "模板 manifest 里找不到 BMI 切点（BMI_CN、WEIGHT_LOW_CN）：BMI 没核对，先更新模板");
+    const h = entryHeight(ctx) ?? A.filter((a) => a.raw?.date === lastW.date && typeof a.raw?.body?.height === "number").pop()?.raw.body.height;
+    const bmi = bmiOf({ weight: lastW.weight }, h);
+    if (!cuts) warn(lastW.where, "模板 manifest 里找不到 BMI 切点（BMI_CN、WEIGHT_LOW_CN）：BMI 没核对，先更新模板");
     else if (bmi !== null && bmi >= cuts.obese) {
       const it = screeningItem(p, /BMI/);
-      if (it && it.answer !== "是") err(`${lastBody.name} body`, `BMI ${bmi}（≥ ${cuts.obese}），安全筛查"${it.item}"却答了"否"：改成"是"，先问医生`);
-    } else if (bmi !== null && bmi < cuts.low) warn(`${lastBody.name} body`, `BMI ${bmi}（< ${cuts.low}，低体重）：不选减脂；饮食照成品，拿不准问医生`);
+      if (it && it.answer !== "是") err(lastW.where, `BMI ${bmi}（≥ ${cuts.obese}），安全筛查"${it.item}"却答了"否"：改成"是"，先问医生`);
+    } else if (bmi !== null && bmi < cuts.low) warn(lastW.where, `BMI ${bmi}（< ${cuts.low}，低体重）：不选减脂；饮食照成品，拿不准问医生`);
   }
 
   // 5. 中断、连着两周疼

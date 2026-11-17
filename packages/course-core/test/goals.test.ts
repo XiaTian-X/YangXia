@@ -3,7 +3,7 @@
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
-import { ASSESS_FORMAT, type AssessContext, validateAssessment } from "../src/assess.ts";
+import { ASSESS_FORMAT, type AssessContext, checkAssessments, validateAssessment } from "../src/assess.ts";
 import { bmrTwo, bodySheetLines, bodyStateOn, clearValid, cutCardio, cycleGoals, goalCardioHint, goalGate, goalIssues, goalSheetLines, latestBmi, severeObese, validateGoalFields } from "../src/goals.ts";
 import { checkNotes } from "../src/profile.ts";
 import { REVIEW_FORMAT, validateReview } from "../src/progress.ts";
@@ -458,6 +458,31 @@ describe("阶段 5a：肥胖的减脂、重度肥胖、附册", () => {
     p.weightClear.push({ date: seen });
     expect(errs(ctx(p, recs({ weight: 87, waist: 100 })))).not.toMatch(/weightClear/);
   });
+  it("有高血压的人减脂：生病住院以后到看医生之前有氧照保持的量，看医生续上以后从第一档重新开始", () => {
+    const p = profile(9, "减脂", { conditions: { 高血压: true }, cardioClear: [{ date: plus(stableStart, -2) }] });
+    const ill = plus(p.segments[firstStable + 4].start, 1);           // 第 5 周里住院
+    const visit = plus(p.segments[firstStable + 6].start, 2);         // 第 7 周里看医生，当天续了有氧同意
+    const a = [...recs({ weight: 75, waist: 92 }), rec(ill, "触发", { reasons: ["生病住院"], eventDate: ill })];
+    const rv = [100, 100, 150, 150, 200, 200, 200, 200].map((m, k) => review(p, firstStable + k, { cardioMinutes: m }));
+    p.screening = { ...p.screening, doctorCleared: true, doctorDate: visit };
+    p.cardioClear.push({ date: visit });
+    const steps = p.segments.slice(firstStable).map((_: Obj, k: number) => { const c = cutCardio(ctx(p, a, rv), firstStable + k); return c?.doctor ? "保持" : c?.minutes; });
+    expect(steps).toEqual([100, 100, 150, 150, 200, "保持", "保持", 100, 100]);
+  });
+  it("改成不记以后不再用以前量的 BMI：重度肥胖看档案条件", () => {
+    const stop = plus(stableStart, 30);
+    const p = obese({ body: "不记", bodyLog: [{ date: START, body: "记" }, { date: stop, body: "不记" }], conditions: { 高血压: false, 重度肥胖: true } });
+    const c = ctx(p, recs({ weight: 85, waist: 100 }, { goal: "保持" }));               // 改不记之前量的 BMI 29.4
+    expect(severeObese(c, plus(stableStart, 3), "a18·bw")).toBe(false);
+    expect(severeObese(c, plus(stop, 365), "a18·bw")).toBe(true);
+    expect(latestBmi(c, plus(stop, 1))).toBeNull();
+  });
+  it("减脂复盘称到 BMI 28 以上、筛查\"BMI ≥ 28\"还是\"否\"：报出来，照实改、先问医生", () => {
+    const p = profile(3, "减脂");
+    const rv = [review(p, firstStable + 1, { weight: 82 })];
+    const m = checkAssessments(ctx(p, recs({ weight: 78, waist: 95 }), rv)).filter((i) => i.level === "error").map((i) => `${i.path}：${i.message}`).join("\n");
+    expect(m).toMatch(/复盘\/.*第2周\.json weight：BMI 28\.4（≥ 28），安全筛查".*BMI.*"却答了"否"/);
+  });
   it("开周期时超重，周期里称到 BMI 28 以上、没有减重的医生同意：下一周起退回保持", () => {
     const p = profile(3, "减脂");
     const rv = [review(p, firstStable + 1, { weight: 82 })];                                  // 第 2 周称到 BMI 28.4
@@ -471,9 +496,10 @@ describe("阶段 5a：肥胖的减脂、重度肥胖、附册", () => {
     const later = plus(START, 300);
     p.screening.date = later;                                // 重做了筛查，doctorDate 还是 START
     const c = ctx(p, recs({ weight: 87, waist: 100 }));
-    expect(clearValid(c, "weightClear", plus(later, 2), "a18·bw").valid).toBe(true);
+    expect(clearValid(c, "weightClear", plus(later, 2), "a18·bw", { waitDoctor: true }).valid).toBe(true);
+    expect(clearValid(c, "weightClear", plus(later, 2), "a18·bw").valid).toBe(false);          // 有氧台阶：事情一出就不算
     p.screening.doctorDate = plus(later, 1);                  // 新的医生同意记下来了，减重的没续
-    expect(clearValid(ctx(p, recs({ weight: 87, waist: 100 })), "weightClear", plus(later, 2), "a18·bw").valid).toBe(false);
+    expect(clearValid(ctx(p, recs({ weight: 87, waist: 100 })), "weightClear", plus(later, 2), "a18·bw", { waitDoctor: true }).valid).toBe(false);
   });
   it("重度肥胖：量过体重的按最近一次的 BMI（不管隔了多久，减脂复盘称的也算）；没量过的看条件；也没有的看筛查 BMI 那一项", () => {
     const p = obese();

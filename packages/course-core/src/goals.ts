@@ -233,7 +233,7 @@ export function goalGate(ctx: AssessContext, index: number): GateResult {
     if (typeof consent === "string" && consent <= e.start) { allowed.push("增肌"); why.length = 0; }
   }
   // 肥胖（28.0–32.4）：有有效的减重医生同意才能选减脂
-  if (t.obeseCut && clearValid(ctx, "weightClear", e.start, code).valid) { allowed.push("减脂"); why.length = 0; }
+  if (t.obeseCut && clearValid(ctx, "weightClear", e.start, code, { waitDoctor: true }).valid) { allowed.push("减脂"); why.length = 0; }
   // 医生、营养师有自己的减重方案：选保持，吃照他们的
   if (dietByProOn(ctx.profile, e.start) && allowed.length > 1) return { allowed: ["保持"], why: ["医生、营养师给了自己的减重方案（dietByPro）：选保持，训练照这份计划，吃照他们的"], bmi, waist, body };
   // 减脂之前要隔满一个完整的保持周期：连着两个减脂周期以后、停记以后
@@ -256,23 +256,29 @@ export function goalGate(ctx: AssessContext, index: number): GateResult {
 
 /**
  * 带日期的医生同意（cardioClear、weightClear 同一个办法）这一天还有没有效：用这一天以前最近的一次，有效天数以内，
- * 不早于最近一次重做的筛查和最近一件要医生同意的事。要医生同意的事（筛查有"是"的那次筛查、生病住院、摔倒……）
- * 要等看了医生才算进来：还没看医生的那几天本来就导不出课程和计划单，旧的同意照算；看医生时续上的，
- * 看医生以前就开始的那一周不算失效；看了医生没续的，之后开始的周起失效（设计值 WEIGHT_CLEAR）。
- * 看医生的日子：档案 screening.doctorDate 和"看完医生回来"触发评估记的 doctorDate。
+ * 不早于最近一次重做的筛查和最近一件要医生同意的事。两种算法：
+ * - 默认（有氧台阶用，成品《目标》一节"没有同意的那几周不算进升档，问过以后从 100 分钟那一档重新开始"）：
+ *   事情一出（重做筛查、生病住院、摔倒……）旧的同意就不算了；
+ * - waitDoctor（减脂能不能选、要不要中途退回保持用）：要医生同意的事（筛查有"是"的那次筛查、生病住院、摔倒……）
+ *   等看了医生才算进来——还没看医生的那几天本来就导不出课程和计划单，看医生时续上的，看医生以前开始的那一周
+ *   不算失效；看了医生没续的，之后开始的周起失效（设计值 WEIGHT_CLEAR）。看医生的日子：档案 screening.doctorDate
+ *   和"看完医生回来"触发评估记的 doctorDate。
  */
-export function clearValid(ctx: AssessContext, key: "cardioClear" | "weightClear", date: string, code: string): { valid: boolean; after: string } {
+export function clearValid(ctx: AssessContext, key: "cardioClear" | "weightClear", date: string, code: string, opts: { waitDoctor?: boolean } = {}): { valid: boolean; after: string } {
   const p = ctx.profile;
   const gr = goalRules(ctx.rules);
   const keep = gr ? goalParam(gr, key === "weightClear" ? "减重医生同意有效天数" : "有氧医生同意有效天数", code) ?? 365 : 365;
   const sd = typeof p.screening?.date === "string" ? p.screening.date : "";
   const docEv = doctorEvents(ctx).map((x) => x.date);
-  const visits = [p.screening?.doctorCleared === true ? p.screening?.doctorDate : undefined,
-    ...ctx.assessments.filter((a) => Array.isArray(a.raw?.reasons) && a.raw.reasons.includes("看完医生回来")).map((a) => a.raw.doctorDate)]
-    .filter((d): d is string => typeof d === "string" && DATE.test(d) && d <= date).sort();
-  const seen = visits.pop() ?? "";
-  const events = [...(sd && !docEv.includes(sd) ? [sd] : []), ...docEv.filter((d) => seen && d <= seen)].filter((d) => d && d <= date);
-  const after = events.sort().pop() ?? "";
+  let events: string[];
+  if (opts.waitDoctor) {
+    const visits = [p.screening?.doctorCleared === true ? p.screening?.doctorDate : undefined,
+      ...ctx.assessments.filter((a) => Array.isArray(a.raw?.reasons) && a.raw.reasons.includes("看完医生回来")).map((a) => a.raw.doctorDate)]
+      .filter((d): d is string => typeof d === "string" && DATE.test(d) && d <= date).sort();
+    const seen = visits.pop() ?? "";
+    events = [...(sd && !docEv.includes(sd) ? [sd] : []), ...docEv.filter((d) => seen && d <= seen)];
+  } else events = [sd, ...docEv];
+  const after = events.filter((d) => d && d <= date).sort().pop() ?? "";
   // 每一周用当时有效的那一次同意（续过的不影响以前几周）
   const d = (Array.isArray(p[key]) ? p[key] : []).map((e: Obj) => e?.date).filter((x: unknown) => typeof x === "string" && x <= date).sort().pop();
   return { valid: typeof d === "string" && d >= after && days(d, date) <= keep, after };
@@ -290,8 +296,8 @@ export function cardioDoctor(ctx: AssessContext, date: string, code: string): { 
 }
 
 /**
- * BMI 37.5 以上（"重度肥胖"，推出来的条件）：量过体重的（评估、减脂复盘里称的）按最近一次的 BMI，不管隔了多久；
- * 没量过的看档案条件；也没有的看筛查"BMI ≥ 28"（设计值 SEVERE_OBESE_INTERVAL）。
+ * BMI 37.5 以上（"重度肥胖"，推出来的条件）：这一天还是"记"、量过体重的（评估、减脂复盘里称的）按最近一次的 BMI，
+ * 不管隔了多久；没量过的、改成不记或停记的看档案条件；也没有的看筛查"BMI ≥ 28"（设计值 SEVERE_OBESE_INTERVAL）。
  */
 export function severeObese(ctx: AssessContext, date: string, code?: string): boolean {
   const gr = goalRules(ctx.rules);
@@ -304,22 +310,31 @@ export function severeObese(ctx: AssessContext, date: string, code?: string): bo
 }
 
 /**
- * 最近一次量的 BMI：评估里量的（记录那天是"记"），和减脂复盘里称的（算在那一周的最后一天，那一周是"记"）；
- * 身高用最早那份；没有的返回 null。
+ * 最近一次称的体重（这一天以前）：评估里量的（记录那天是"记"），和减脂复盘里称的（算在那一周的最后一天，那一周是"记"）。
+ * where 是给报错用的位置。
  */
-export function latestBmi(ctx: AssessContext, date: string): number | null {
+export function lastWeighed(ctx: AssessContext, date: string): { date: string; weight: number; where: string } | null {
   const p = ctx.profile;
-  const pts: { d: string; w: number }[] = [];
+  const pts: { date: string; weight: number; where: string }[] = [];
   for (const a of ctx.assessments) {
-    if (typeof a.raw?.date === "string" && a.raw.date <= date && typeof a.raw.body?.weight === "number" && bodyStateOn(p, a.raw.date) === "记") pts.push({ d: a.raw.date, w: a.raw.body.weight });
+    if (typeof a.raw?.date === "string" && a.raw.date <= date && typeof a.raw.body?.weight === "number" && bodyStateOn(p, a.raw.date) === "记") pts.push({ date: a.raw.date, weight: a.raw.body.weight, where: `${a.name} body` });
   }
   for (const s of (p.segments ?? []) as SegmentEntry[]) {
     const w = ctx.reviewData[reviewDataName(s)]?.weight;
     const end = typeof s.start === "string" ? addDays(s.start, 6) : "";
-    if (typeof w === "number" && end && end <= date && bodyStateOn(p, s.start) === "记") pts.push({ d: end, w });
+    if (typeof w === "number" && end && end <= date && bodyStateOn(p, s.start) === "记") pts.push({ date: end, weight: w, where: `复盘/${reviewDataName(s)} weight` });
   }
-  const last = pts.sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0)).pop();
-  return last ? bmiW(last.w, entryHeight(ctx)) : null;
+  return pts.sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0)).pop() ?? null;
+}
+
+/**
+ * 最近一次量的 BMI（身高用最早那份）：只给这一天还是"记"的人——改成不记、停记以后不再有新的测量，旧的数不拿来用；
+ * 没有的返回 null。
+ */
+export function latestBmi(ctx: AssessContext, date: string): number | null {
+  if (bodyStateOn(ctx.profile, date) !== "记") return null;
+  const last = lastWeighed(ctx, date);
+  return last ? bmiW(last.weight, entryHeight(ctx)) : null;
 }
 
 // ---------- 减脂的有氧台阶 ----------
@@ -552,7 +567,7 @@ export function goalIssues(ctx: AssessContext): Issue[] {
         ?? (p.body === "停记" && typeof p.bodyStopDate === "string" && p.bodyStopDate >= x.start && p.bodyStopDate <= endDay ? p.bodyStopDate : undefined);
       if (st) err(path(j), `${st} 起不记（或停记）体重腰围：这一周起目标退回保持（这一周的计划单重新生成）`);
       else if (j > 0 && dietByProOn(p, x.start)) err(path(j), `医生、营养师给了自己的减重方案（dietByPro，${x.start} 这一周开始时已经记了）：这一周起退回保持，吃照他们的`);
-      else if (g === "减脂" && obeseAt(x.start) && !clearValid(ctx, "weightClear", x.start, code).valid) {
+      else if (g === "减脂" && obeseAt(x.start) && !clearValid(ctx, "weightClear", x.start, code, { waitDoctor: true }).valid) {
         const had = (Array.isArray(p.weightClear) ? p.weightClear : []).some((c: Obj) => typeof c?.date === "string" && c.date <= x.start);
         err(path(j), had ? `减重的医生同意（weightClear）到 ${x.start} 这一周已经失效（过期，或者重做了筛查、有了新的要问医生的事，看了医生没续）：这一周起退回保持，下一个周期再选`
           : `${x.start} 这一周开始时最近一次称的 BMI 到了 ${obeseLine}（肥胖），没有减重的医生同意（weightClear）：这一周起退回保持，医生同意了下一个周期再选`);
