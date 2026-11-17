@@ -627,6 +627,10 @@ export function bodySheetLines(ctx: AssessContext, index: number): string[] {
     out.push("- 这一周的有氧可以选高冲击（开合跳、原地高抬腿跑）：楼下没人、膝盖没有任何不适时（照成品）；默认低冲击。");
   }
   if (ctx.profile.dietByPro === true) out.push("- 吃：照医生、营养师给你的方案（这份计划的饮食部分不用）。");
+  // 官方食养指南（成品末尾《附：官方食养指南》）：只指路，不改饮食（设计值 FOOD_GUIDE_APPENDIX）
+  if (dietByDoctor(ctx.profile)) out.push("- 安全筛查第 3 项（糖尿病、肾病、痛风或高尿酸、高血脂）答了\"是\"：吃照医生的意见；官方的食养指南见成品末尾《附：官方食养指南》，哪一份对得上、怎么用，问医生或注册营养师。");
+  if (ctx.profile.conditions?.["高血压"] === true) out.push("- 官方有《成人高血压食养指南》，见成品末尾《附：官方食养指南》；这份计划的饮食照常，拿不准问医生。");
+  if (ctx.profile.conditions?.["骨质疏松"] === true) out.push("- 官方有《成人骨质疏松症食养指南》，见成品末尾《附：官方食养指南》；这份计划的饮食照常，拿不准问医生。");
   return out.length ? ["## 身体情况", "", ...out, ""] : [];
 }
 

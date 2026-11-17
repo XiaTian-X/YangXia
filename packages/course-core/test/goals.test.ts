@@ -471,3 +471,16 @@ describe("阶段 5a：肥胖的减脂、重度肥胖、附册", () => {
     expect(m).toMatch(/segments\[0\]\.product/);
   });
 });
+
+describe("阶段 5b：官方食养指南的指路", () => {
+  it("筛查第 3 项\"是\"、高血压\"是\"、骨质疏松\"是\"各写一句，饮食照常的照常；没确认的不写", () => {
+    const p = profile(1, "保持", { body: "不记", bodyLog: [{ date: START, body: "不记" }] });
+    expect(bodySheetLines(ctx(p, []), firstStable)).toEqual([]);
+    p.conditions = { 高血压: true, 骨质疏松: true };
+    p.screening.answers = p.screening.answers.map((a: Obj) => (/糖尿病/.test(a.item) ? { ...a, answer: "是" } : a));
+    const t = bodySheetLines(ctx(p, []), firstStable).join("\n");
+    expect(t).toMatch(/吃照医生的意见；官方的食养指南见成品末尾《附：官方食养指南》/);
+    expect(t).toMatch(/官方有《成人高血压食养指南》.*这份计划的饮食照常/);
+    expect(t).toMatch(/官方有《成人骨质疏松症食养指南》/);
+  });
+});
