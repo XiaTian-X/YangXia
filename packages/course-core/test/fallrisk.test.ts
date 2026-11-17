@@ -285,7 +285,9 @@ describe("档案目录：先问医生、正式评估、到期", () => {
     const ev = plus(START, 5);
     const fellQ = (askedOn: string) => fr({ askedOn, general: general(true), severity: sevNo, frail: frailNo, walk4m: skipped("跌倒过"), tug: skipped("跌倒过") });
     const copy = trig(plus(START, 6), ["摔倒"], fr(), { eventDate: ev });
-    expect(errs(ctx(p, [entry(fr()), copy], plus(START, 7)))).toMatch(/摔倒要重新做一次问卷：这份问卷和 评估\/2026-12-01-入门.json 那份是同一天/);
+    const copyErrs = errs(ctx(p, [entry(fr()), copy], plus(START, 7)));
+    expect(copyErrs).toMatch(/摔倒要重新做一次问卷：这份问卷和 评估\/2026-12-01-入门.json 那份一模一样/);
+    expect(copyErrs).not.toMatch(/入门.json fallRisk：/);       // 被抄的那份不报
     const early = trig(plus(START, 6), ["摔倒"], fellQ(plus(START, 4)), { eventDate: ev });
     expect(errs(ctx(p, [entry(fr()), early], plus(START, 7)))).toMatch(/摔倒（2026-12-06）之后要重新做一次问卷/);
     const ok = trig(plus(START, 6), ["摔倒"], fellQ(ev), { eventDate: ev });
@@ -387,6 +389,23 @@ describe("档案目录：先问医生、正式评估、到期", () => {
     const sick = trig(plus(START, 22), ["生病住院"], fr({ askedOn: plus(START, 21), general: general(true), severity: sevNo, frail: frailNo, walk4m: skipped("跌倒过"), tug: skipped("跌倒过") }), { eventDate: plus(START, 20) });
     const fall = trig(plus(START, 30), ["摔倒"], fr({ askedOn: fallDay, general: general(true), severity: sevNo, frail: frailNo, walk4m: skipped("跌倒过"), tug: skipped("跌倒过") }), { eventDate: fallDay });
     expect(errs(ctx(p, [entry(fr()), sick, fall], plus(START, 31)))).not.toMatch(/不能照抄/);
+  });
+  it("同一天两份真实的问卷（上午到期复查、下午摔倒）不算照抄", () => {
+    const p = profile();
+    const d = plus(START, 30);
+    Object.assign(p.screening, { date: d, doctorDate: d });
+    p.screening.answers = p.screening.answers.map((a: any) => (/最近一年摔倒过/.test(a.item) ? { ...a, answer: "是" } : a));
+    const am = trig(d, ["跌倒自查到期"], fr({ askedOn: d, walk4m: walk(3.5, { testedOn: d }), tug: tug(9, { testedOn: d }) }), { companion: true, doctorCleared: true, doctorDate: d });
+    const pm = trig(d, ["摔倒"], fr({ askedOn: d, general: general(true), severity: sevNo, frail: frailNo, walk4m: skipped("跌倒过"), tug: skipped("跌倒过") }), { eventDate: d });
+    pm.name = `评估/${d}-触发-摔倒-2.json`;
+    expect(errs(ctx(p, [entry(fr()), am, pm], plus(d, 1)))).not.toMatch(/不能照抄/);
+  });
+  it("问卷几天后重做的筛查对头晕答得不一样：提醒再确认", () => {
+    const p = profile();
+    const d1 = plus(START, 1);
+    Object.assign(p.screening, { date: d1, doctorDate: d1 });
+    p.screening.answers = p.screening.answers.map((a: any) => (/经常头晕/.test(a.item) ? { ...a, answer: "是" } : a));
+    expect(warns(ctx(p, [entry(fr())], plus(START, 2)))).toMatch(/问卷（2026-12-01）说不经常头晕，几天后的安全筛查（2026-12-02）/);
   });
   it("问卷之后单独重做的筛查不倒过来追溯\"跌倒过、走路要扶\"", () => {
     const p = profile();

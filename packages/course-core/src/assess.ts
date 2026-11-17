@@ -1029,8 +1029,9 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       const ev = a.raw.eventDate;
       const evWhy = AFTER_EVENT.find((x) => hasReason(a, x));
       if (evWhy && typeof ev === "string" && fr.askedOn < ev) err(`${a.name} fallRisk.askedOn`, `${evWhy}（${ev}）之后要重新做一次问卷：这份问卷是 ${fr.askedOn} 做的，在那之前`);
-      const same = A.find((b) => b !== a && b.raw?.fallRisk?.askedOn === fr.askedOn);
-      if (same) err(`${a.name} fallRisk.askedOn`, `${why}要重新做一次问卷：这份问卷和 ${same.name} 那份是同一天（${fr.askedOn}）的，不能照抄；两件事一起的，写成一份记录`);
+      // 照抄：和更早写的一份记录的问卷日期、内容都一样（只报后写的这一份）
+      const same = A.find((b) => b !== a && typeof b.raw?.date === "string" && (b.raw.date < d || (b.raw.date === d && b.name < a.name)) && sameJson(b.raw.fallRisk, fr));
+      if (same) err(`${a.name} fallRisk`, `${why}要重新做一次问卷：这份问卷和 ${same.name} 那份一模一样（${fr.askedOn}），不能照抄；两件事一起的，写成一份记录`);
     }
     const all = fallRiskList(ctx);
     const within = (x: string) => x <= today && (dayStart(today) - dayStart(x)) / DAY <= 365;
@@ -1044,6 +1045,10 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       const dz = screeningItem(p, /经常头晕/);
       if (dz && sd && sd <= askedOn && typeof raw.dizzy === "boolean" && raw.dizzy !== (dz.answer === "是")) {
         err(`${name} fallRisk.dizzy`, raw.dizzy ? `问卷说经常头晕，安全筛查"${dz.item}"却是"否"：人现在经常头晕，照实重做安全筛查` : `问卷之前做的安全筛查"${dz.item}"是"是"，问卷却说不经常头晕：照实答（经常头晕的不在家测步态）`);
+      }
+      // 问卷之后几天重做的筛查对头晕答得不一样：前后矛盾，提醒再确认（问卷那天自己说不头晕、当天测的步态不算违规）
+      if (dz && sd && sd > askedOn && (dayStart(sd) - dayStart(askedOn)) / DAY <= 7 && typeof raw.dizzy === "boolean" && raw.dizzy !== (dz.answer === "是")) {
+        warn(`${name} fallRisk.dizzy`, `问卷（${askedOn}）说${raw.dizzy ? "" : "不"}经常头晕，几天后的安全筛查（${sd}）"${dz.item}"却是"${dz.answer}"：照实再确认；经常头晕的不在家测步态，测过的告诉医生`);
       }
       if (dz?.answer === "是" && sd) {
         for (const def of rr.gait) {
