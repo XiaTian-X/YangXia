@@ -56,6 +56,14 @@ export function validateGoalFields(p: Obj): Issue[] {
       if (p.body === "停记" && stops.length && stops[stops.length - 1].date !== p.bodyStopDate) err("bodyLog", `最后一次停记是 ${stops[stops.length - 1].date}，bodyStopDate 写的是 ${p.bodyStopDate}：要一致`);
     }
   }
+  for (const key of ["weightClear"]) {
+    const v = p[key];
+    if (v !== undefined && !(Array.isArray(v) && v.length && v.every((e: Obj) => isObj(e) && typeof e.date === "string" && DATE.test(e.date) && Object.keys(e).length === 1)
+      && v.every((e: Obj, i: number) => i === 0 || e.date >= v[i - 1].date))) {
+      err(key, "weightClear 是 [{ date }]：医生每次说可以按这份计划减重（每天少吃约 300 kcal、有氧逐步加到每周 250 分钟）的那天，按日期从早到晚，续了就加一项");
+    }
+  }
+  if (p.dietByPro !== undefined && typeof p.dietByPro !== "boolean") err("dietByPro", "dietByPro（医生或营养师给了自己的减重方案，吃照他们的）是 true / false");
   if (p.cardioClear !== undefined && !(Array.isArray(p.cardioClear) && p.cardioClear.length
     && p.cardioClear.every((e: Obj) => isObj(e) && typeof e.date === "string" && DATE.test(e.date) && Object.keys(e).length === 1)
     && p.cardioClear.every((e: Obj, i: number) => i === 0 || e.date >= p.cardioClear[i - 1].date))) {
@@ -159,13 +167,15 @@ function openingRecord(ctx: AssessContext, index: number): AssessFile | null {
 const bmiW = (w: unknown, h: number | undefined): number | null => (typeof w === "number" && typeof h === "number" ? bmiOf({ weight: w }, h) : null);
 
 /** BMI 和腰围对应能选的目标（GOAL_GATE 那张表；BMI < 18.5 的增肌要另看同意）。 */
-function tableGoals(gr: GoalRules, code: string, bmi: number, waist: number): { allowed: Goal[]; why: string[]; lowBmi: boolean } {
+function tableGoals(gr: GoalRules, code: string, bmi: number, waist: number): { allowed: Goal[]; why: string[]; lowBmi: boolean; obeseCut?: boolean } {
   const low = goalParam(gr, "低体重 BMI", code) ?? 18.5;
   const over = goalParam(gr, "超重 BMI", code) ?? 24;
   const obese = goalParam(gr, "肥胖 BMI", code) ?? 28;
   const cutWaist = goalParam(gr, "减脂腰围", code) ?? 90;
   const bulkWaist = goalParam(gr, "增肌腰围", code) ?? 85;
-  if (bmi >= obese) return { allowed: ["保持"], why: [`BMI ${bmi}：肥胖的人这一阶段只选保持，减脂等《超重与肥胖》附册`], lowBmi: false };
+  const obeseMax = goalParam(gr, "肥胖可减脂 BMI 上限", code) ?? 32.5;
+  if (bmi >= obeseMax) return { allowed: ["保持"], why: [`BMI ${bmi}（${obeseMax} 以上）：不在这份计划里减重，找医生、营养师制订减重计划`], lowBmi: false };
+  if (bmi >= obese) return { allowed: ["保持"], why: [`BMI ${bmi}：肥胖的人要医生同意按这份计划减重（档案 weightClear 记日期）才能选减脂`], lowBmi: false, obeseCut: true };
   if (bmi < low) return { allowed: ["保持"], why: [`BMI ${bmi} 不到 ${low}：增肌要先问医生或营养师（同意的那天记在开周期的评估 goalConsent）`], lowBmi: true };
   if (bmi < over) {
     if (waist >= cutWaist) return { allowed: ["保持", "减脂"], why: [], lowBmi: false };
@@ -212,6 +222,10 @@ export function goalGate(ctx: AssessContext, index: number): GateResult {
     const consent = open?.raw.goalConsent?.date;
     if (typeof consent === "string" && consent <= e.start) { allowed.push("增肌"); why.length = 0; }
   }
+  // 肥胖（28.0–32.4）：有有效的减重医生同意才能选减脂
+  if (t.obeseCut && clearValid(ctx, "weightClear", e.start, code).valid) { allowed.push("减脂"); why.length = 0; }
+  // 医生、营养师有自己的减重方案：选保持，吃照他们的
+  if (ctx.profile.dietByPro === true && allowed.length > 1) return { allowed: ["保持"], why: ["医生、营养师给了自己的减重方案（dietByPro）：选保持，训练照这份计划，吃照他们的"], bmi, waist, body };
   // 减脂之前要隔满一个完整的保持周期：连着两个减脂周期以后、停记以后
   if (allowed.includes("减脂")) {
     const all = segs(ctx.profile);
@@ -230,18 +244,57 @@ export function goalGate(ctx: AssessContext, index: number): GateResult {
   return { allowed, why, bmi, waist, body };
 }
 
-/** 减脂这一周有氧要不要先问医生：有高血压（或没确认），或者筛查有"是"。valid：带日期的同意还有效。 */
+/**
+ * 带日期的医生同意（cardioClear、weightClear 同一个办法）这一天还有没有效：用这一天以前最近的一次，有效天数以内，
+ * 不早于最近一次重做筛查和最近一件要医生同意的事。满一年重做了筛查、新的医生同意（screening.doctorDate）还没记下来时，
+ * 旧的照算（那几天本来也导不出课程）；记下来了没续的就失效（设计值 WEIGHT_CLEAR）。
+ */
+export function clearValid(ctx: AssessContext, key: "cardioClear" | "weightClear", date: string, code: string): { valid: boolean; after: string } {
+  const p = ctx.profile;
+  const gr = goalRules(ctx.rules);
+  const keep = gr ? goalParam(gr, key === "weightClear" ? "减重医生同意有效天数" : "有氧医生同意有效天数", code) ?? 365 : 365;
+  const sd = typeof p.screening?.date === "string" ? p.screening.date : "";
+  const events = [sd, ...doctorEvents(ctx).map((x) => x.date)].filter((d) => typeof d === "string" && d && d <= date);
+  // 重做了筛查、要医生同意（筛查有"是"），以前同意过、新的还没记下来：衔接期，旧的照算
+  const dd = p.screening?.doctorDate;
+  const needsDoctor = (p.screening?.answers ?? []).some((a: Obj) => a?.answer === "是");
+  const pending = !!sd && needsDoctor && typeof dd === "string" && dd < sd;
+  const after = (pending ? events.filter((d) => d < sd) : events).sort().pop() ?? "";
+  // 每一周用当时有效的那一次同意（续过的不影响以前几周）
+  const d = (Array.isArray(p[key]) ? p[key] : []).map((e: Obj) => e?.date).filter((x: unknown) => typeof x === "string" && x <= date).sort().pop();
+  return { valid: typeof d === "string" && d >= after && days(d, date) <= keep, after };
+}
+
+/** 减脂这一周有氧要不要先问医生：有高血压（或没确认），或者筛查有"是"。valid：带日期的同意还有效（减重的同意也算）。 */
 export function cardioDoctor(ctx: AssessContext, date: string, code: string): { needed: boolean; valid: boolean; after: string } {
   const p = ctx.profile;
   const hyper = p.conditions?.["高血压"] !== false;
   const yes = (p.screening?.answers ?? []).some((a: Obj) => a?.answer === "是");
   if (!hyper && !yes) return { needed: false, valid: true, after: "" };
+  const c = clearValid(ctx, "cardioClear", date, code);
+  const w = clearValid(ctx, "weightClear", date, code);
+  return { needed: true, valid: c.valid || w.valid, after: c.after };
+}
+
+/** BMI 37.5 以上（"重度肥胖"，推出来的条件）：有 28 天以内量过的体重按 BMI 算；没有的看档案条件；也没有的看筛查"BMI ≥ 28"。 */
+export function severeObese(ctx: AssessContext, date: string, code?: string): boolean {
   const gr = goalRules(ctx.rules);
-  const keep = gr ? goalParam(gr, "有氧医生同意有效天数", code) ?? 365 : 365;
-  const after = [p.screening?.date, ...doctorEvents(ctx).map((x) => x.date)].filter((d) => typeof d === "string" && d <= date).sort().pop() ?? "";
-  // 每一周用当时有效的那一次同意（续过的不影响以前几周）
-  const d = (Array.isArray(p.cardioClear) ? p.cardioClear : []).map((e: Obj) => e?.date).filter((x: unknown) => typeof x === "string" && x <= date).sort().pop();
-  return { needed: true, valid: typeof d === "string" && d >= after && days(d, date) <= keep, after };
+  const line = (gr && code ? goalParam(gr, "重度肥胖 BMI", code) : undefined) ?? 37.5;
+  const fresh = (gr && code ? goalParam(gr, "身体数据有效天数", code) : undefined) ?? 28;
+  const rec = ctx.assessments.filter((a) => typeof a.raw?.date === "string" && a.raw.date <= date && days(a.raw.date, date) <= fresh && typeof a.raw.body?.weight === "number")
+    .sort((x, y) => (x.raw.date < y.raw.date ? -1 : 1)).pop();
+  const bmi = rec ? bmiW(rec.raw.body.weight, entryHeight(ctx)) : null;
+  if (bmi !== null) return bmi >= line;
+  const c = ctx.profile.conditions?.["重度肥胖"];
+  if (typeof c === "boolean") return c;
+  return (ctx.profile.screening?.answers ?? []).some((a: Obj) => /BMI/.test(a?.item ?? "") && a?.answer === "是");
+}
+
+/** 最近一次量的 BMI（记录那天是"记"；没有的返回 null）。 */
+export function latestBmi(ctx: AssessContext, date: string): number | null {
+  const rec = ctx.assessments.filter((a) => typeof a.raw?.date === "string" && a.raw.date <= date && typeof a.raw.body?.weight === "number" && bodyStateOn(ctx.profile, a.raw.date) === "记")
+    .sort((x, y) => (x.raw.date < y.raw.date ? -1 : 1)).pop();
+  return rec ? bmiW(rec.raw.body.weight, entryHeight(ctx)) : null;
 }
 
 // ---------- 减脂的有氧台阶 ----------
@@ -459,6 +512,9 @@ export function goalIssues(ctx: AssessContext): Issue[] {
     }
     // 中途退回：停记、不记（改动那一周起）；减脂掉太快、BMI 太低（复盘发现的下一周起）；增肌在评估里到了 24 或 85
     const stop = g0 === "减脂" && info ? cutStopFrom(ctx, seg, gr, code) : null;
+    // 肥胖的人走的减脂（开周期时 BMI 28 以上）：每一周减重的医生同意都要有效
+    const gate0 = g0 === "减脂" ? goalGate(ctx, seg.first) : null;
+    const obeseRoute = !!gate0 && typeof gate0.bmi === "number" && gate0.bmi >= (goalParam(gr, "肥胖 BMI", code) ?? 28);
     seg.entries.forEach((x, j) => {
       const g = weekGoal(x);
       if (g === "保持") return;
@@ -466,6 +522,7 @@ export function goalIssues(ctx: AssessContext): Issue[] {
       const st = bodyStateOn(p, x.start) !== "记" ? x.start : (Array.isArray(p.bodyLog) ? p.bodyLog : []).find((b: Obj) => b.date >= x.start && b.date <= endDay && b.body !== "记")?.date
         ?? (p.body === "停记" && typeof p.bodyStopDate === "string" && p.bodyStopDate >= x.start && p.bodyStopDate <= endDay ? p.bodyStopDate : undefined);
       if (st) err(path(j), `${st} 起不记（或停记）体重腰围：这一周起目标退回保持（这一周的计划单重新生成）`);
+      else if (g === "减脂" && obeseRoute && !clearValid(ctx, "weightClear", x.start, code).valid) err(path(j), `减重的医生同意（weightClear）到 ${x.start} 这一周已经失效（过期、重做了筛查、或者有了新的要问医生的事）：这一周起退回保持，看医生时续上，下一个周期再选`);
       else if (stop && seg.first + j >= stop.index) err(path(j), `${stop.why}：下一周起退回保持，问问有没有饿着、没力气、头晕`);
       if (g === "增肌") {
         const over = goalParam(gr, "超重 BMI", code) ?? 24;
@@ -547,6 +604,30 @@ export function goalSheetLines(ctx: AssessContext, index: number): string[] {
   }
   lines.push("");
   return lines;
+}
+
+/** 计划单上和身体情况有关的几行（超重肥胖指向附册、跳跃、吃照专业方案）；都不沾的不写。 */
+export function bodySheetLines(ctx: AssessContext, index: number): string[] {
+  const ss = (ctx.profile.segments ?? []) as SegmentEntry[];
+  const e = ss[index];
+  const info = e ? productInfo(ctx.manifest, e.product) : null;
+  if (!e || !info || !["a18", "a40"].includes(info.age)) return [];
+  const gr = goalRules(ctx.rules);
+  const out: string[] = [];
+  const bmi = latestBmi(ctx, e.start);
+  const over = (gr ? goalParam(gr, "超重 BMI", info.code) : undefined) ?? 24;
+  const jumpBmi = (gr ? goalParam(gr, "不做跳跃的 BMI", info.code) : undefined) ?? over;
+  const bmiItemYes = (ctx.profile.screening?.answers ?? []).some((a: Obj) => /BMI/.test(a?.item ?? "") && a?.answer === "是");
+  const book = ctx.manifest.products.find((p) => (p as Obj).phase === "附册" && p.age === info.age);
+  if ((bmi !== null && bmi >= over) || (bmi === null && bmiItemYes)) {
+    out.push(`- 超重、肥胖：配合《${book?.name ?? "超重与肥胖（附册）"}》看——${info.age === "a18" ? "跳跃都不做（用低冲击版），" : ""}BMI 37.5 以上的间歇先问医生，肥胖的人选减脂要医生同意。`);
+  }
+  // 18–39 岁纯徒手版每一轮第 4 周的高冲击：只对记了体重、BMI 不到 24 的写"可选"
+  if (info.age === "a18" && info.venue === "bw" && (e.week - 1) % 4 === 3 && bmi !== null && bmi < jumpBmi) {
+    out.push("- 这一周的有氧可以选高冲击（开合跳、原地高抬腿跑）：楼下没人、膝盖没有任何不适时（照成品）；默认低冲击。");
+  }
+  if (ctx.profile.dietByPro === true) out.push("- 吃：照医生、营养师给你的方案（这份计划的饮食部分不用）。");
+  return out.length ? ["## 身体情况", "", ...out, ""] : [];
 }
 
 /** 导出提示里减脂的有氧一句。 */

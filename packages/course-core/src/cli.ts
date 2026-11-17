@@ -23,7 +23,7 @@ import { checkProgress, checkProgressLog, localDate, progressOn, REVIEW_FORMAT, 
 import { loadTemplates, requirePlans, type Templates } from "./node.ts";
 import { currentSegment, exportCourse } from "./plan.ts";
 import { fallRiskRules } from "./fallrisk.ts";
-import { cycleGoals, goalCardioHint, goalIssues } from "./goals.ts";
+import { cycleGoals, goalCardioHint, goalIssues, severeObese } from "./goals.ts";
 import { ASSESS_FORMAT, type AssessFile, ageAt, assessRules, cardioMode, cycleEnd, balanceHold, checkAssessments, checkRecord, doctorNeed, gap, param, productInfo, recordConclusion, segmentEnd, validateAssessment } from "./assess.ts";
 import { checkDeclaration, checkNotes, DECLARATION, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
 import { buildSheet, checkSheet, sheetFile } from "./sheet.ts";
@@ -56,12 +56,14 @@ async function intake(age?: string): Promise<number> {
     console.log(`\n安全筛查 ${sc.age}（${sc.kind === "all" ? "所有人开始前都要先问医生" : "任一项是就先问医生"}）：${sc.rule}`);
     sc.items.forEach((x: string, i: number) => console.log(`  ${i + 1}. ${x}`));
   }
-  const VENUE: Record<string, string> = { gym: "健身房", home: "居家（2.5kg 哑铃 + 动感单车）", bw: "纯徒手", play: "户外与游戏", chair: "椅子辅助", meal: "全家餐饮" };
+  const VENUE: Record<string, string> = { gym: "健身房", home: "居家（2.5kg 哑铃 + 动感单车）", bw: "纯徒手", play: "户外与游戏", chair: "椅子辅助", meal: "全家餐饮", book: "附册" };
   console.log("\n成品（档案的 product 写成品名）：");
-  for (const p of manifest.products.filter((x) => !age || x.age === age)) {
+  const books = manifest.products.filter((x) => (!age || x.age === age) && (x as Record<string, any>).phase === "附册");
+  for (const p of manifest.products.filter((x) => (!age || x.age === age) && (x as Record<string, any>).phase !== "附册")) {
     const stable = (p as Record<string, any>).phase === "稳定";
     console.log(`  ${p.name}（${p.age}·${p.venue}，${VENUE[p.venue] ?? p.venue}${stable ? "；稳定期：起始期段末到了进阶线、或者有基础的人直接进入才用，新手选起始期那一份" : ""}）`);
   }
+  if (books.length) console.log(`\n附册（不是计划，不能选成档案的 product；超重、肥胖的人配合本年龄段的计划看）：${books.map((p) => p.name).join("、")}`);
   console.log("\n不覆盖的人群：");
   for (const n of it.not_covered) console.log(`  ${n.group}：${n.advice}`);
   return 0;
@@ -238,7 +240,9 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
   if (r.course && doc.needed && !doc.ok) {
     r.issues.push({ level: "error", path: "screening", message: `医生同意之前不出课程（${doc.reason}：医生同意的日期 doctorDate 要不早于 ${doc.after}）` });
   }
-  const cm = info0(t, seg.product) ? cardioMode(t.rules, profile, info0(t, seg.product)!, seg.n, Number(weekArg), scan.reviewData) : null;
+  const ctx0 = assessCtx(t, profile, scan);
+  const cm = info0(t, seg.product) ? cardioMode(t.rules, profile, info0(t, seg.product)!, seg.n, Number(weekArg), scan.reviewData,
+    { severe: severeObese(ctx0, localDate(new Date()), info0(t, seg.product)!.code) }) : null;
   if (cm) r.notes.push(`有氧：这一周做${cm.mode}${cm.mode === "稳态" && cm.interval ? "，不做间歇" : ""}${cm.duration ? `，${cm.duration}` : ""}（${cm.why}）`);
   const gh = goalCardioHint(ctx, (profile.segments as any[]).length - 1);
   if (gh) r.notes.push(gh);

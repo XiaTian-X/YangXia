@@ -1254,7 +1254,8 @@ export function gap(ctx: AssessContext, code: string, today: string): { last: st
  * 这一周的有氧做稳态还是间歇（有氧不导出、没有练习记录，拦不了，只能让计划单和导出时的提示写对）：
  * 规则在 rules.cardio；有间歇的周，高血压（或没确认）而且没问过医生的做稳态，这一轮第 2 周的稳态自查没过（或没记）的做稳态。
  */
-export function cardioMode(rules: RulesData | null, profile: Obj, product: { code: string; phase: string }, n: number, week: number, reviewData: Record<string, Obj>): { mode: string; why: string; duration?: string; interval: boolean } | null {
+export function cardioMode(rules: RulesData | null, profile: Obj, product: { code: string; phase: string }, n: number, week: number, reviewData: Record<string, Obj>,
+  opts: { severe?: boolean } = {}): { mode: string; why: string; duration?: string; interval: boolean } | null {
   const k = product.phase === "稳定" ? roundWeek(week) : week;
   // 这一阶段、这一轮第 k 周的行（阶段空着的两个阶段都用）
   const rows = (rules?.cardio ?? []).filter((c) => c.products.includes(product.code) && c.weeks.includes(k) && (c.phase ?? product.phase) === product.phase);
@@ -1263,7 +1264,7 @@ export function cardioMode(rules: RulesData | null, profile: Obj, product: { cod
   const hyper = rows.find((c) => c.when === "hypertensionNoDoctor");
   const out = (c: { mode: string; duration?: string } | undefined, why: string) => ({ mode: c?.mode === "间歇" ? "间歇" : "稳态", why, interval, ...(c?.duration ? { duration: c.duration } : {}) });
   // 认不出的写法（新的 when、新的模式）、缺了组合条件：一律稳态（保守），有"高血压没问过医生"那一行就照它的时长
-  const KNOWN = ["always", "selfCheckPassed", "selfCheckFailed", "hypertensionNoDoctor"];
+  const KNOWN = ["always", "selfCheckPassed", "selfCheckFailed", "hypertensionNoDoctor", "severeObeseNoDoctor"];
   if (rows.some((c) => !KNOWN.includes(c.when) || (c.mode !== "间歇" && c.mode !== "稳态"))) return out(hyper ?? { mode: "稳态" }, "模板的有氧规则有这里不认识的写法：先按稳态做");
   const derived = rules.derivedConditions?.find((d) => d.name === "高血压没问过医生");
   if (!derived && hyper) return out(hyper, "模板缺少组合条件\"高血压没问过医生\"：先按保守的做法");
@@ -1271,6 +1272,17 @@ export function cardioMode(rules: RulesData | null, profile: Obj, product: { cod
     const v = profile.conditions?.[name];
     return typeof v === "boolean" ? v : rules.conditions[name]?.default ?? true;
   };
+  // BMI 37.5 以上（推出来的条件"重度肥胖"）而且有氧没问过医生：间歇的周一直稳态（只有有间歇的行写了这一条）
+  const severeRow = rows.find((c) => c.when === "severeObeseNoDoctor");
+  const derived2 = rules.derivedConditions?.find((d) => d.name === "重度肥胖没问过医生");
+  if (severeRow && interval) {
+    const severe = opts.severe ?? (typeof profile.conditions?.["重度肥胖"] === "boolean" ? profile.conditions["重度肥胖"]
+      : (profile.screening?.answers ?? []).some((a: Obj) => /BMI/.test(a?.item ?? "") && a?.answer === "是"));
+    const condS = (name: string) => (name === "重度肥胖" ? severe : cond(name));
+    if (!derived2 || derived2.all.every((x) => condS(x.name) === x.value)) {
+      return out(severeRow, "BMI 37.5 以上（或者没确认）而且没问过医生：间歇先问医生，没问之前继续做中等强度的稳态有氧");
+    }
+  }
   if (hyper && derived && derived.all.every((x) => cond(x.name) === x.value)) {
     return out(hyper, interval
       ? "有高血压（或没确认）而且没问过医生：间歇先问医生，没问之前继续做中等强度的稳态有氧"

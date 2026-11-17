@@ -442,6 +442,28 @@
         }
       }
     },
+    "weightClear": {
+      "type": "array",
+      "minItems": 1,
+      "description": "肥胖（BMI 28.0–32.4）选减脂的医生同意：医生每次说可以按这份计划减重（每天少吃约 300 kcal、有氧逐步加到每周 250 分钟）的那天，按日期从早到晚；一年有效，同时算作有氧加量的同意",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "date"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    },
+    "dietByPro": {
+      "type": "boolean",
+      "description": "医生或营养师给了自己的减重方案：目标只选保持，计划单写吃照他们的"
+    },
     "habitBase": {
       "type": "object",
       "additionalProperties": {

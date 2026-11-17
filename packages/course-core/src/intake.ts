@@ -56,12 +56,17 @@ export function checkProfileWithTemplates(raw: unknown, m: Manifest): Issue[] {
   if (typeof p.product === "string" && p.product) {
     if (!product) err("product", `模板里没有成品「${p.product}」`);
     else if (product.age === "fam") err("product", "全家餐饮模板不是个人计划：档案选这个人自己的成品，菜单写在档案目录的 菜单/ 下");
+    else if ((product as Obj).phase === "附册") err("product", `「${product.name}」是附册，不是计划：档案选这个人自己的纯徒手、居家或健身房版，附册配合着看`);
     else {
       if (product.age !== p.age) err("product", `成品「${product.name}」的年龄段是 ${product.age}，档案是 ${p.age}`);
       if (p.venue !== undefined && product.venue !== p.venue) err("venue", `成品「${product.name}」的场地是 ${product.venue}，档案写的是 ${p.venue}`);
     }
   }
 
+  (Array.isArray(p.segments) ? p.segments : []).forEach((s: Obj, i: number) => {
+    const sp = m.products.find((x) => x.name === s?.product);
+    if (sp && (sp as Obj).phase === "附册") err(`segments[${i}].product`, `「${sp.name}」是附册，不能当成一段的成品`);
+  });
   const sc = screeningFor(m, p.age);
   const answers: Obj[] = Array.isArray(p.screening?.answers) ? p.screening.answers : [];
   if (sc) {

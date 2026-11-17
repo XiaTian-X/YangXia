@@ -4,7 +4,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 import { ASSESS_FORMAT, type AssessContext, validateAssessment } from "../src/assess.ts";
-import { bmrTwo, bodyStateOn, cutCardio, cycleGoals, goalCardioHint, goalGate, goalIssues, goalSheetLines, validateGoalFields } from "../src/goals.ts";
+import { bmrTwo, bodySheetLines, bodyStateOn, clearValid, cutCardio, cycleGoals, goalCardioHint, goalGate, goalIssues, goalSheetLines, severeObese, validateGoalFields } from "../src/goals.ts";
 import { checkNotes } from "../src/profile.ts";
 import { REVIEW_FORMAT, validateReview } from "../src/progress.ts";
 import { CONTRACTS, FIX, fitAge, fixtureManifest, fixturePlans, fixtureRules, readJson } from "./helpers.ts";
@@ -394,3 +394,80 @@ describe("复核后再修", () => {
   });
 });
 
+
+describe("阶段 5a：肥胖的减脂、重度肥胖、附册", () => {
+  const obese = (extra: Obj = {}) => {
+    const p = profile(1, "保持", extra);
+    p.screening.answers = p.screening.answers.map((a: Obj) => (/BMI/.test(a.item) ? { ...a, answer: "是" } : a));
+    Object.assign(p.screening, { doctorCleared: true, doctorDate: START });
+    return p;
+  };
+  const gateOf = (p: Obj, body: Obj) => goalGate(ctx(p, recs(body)), firstStable);
+  it("BMI 28.0–32.4：没有减重的医生同意只保持，有了能选减脂；32.5 以上有同意也只保持", () => {
+    expect(gateOf(obese(), { weight: 87, waist: 100 }).why.join()).toMatch(/医生同意按这份计划减重/);          // BMI 30.1
+    const p = obese({ weightClear: [{ date: plus(stableStart, -3) }] });
+    expect(gateOf(p, { weight: 87, waist: 100 }).allowed).toEqual(["保持", "减脂"]);
+    expect(gateOf(p, { weight: 95, waist: 105 }).allowed).toEqual(["保持"]);                                 // BMI 32.9
+  });
+  it("医生、营养师有自己的减重方案（dietByPro）：只选保持，计划单写吃照他们的", () => {
+    const p = profile(1, "保持", { dietByPro: true });
+    expect(gateOf(p, { weight: 75, waist: 80 }).allowed).toEqual(["保持"]);
+    expect(bodySheetLines(ctx(p, recs({ weight: 75, waist: 80 }, { goal: "保持" })), firstStable).join("\n")).toMatch(/照医生、营养师给你的方案/);
+  });
+  it("减重的同意同时算有氧加量的同意", () => {
+    const p = obese({ conditions: { 高血压: true }, weightClear: [{ date: plus(stableStart, -3) }] });
+    const q = { ...p, segments: p.segments.map((s: Obj, i: number) => (i === firstStable ? { ...s, goal: "减脂" } : s)) };
+    expect(cutCardio(ctx(q, recs({ weight: 87, waist: 100 })), firstStable)).toMatchObject({ minutes: 100 });
+  });
+  it("周期中途减重的同意失效：那一周起退回保持", () => {
+    const p = obese({ weightClear: [{ date: plus(stableStart, -3) }] });
+    p.segments = p.segments.slice(0, firstStable);
+    for (let w = 1; w <= 3; w++) p.segments.push({ n: 2, phase: "稳定", type: "标准", week: w, start: plus(START, 7 * (3 + w)), product: STABLE, goal: "减脂" });
+    // 第 2 周生病住院（要医生同意的事），同意没续
+    const sick = rec(plus(p.segments[5].start, 1), "触发", { reasons: ["生病住院"], eventDate: plus(p.segments[5].start, 1) });
+    expect(errs(ctx(p, [...recs({ weight: 87, waist: 100 }), sick]))).toMatch(/segments\[6\]\.goal：减重的医生同意（weightClear）到 .*已经失效/);
+  });
+  it("满一年重做筛查：新的医生同意记下来之前旧的照算，记下来了没续的失效", () => {
+    const p = obese({ weightClear: [{ date: plus(START, 10) }] });
+    const later = plus(START, 300);
+    p.screening.date = later;                                // 重做了筛查，doctorDate 还是 START
+    const c = ctx(p, recs({ weight: 87, waist: 100 }));
+    expect(clearValid(c, "weightClear", plus(later, 2), "a18·bw").valid).toBe(true);
+    p.screening.doctorDate = plus(later, 1);                  // 新的医生同意记下来了，减重的没续
+    expect(clearValid(ctx(p, recs({ weight: 87, waist: 100 })), "weightClear", plus(later, 2), "a18·bw").valid).toBe(false);
+  });
+  it("重度肥胖：28 天内量过的 BMI 为准；没有的看条件；也没有的看筛查 BMI 那一项", () => {
+    const p = obese();
+    expect(severeObese(ctx(p, recs({ weight: 110, waist: 120 })), stableStart, "a18·bw")).toBe(true);    // BMI 38.1
+    expect(severeObese(ctx(p, recs({ weight: 90, waist: 100 })), stableStart, "a18·bw")).toBe(false);
+    expect(severeObese(ctx(p, []), stableStart, "a18·bw")).toBe(true);                                     // 筛查"是"、没答
+    p.conditions = { 高血压: false, 重度肥胖: false };
+    expect(severeObese(ctx(p, []), stableStart, "a18·bw")).toBe(false);
+  });
+  it("重度肥胖、有氧没问过医生：间歇的周写稳态；健身房版不受影响", async () => {
+    const { cardioMode } = await import("../src/assess.ts");
+    const p = profile(3, "保持");
+    const rv = { [`${p.segments[5].start}-第2周.json`]: { steadyCheck: true } };
+    const info = { code: "a18·bw", phase: "稳定" };
+    expect(cardioMode(rules, p, info, 2, 3, rv, { severe: true })?.mode).toBe("稳态");
+    expect(cardioMode(rules, p, info, 2, 3, rv, { severe: false })?.mode).toBe("间歇");
+    expect(cardioMode(rules, p, { code: "a18·gym", phase: "稳定" }, 2, 3, rv, { severe: true })?.duration).toMatch(/20 分钟/);
+  });
+  it("计划单：BMI 24 以上指向附册；18–39 岁徒手第 4 周只对记了体重、BMI 不到 24 的写高冲击可选", () => {
+    const p = profile(4, "保持");
+    const at = (body: Obj, i: number) => bodySheetLines(ctx(p, recs(body, { goal: "保持" })), i).join("\n");
+    expect(at({ weight: 75, waist: 80 }, firstStable)).toMatch(/18-39岁-超重与肥胖（附册）.*跳跃都不做/);
+    expect(at({ weight: 63, waist: 80 }, firstStable + 3)).toMatch(/可以选高冲击/);
+    expect(at({ weight: 63, waist: 80 }, firstStable + 2)).toBe("");
+    expect(bodySheetLines(ctx(profile(4, "保持", { body: "不记", bodyLog: [{ date: START, body: "不记" }] }), []), firstStable + 3)).toEqual([]);
+  });
+  it("附册不能选成档案的成品", async () => {
+    const { checkProfileWithTemplates } = await import("../src/intake.ts");
+    const p = profile(1, "保持");
+    p.product = "18-39岁-超重与肥胖（附册）";
+    p.segments[0].product = "18-39岁-超重与肥胖（附册）";
+    const m = checkProfileWithTemplates(p, manifest).map((i) => `${i.path}：${i.message}`).join("\n");
+    expect(m).toMatch(/product：「18-39岁-超重与肥胖（附册）」是附册/);
+    expect(m).toMatch(/segments\[0\]\.product/);
+  });
+});

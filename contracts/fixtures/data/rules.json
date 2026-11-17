@@ -24,7 +24,7 @@
    "note": "没确认的按有高血压导出：不做派克、毛巾自阻类，平板、靠墙静蹲撑得短一些"
   },
   "有氧问过医生": {
-   "ask": "有高血压的：医生说过可以做间歇、可以给有氧加时长加坡度吗",
+   "ask": "有高血压或者 BMI 37.5 以上的：医生说过可以做间歇、可以给有氧加时长加坡度吗",
    "products": [
     "a18·bw",
     "a40·bw",
@@ -43,6 +43,25 @@
     }
    ],
    "note": "只对有高血压（或没确认）的人有用：没问过医生（或没确认）就一直做稳态、不加时长坡度。不在训练单的\"条件\"列里用，由 `有氧.md` 的组合条件\"高血压没问过医生\"用"
+  },
+  "重度肥胖": {
+   "ask": "BMI 有没有到 37.5（报身高、体重当场算，只记是 / 否）",
+   "products": [
+    "a18·bw",
+    "a40·bw",
+    "a18·home",
+    "a40·home"
+   ],
+   "default": true,
+   "text": false,
+   "per_session": false,
+   "quotes": [
+    {
+     "section": "安全须知",
+     "text": "BMI 37.5 以上的"
+    }
+   ],
+   "note": "推出来的条件（设计值 SEVERE_OBESE_INTERVAL）：有 28 天以内量过的体重就按 BMI 算、以它为准；没有的看档案记的；也没记的，安全筛查\"BMI ≥ 28\"答\"是\"按\"是\"，答\"否\"按\"否\"。跟着安全筛查一起问、重做筛查时重问。只用在有氧的组合条件\"重度肥胖没问过医生\"，不在训练单的\"条件\"列里用"
   },
   "骨质疏松": {
    "ask": "医生有没有说过你骨量低或者骨质疏松",
@@ -2517,6 +2536,25 @@
   },
   {
    "products": [
+    "a18·bw",
+    "a40·bw"
+   ],
+   "weeks": [
+    3,
+    4
+   ],
+   "mode": "稳态",
+   "when": "severeObeseNoDoctor",
+   "quotes": [
+    {
+     "section": "安全须知",
+     "text": "BMI 37.5 以上的：第 3–4 周的间歇训练先问医生；没问之前，继续做中等强度的稳态有氧"
+    }
+   ],
+   "note": "设计值 SEVERE_OBESE_INTERVAL：BMI 37.5 以上而且没问过医生：一直稳态"
+  },
+  {
+   "products": [
     "a18·home",
     "a40·home"
    ],
@@ -2598,6 +2636,25 @@
     }
    ],
    "note": "有高血压（或没确认）而且没问过医生：一直稳态"
+  },
+  {
+   "products": [
+    "a18·home",
+    "a40·home"
+   ],
+   "weeks": [
+    3,
+    4
+   ],
+   "mode": "稳态",
+   "when": "severeObeseNoDoctor",
+   "quotes": [
+    {
+     "section": "安全须知",
+     "text": "BMI 37.5 以上的：第 3–4 周的间歇训练先问医生；没问之前，继续做中等强度的稳态有氧"
+    }
+   ],
+   "note": "设计值 SEVERE_OBESE_INTERVAL：BMI 37.5 以上而且没问过医生：一直稳态"
   },
   {
    "products": [
@@ -2742,6 +2799,20 @@
     }
    ],
    "note": "没确认的按各自\"没确认时\"那一边：高血压没确认按是、有氧问过医生没确认按否"
+  },
+  {
+   "name": "重度肥胖没问过医生",
+   "all": [
+    {
+     "name": "重度肥胖",
+     "value": true
+    },
+    {
+     "name": "有氧问过医生",
+     "value": false
+    }
+   ],
+   "note": "\"重度肥胖\"是推出来的（见 `条件.md`）；只管徒手、居家版的间歇，健身房版不受影响（设计值 SEVERE_OBESE_INTERVAL）"
   }
  ],
  "fallRisk": {
@@ -3067,7 +3138,7 @@
     "quotes": [
      {
       "section": "目标：保持、减脂、增肌",
-      "text": "BMI 28 以上"
+      "text": "BMI 28.0–32.4"
      }
     ],
     "note": "官方 BMI_CN；这一阶段只能保持，减脂等阶段 5（设计值 GOAL_GATE）"
@@ -3436,6 +3507,66 @@
     "number": 365,
     "quotes": [],
     "note": "设计值 CUT_CARDIO：带日期的医生同意，一年以内、不早于最近一次筛查和医生事件"
+   },
+   {
+    "name": "肥胖可减脂 BMI 上限",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 32.5,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "BMI 32.5 以上"
+     }
+    ],
+    "note": "官方 WM_GRADE（中、重度肥胖）；设计值 OBESE_CUT_MAX：到了只保持"
+   },
+   {
+    "name": "减重医生同意有效天数",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
+    "number": 365,
+    "quotes": [],
+    "note": "设计值 WEIGHT_CLEAR：一年以内、不早于最近一次筛查和医生事件"
+   },
+   {
+    "name": "不做跳跃的 BMI",
+    "products": [
+     "a18·bw",
+     "a18·home"
+    ],
+    "number": 24,
+    "quotes": [
+     {
+      "section": "目标：保持、减脂、增肌",
+      "text": "BMI 24.0–27.9"
+     }
+    ],
+    "note": "设计值 HIGH_IMPACT_BMI：到了不做跳跃（18–39 岁版那几处）"
+   },
+   {
+    "name": "重度肥胖 BMI",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a40·bw",
+     "a40·home"
+    ],
+    "number": 37.5,
+    "quotes": [],
+    "note": "官方 WM_EX_GRADE；设计值 SEVERE_OBESE_INTERVAL"
    },
    {
     "name": "第几轮起生效（直接进入）",
