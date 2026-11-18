@@ -49,7 +49,8 @@ export function activeAddOns(ctx: AssessContext, date: string): string[] {
   const code = famOf(ctx, list[i])!;
   const log = (Array.isArray(ctx.profile.addOnLog) ? ctx.profile.addOnLog : []) as Obj[];
   // 清零的日子：稳定期里的看完医生回来、生病住院（那天起）
-  const dayOf = (a: Obj) => (hasReason(a, "生病住院") && typeof a.raw.eventDate === "string" ? a.raw.eventDate : a.raw.date) as string;
+  const dayOf = (a: Obj) => (hasReason(a, "生病住院") && typeof a.raw.eventDate === "string" ? a.raw.eventDate
+    : hasReason(a, "看完医生回来") && typeof a.raw.doctorDate === "string" ? a.raw.doctorDate : a.raw.date) as string;
   const clears = ctx.assessments.filter((a) => (hasReason(a, "看完医生回来") || hasReason(a, "生病住院")) && typeof a.raw.date === "string" && dayOf(a) <= date
     && inAddStable(ctx, list[indexAt(list, dayOf(a))])).map(dayOf);
   const lastClear = clears.sort().pop() ?? "";

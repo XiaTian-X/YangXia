@@ -283,7 +283,9 @@ export function clearValid(ctx: AssessContext, key: "cardioClear" | "weightClear
   } else {
     events = [sd, ...docEv];
     // 加项的同意（65 岁以上稳定期）：看完医生回来（摔倒、头晕轮末那一次）以后，旧的同意也不算（A65_ADD_CLEAR）
-    if (key === "addClear") events.push(...ctx.assessments.filter((a) => Array.isArray(a.raw?.reasons) && a.raw.reasons.includes("看完医生回来")).map((a) => a.raw.date));
+    // 事件日按看医生那天（doctorDate），没写的按评估那天：看医生当天续上的同意照算
+    if (key === "addClear") events.push(...ctx.assessments.filter((a) => Array.isArray(a.raw?.reasons) && a.raw.reasons.includes("看完医生回来"))
+      .map((a) => (typeof a.raw.doctorDate === "string" ? a.raw.doctorDate : a.raw.date)));
   }
   const after = events.filter((d) => d && d <= date).sort().pop() ?? "";
   // 每一周用当时有效的那一次同意（续过的不影响以前几周）

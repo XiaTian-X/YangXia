@@ -897,7 +897,9 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
         if (c.next.phase === "起始" && !curStable && s.type !== c.next.type) err(`segments[${i}].type`, `第 ${prev.n} 段周期末的结论是"${c.result}"：回起始期${c.next.type}段，写的是${s.type}段`);
         if (c.next.phase === "稳定" && !curStable && s.type !== "标准") err(`segments[${i}].type`, `第 ${prev.n} 段周期末的结论是"${c.result}"：离开稳定期（自己要求回起始期、换成品）从标准段第 1 周开始`);
         if (sameFam) {
-          const back = A.some((a) => hasReason(a, "回起始期") && a.raw.date >= prevSeg[0].start && a.raw.date <= s.start);
+          // 65 岁以上：这个周期里生病住院的，也要回起始期（不用另写"回起始期"）
+          const back = A.some((a) => (hasReason(a, "回起始期") || (prevInfo?.age === "a65" && hasReason(a, "生病住院")))
+            && a.raw.date >= prevSeg[0].start && a.raw.date <= s.start);
           if (c.next.phase === "稳定" && !curStable && !back) err(`segments[${i}]`, `第 ${prev.n} 段周期末的结论是"${c.result}"，接着开下一个周期（稳定期）；自己想回起始期的，做一份触发评估（原因：回起始期）`);
         }
       } else if (sameFam && !curStable) {
@@ -1021,8 +1023,10 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
     if (at < 0 || phaseOf(ss[at]) !== "稳定" || productInfo(ctx.manifest, ss[at].product)?.age !== "a65") continue;
     const k = ss.findIndex((x, j) => j > at && x.start > (typeof a.raw.eventDate === "string" ? a.raw.eventDate : a.raw.date));
     if (k < 0) continue;
-    if (phaseOf(ss[k]) === "稳定" || ss[k].type !== "标准" || ss[k].week !== 1) {
-      err(`segments[${k}]`, `${a.name}：65 岁以上稳定期里生病、住院回来，先问医生能不能练，能练的回起始期那一份、从标准段第 1 周重新开始（加项清零），不能接着练稳定期`);
+    // 周期练完了（上一项是第 12 周）：段型照周期末结论（"训练没达标"回减量段更保守），这里只要求回起始期第 1 周
+    const afterCycle = ss[k - 1]?.n === ss[at].n && ss[k - 1].week === (ctx.rules?.stable?.cycleWeeks ?? 12) && ss[k].n !== ss[at].n;
+    if (phaseOf(ss[k]) === "稳定" || ss[k].week !== 1 || (!afterCycle && ss[k].type !== "标准")) {
+      err(`segments[${k}]`, `${a.name}：65 岁以上稳定期里生病、住院回来，先问医生能不能练，能练的回起始期那一份、从第 1 周重新开始（周期中途回的是标准段；第 12 周的照周期末结论），加项清零，不能接着练稳定期`);
     }
   }
   for (const a of byKind("触发")) {

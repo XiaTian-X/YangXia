@@ -223,6 +223,26 @@ describe("实施后审查的修订（M1–M4、S1、S2）", () => {
     rv[5] = review(p, 5, { dizzy: 1 });
     expect(addOnIssues(ctx(p, rv, A)).map((i) => i.message).join()).toMatch(/这一轮不加项/);
   });
+  it("复核 N1：第 12 周生病住院、周期末训练没达标：回起始期减量段第 1 周放行，标准段照周期末结论报错", () => {
+    const r = path(12, (i) => ({ trainings: i >= 4 ? 1 : 3 }));
+    const sickDay = plus(r.p.segments[15].start, 2);
+    const sick = rec(plus(sickDay, 3), "触发", { reasons: ["生病住院"], eventDate: sickDay, doctorCleared: true, doctorDate: plus(sickDay, 3) });
+    const endRec = rec(plus(r.p.segments[15].start, 6), "周期末", { segment: 2, tests: [{ id: "chair-stand-30s", value: 11, hands: "扶椅子", done: true }], companion: true,
+      conclusion: { result: "训练没达标", next: { phase: "起始", type: "减量" } } });
+    const next = (type: string) => { const q = structuredClone(r.p); q.segments.push({ n: 3, type, week: 1, start: plus(q.segments[15].start, 7), product: C }); return q; };
+    const e1 = errs(ctx(next("减量"), r.rv, [...r.A, sick, endRec]));
+    expect(e1).not.toMatch(/生病、住院回来|周期末的结论/);
+    const e2 = errs(ctx(next("标准"), r.rv, [...r.A, sick, endRec]));
+    expect(e2).toMatch(/回起始期减量段，写的是标准段/);
+    expect(e2).not.toMatch(/生病、住院回来/);
+  });
+  it("复核 S1：看医生那天续的同意，触发评估第二天才写，照样算", () => {
+    const { p, rv, A } = path(9, (i) => (i === 5 ? { nearFalls: 1 } : {}), { addClear: consent(START) });
+    const visitDay = plus(p.segments[7].start, 6);
+    p.addClear = [...consent(START), { date: visitDay, items: ["stance30"] }];
+    const visit = rec(plus(visitDay, 1), "触发", { reasons: ["看完医生回来"], doctorCleared: true, doctorDate: visitDay, doctorRestart: false });
+    expect(clearValid(ctx(p, rv, [...A, visit]), "addClear", p.segments[12].start, "a65·chair", { item: "stance30" }).valid).toBe(true);
+  });
   it("看医生早于轮末：不算", () => {
     const { p, rv, A } = path(5, (i) => (i === 5 ? { nearFalls: 1 } : {}));
     const early = rec(plus(p.segments[7].start, 2), "触发", { reasons: ["看完医生回来"], doctorCleared: true, doctorDate: plus(p.segments[7].start, 2), doctorRestart: false });
