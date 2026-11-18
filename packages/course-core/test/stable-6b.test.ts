@@ -1,12 +1,13 @@
 // v4 阶段 6b：65 岁以上稳定期——每周照第 4 周、进稳定期（≥ 10 练、没有摔倒头晕、习惯目标为空）、加一项（一轮第 1 周、上一轮 ≥ 10 练、
 // 没有摔倒头晕不适、医生同意、一轮一项、二选一、要条件）、一轮里摔倒头晕的轮末处理、周期末第 0 行和达标线、断了超过 28 天。只用 contracts/fixtures/。
 import { describe, expect, it } from "vitest";
-import { ASSESS_FORMAT, type AssessContext, assessRules, checkAssessments, cycleEnd, segmentEnd } from "../src/assess.ts";
+import { ASSESS_FORMAT, type AssessContext, assessRules, checkAssessments, cycleEnd, cycleHold, segmentEnd } from "../src/assess.ts";
 import { fallRiskConclusion, fallRiskRules } from "../src/fallrisk.ts";
-import { exportCourse } from "../src/plan.ts";
+import { checkPlanCourse, exportCourse } from "../src/plan.ts";
 import { REVIEW_FORMAT } from "../src/progress.ts";
 import { activeAddOns, addOnIssues, validateAddFields } from "../src/senior.ts";
 import { buildSheet } from "../src/sheet.ts";
+import { clearValid } from "../src/goals.ts";
 import { FIX, fitAge, fixtureManifest, fixturePlans, fixtureRules, readJson } from "./helpers.ts";
 
 const manifest = fixtureManifest();
@@ -169,6 +170,66 @@ describe("一轮里摔倒、差点摔倒、头晕（A65_STABLE_FALL）", () => {
   });
 });
 
+describe("实施后审查的修订（M1–M4、S1、S2）", () => {
+  /** 稳定期 9 周：第 5 周加 sit3sets，第 6 周差点摔倒，第 8 周轮末看完医生说接着练。 */
+  const cleared = () => {
+    const r = path(9, (i) => (i === 9 ? { nearFalls: 1 } : {}), { addClear: consent(START) });
+    r.p.addOnLog = [{ date: r.p.segments[8].start, item: "sit3sets", action: "加", why: "x" }];
+    const visit = rec(plus(r.p.segments[11].start, 6), "触发", { reasons: ["看完医生回来"], doctorCleared: true, doctorDate: plus(r.p.segments[11].start, 6), doctorRestart: false });
+    return { ...r, A: [...r.A, visit], visit };
+  };
+  it("M1：看完医生回来清零以后，按命令导出（2 组）的课程能过核对，还按 3 组的旧课程不过", () => {
+    const { p, rv, A } = cleared();
+    const c = ctx(p, rv, A);
+    const on = activeAddOns(c, p.segments[12].start);
+    expect(on).toEqual([]);
+    const now = exportCourse({ plans, rules, manifest, profile: p, week: 9, day: "A", addOns: on });
+    expect(now.course!.blocks.flatMap((b) => b.items).find((x) => x.exercise === "a65-01-sit-to-stand")).toMatchObject({ sets: 2 });
+    expect(checkPlanCourse(now.course!, plans, rules, manifest, p, on).filter((i) => i.level === "error")).toEqual([]);
+    const old = exportCourse({ plans, rules, manifest, profile: p, week: 9, day: "A", addOns: ["sit3sets"] });
+    expect(checkPlanCourse(old.course!, plans, rules, manifest, p, on).map((i) => i.message).join()).toMatch(/应该是 2，课程写 3/);
+  });
+  it("M4：看完医生回来以后，用以前的同意加新项不算（严格算法）；看医生那天续上的算", () => {
+    const { p, rv, A, visit } = cleared();
+    const c = ctx(p, rv, A);
+    expect(clearValid(c, "addClear", plus(visit.raw.date, 1), "a65·chair", { item: "stance30" }).valid).toBe(false);
+    p.addClear = [...consent(START), { date: visit.raw.date, items: ["stance30"] }];
+    expect(clearValid(ctx(p, rv, A), "addClear", plus(visit.raw.date, 1), "a65·chair", { item: "stance30" }).valid).toBe(true);
+  });
+  it("M2：周期末最后一轮重复的周里有一份头晕：先看医生", () => {
+    const p = profile([...Array.from({ length: 10 }, (_, i) => [1, i + 1, CS] as Seg), [1, 10, CS], [1, 11, CS], [1, 12, CS]]);
+    const rv = p.segments.map((_: unknown, i: number) => review(p, i, i === 9 ? { dizzy: 1, symptoms: true } : {}));
+    expect(cycleEnd(ctx(p, rv, []), 1)).toMatchObject({ result: "先看医生", next: { phase: "不开" } });
+  });
+  it("M3：65 岁以上稳定期里生病住院，回来接着练稳定期：拦下，加项清零；回起始期第 1 周：放行", () => {
+    const r = path(7, undefined, { addClear: consent(START) });
+    r.p.addOnLog = [{ date: r.p.segments[8].start, item: "sit3sets", action: "加", why: "x" }];
+    const sickDay = plus(r.p.segments[9].start, 2);
+    const sick = rec(plus(sickDay, 3), "触发", { reasons: ["生病住院"], eventDate: sickDay, doctorCleared: true, doctorDate: plus(sickDay, 3) });
+    expect(errs(ctx(r.p, r.rv, [...r.A, sick]))).toMatch(/生病、住院回来.*不能接着练稳定期/);
+    expect(activeAddOns(ctx(r.p, r.rv, [...r.A, sick]), r.p.segments[10].start)).toEqual([]);
+    r.p.segments = r.p.segments.slice(0, 10);
+    r.p.segments.push({ n: 3, type: "标准", week: 1, start: plus(r.p.segments[9].start, 7), product: C });
+    expect(errs(ctx(r.p, r.rv.slice(0, 10), [...r.A, sick]))).not.toMatch(/生病、住院回来|一个周期没练完就回起始期/);
+  });
+  it("S1：上一轮有重复的周也照周次算（不误报复盘不全），重复那一份的头晕照样算", () => {
+    const segs: Seg[] = [[1, 1, C], [1, 2, C], [1, 3, C], [1, 4, C], [2, 1, CS], [2, 2, CS], [2, 2, CS], [2, 3, CS], [2, 4, CS], [2, 5, CS]];
+    const p = profile(segs, { addClear: consent(START) });
+    const rv = p.segments.map((_: unknown, i: number) => review(p, i));
+    const e: any = segmentEnd(p, 1, Object.fromEntries(rv.slice(0, 4)), ar, "a65·chair");
+    const A = [entry(), rec(plus(p.segments[3].start, 6), "段末", { segment: 1, tests: [{ id: "chair-stand-30s", value: 11, hands: "扶椅子", done: true }], companion: true, conclusion: { result: e.result, next: e.next } })];
+    p.addOnLog = [{ date: p.segments[9].start, item: "sit12", action: "加", why: "x" }];
+    expect(addOnIssues(ctx(p, rv, A)).map((i) => i.message).join()).toBe("");
+    rv[5] = review(p, 5, { dizzy: 1 });
+    expect(addOnIssues(ctx(p, rv, A)).map((i) => i.message).join()).toMatch(/这一轮不加项/);
+  });
+  it("看医生早于轮末：不算", () => {
+    const { p, rv, A } = path(5, (i) => (i === 5 ? { nearFalls: 1 } : {}));
+    const early = rec(plus(p.segments[7].start, 2), "触发", { reasons: ["看完医生回来"], doctorCleared: true, doctorDate: plus(p.segments[7].start, 2), doctorRestart: false });
+    expect(errs(ctx(p, rv, [...A, early]))).toMatch(/这一轮练完先不开下一轮，先看医生/);
+  });
+});
+
 describe("65 岁以上周期末", () => {
   const cycle = (each: (i: number) => Obj = () => ({})) => {
     const p = profile(Array.from({ length: 12 }, (_, i) => [1, i + 1, CS] as Seg));
@@ -184,6 +245,11 @@ describe("65 岁以上周期末", () => {
     const { p, rv } = cycle((i) => ({ trainings: 1, ...(i === 10 ? { dizzy: 1 } : {}) }));
     expect(cycleEnd(ctx(p, rv, []), 1)).toMatchObject({ result: "先看医生", next: { phase: "不开" } });
     expect(cycleEnd(ctx(p, rv, []), 1, { afterDoctor: true })).toMatchObject({ result: "训练没达标", next: { phase: "起始", type: "减量" } });
+  });
+  it("S2：周期末\"先看医生\"、医生说接着练以后，下一周期照重算的结论读\"第一轮不加项\"", () => {
+    const { p, rv } = cycle((i) => ({ ...(i === 10 ? { dizzy: 1 } : {}), ...(i < 4 ? { habits: { 散步: 3, 放松: 5 } } : {}) }));
+    const end = rec(plus(p.segments[11].start, 6), "周期末", { segment: 1, conclusion: { result: "先看医生", next: { phase: "不开" } } });
+    expect(cycleHold(ctx(p, rv, [end]), 1)).toBe(true);
   });
 });
 

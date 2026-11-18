@@ -742,9 +742,10 @@ export function cycleEnd(ctx: AssessContext, n: number, opts: { afterDoctor?: bo
   const all = ctx.profile.segments as SegmentEntry[];
   const first = all.findIndex((s) => s.n === n);
   const prevN = first > 0 ? all[first - 1].n : null;
-  const prevMiss = prevN !== null && ctx.assessments.some((a) => a.raw?.kind === "周期末" && a.raw.segment === prevN && a.raw.conclusion?.next?.hold === true);
-  // 65 岁以上：最后一轮（第 9–12 周）摔倒、差点摔倒、头晕（含周期末坐站测试停下的原因是头晕），A65_STABLE_FALL
-  const lastRound = [9, 10, 11, 12].map((w) => lastOf.get(w)).filter(Boolean).map((s) => ctx.reviewData[reviewDataName(s!)] ?? {});
+  const prevMiss = prevN !== null && cycleHold(ctx, prevN);
+  // 65 岁以上：最后一轮（第 9–12 周）摔倒、差点摔倒、头晕（含周期末坐站测试停下的原因是头晕），A65_STABLE_FALL；
+  // 重复的周每一份复盘都算（头晕那一周不能往上走，会重复一遍）
+  const lastRound = ss.filter((s) => s.week >= 9).map((s) => ctx.reviewData[reviewDataName(s)] ?? {});
   const endRec = ctx.assessments.filter((a) => a.raw?.kind === "周期末" && a.raw.segment === n).pop();
   const fallsOrDizzy = lastRound.some((rv) => (rv.falls ?? 0) + (rv.nearFalls ?? 0) + (rv.dizzy ?? 0) > 0)
     || ((endRec?.raw.tests ?? []) as Obj[]).some((x) => x.stopReason === "头晕");
@@ -757,6 +758,19 @@ export function cycleEnd(ctx: AssessContext, n: number, opts: { afterDoctor?: bo
   const hit = [...rows].sort((x, y) => x.order - y.order).find((r) => r.when.every(test));
   if (!hit) return { error: "稳定期.md 的下一周期规则没有一条对得上" };
   return { result: hit.result, next: hit.next, trainings, habitWeeks, quotes: hit.quotes.map((q) => q.text) };
+}
+
+/**
+ * 第 n 段（稳定期）周期末的结论是不是"下一周期第一轮不升级 / 不加项"：记录里写的 hold；
+ * 结论是"先看医生"（65 岁以上第 0 行）、医生说接着练的，照跳过第 0 行重算的结论（记录里只能写"先看医生"）。
+ */
+export function cycleHold(ctx: AssessContext, n: number): boolean {
+  const rec = ctx.assessments.filter((a) => a.raw?.kind === "周期末" && a.raw.segment === n).pop();
+  if (!rec) return false;
+  if (rec.raw.conclusion?.next?.hold === true) return true;
+  if (rec.raw.conclusion?.next?.phase !== "不开") return false;
+  const c = cycleEnd(ctx, n, { afterDoctor: true });
+  return !("error" in c) && c.next.hold === true;
 }
 
 /**
@@ -999,6 +1013,16 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       if (!back) { err(`segments[${w4.k + 1}]`, `第 ${s.n} 段第 ${endWeek - 3}–${endWeek} 周摔倒、差点摔倒或头晕过：这一轮练完先不开下一轮，先看医生（看完医生回来的触发评估，医生同意在 ${roundEnd} 以后）`); continue; }
       if (typeof back.raw.doctorRestart !== "boolean") err(`${back.name} doctorRestart`, "写明 doctorRestart：医生让从第 1 周重新开始写 true，说可以接着照第 4 周的做法练写 false（没写按 true，回起始期第 1 周）");
       if (back.raw.doctorRestart !== false && phaseOf(nx) === "稳定") err(`segments[${w4.k + 1}]`, "医生让从头来（或者没写 doctorRestart）：回起始期那一份，从标准段第 1 周开始，加项清零");
+    }
+  }
+  // 65 岁以上稳定期里生病、住院（A65_STABLE_FALL 同一节）：回来以后新开的那一项要是起始期标准段第 1 周
+  for (const a of A.filter((x) => hasReason(x, "生病住院") && typeof x.raw?.date === "string")) {
+    const at = productAtIndex(ss, typeof a.raw.eventDate === "string" ? a.raw.eventDate : a.raw.date);
+    if (at < 0 || phaseOf(ss[at]) !== "稳定" || productInfo(ctx.manifest, ss[at].product)?.age !== "a65") continue;
+    const k = ss.findIndex((x, j) => j > at && x.start > (typeof a.raw.eventDate === "string" ? a.raw.eventDate : a.raw.date));
+    if (k < 0) continue;
+    if (phaseOf(ss[k]) === "稳定" || ss[k].type !== "标准" || ss[k].week !== 1) {
+      err(`segments[${k}]`, `${a.name}：65 岁以上稳定期里生病、住院回来，先问医生能不能练，能练的回起始期那一份、从标准段第 1 周重新开始（加项清零），不能接着练稳定期`);
     }
   }
   for (const a of byKind("触发")) {

@@ -434,7 +434,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       const longDays = longGapDays(rules, p.code);
       const hit = assessments.filter((a) => a.raw?.kind === "触发" && Array.isArray(a.raw?.reasons) && a.raw.reasons.includes("中断")
         && typeof a.raw.date === "string" && DATE.test(a.raw.date) && dayStart(a.raw.date) <= t && t < dayStart(a.raw.date) + days * DAY
-        && gapBefore(trained, ss[0].start, a.raw.date) > longDays).map((a) => a.raw.date as string).sort();
+        && gapBefore(trained, ss.find((s) => plans.products[s.product])?.start ?? ss[0].start, a.raw.date) > longDays).map((a) => a.raw.date as string).sort();
       return hit.length ? hit[hit.length - 1] : null;
     };
     const before = from ?? (field === "level" && ladder ? startLevel(ladder) : field === "reps" && row?.reps ? row.reps.min : undefined);

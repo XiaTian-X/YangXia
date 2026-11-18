@@ -62,7 +62,10 @@ async function intake(age?: string): Promise<number> {
   const books = manifest.products.filter((x) => (!age || x.age === age) && (x as Record<string, any>).phase === "附册");
   for (const p of manifest.products.filter((x) => (!age || x.age === age) && (x as Record<string, any>).phase !== "附册")) {
     const stable = (p as Record<string, any>).phase === "稳定";
-    const direct = stable && stableParam(rules, `${p.age}·${p.venue}`, "直接进入")?.value === "是";
+    // 旧模板（v3.3 以前）没有"直接进入"：照有没有登记"有基础……"的门槛判断
+    const fam = `${p.age}·${p.venue}`;
+    const dp = stableParam(rules, fam, "直接进入");
+    const direct = stable && (dp ? dp.value === "是" : stableParam(rules, fam, "有基础每周力量天数") !== undefined);
     console.log(`  ${p.name}（${p.age}·${p.venue}，${VENUE[p.venue] ?? p.venue}${!stable ? "" : direct ? "；稳定期：起始期段末到了进阶线、或者有基础的人直接进入才用，新手选起始期那一份" : "；稳定期：起始期段末到了进阶线才用，不设直接进入，建档选起始期那一份"}）`);
   }
   if (books.length) console.log(`\n附册（不是计划，不能选成档案的 product；超重、肥胖的人配合本年龄段的计划看）：${books.map((p) => p.name).join("、")}`);
@@ -271,7 +274,7 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
   for (const n of r.notes) console.log(n);
   const errors = r.issues.filter((i) => i.level === "error");
   if (errors.length || !r.course) return print(r.issues);
-  const issues = checkCourse(r.course, { manifest: t.manifest, readProduct: t.readProduct, profile, plans, rules });
+  const issues = checkCourse(r.course, { manifest: t.manifest, readProduct: t.readProduct, profile, plans, rules, addOns });
   const oi = rest.indexOf("--out");
   const out = oi >= 0 && rest[oi + 1] ? rest[oi + 1] : join(dir, "课程", `第${seg.n}段-第${r.course.source.week}周-${day}日.json`);
   if (!issues.some((i) => i.level === "error")) {
@@ -292,7 +295,10 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
 function courseIssues(t: Templates, profile: Record<string, any>, scan: ReturnType<typeof scanDir>): Issue[] {
   const out: Issue[] = [];
   const seg = currentSegment(profile);
-  const ctx = (p: Record<string, any>) => ({ manifest: t.manifest, readProduct: t.readProduct, profile: p, plans: t.plans, rules: t.rules });
+  // 65 岁以上稳定期：现在这一周有效的加项，和导出时同一个算法（看完医生回来清零、同意失效都算上）
+  const cur = (profile.segments ?? []).at(-1);
+  const addOns = cur && typeof cur.start === "string" ? activeAddOns(assessCtx(t, profile, scan), cur.start) : undefined;
+  const ctx = (p: Record<string, any>) => ({ manifest: t.manifest, readProduct: t.readProduct, profile: p, plans: t.plans, rules: t.rules, addOns });
   for (const c of scan.courses) {
     const tag = (xs: Issue[]) => xs.map((i) => ({ ...i, path: `${c.name}${i.path ? " " + i.path : ""}` }));
     const src = c.raw?.source ?? {};
@@ -562,7 +568,14 @@ async function main(argv: string[]): Promise<number> {
       return 2;
     }
     const profile = pi >= 0 ? readJson(rest[pi + 1]) as Record<string, any> : undefined;
-    const issues = checkCourse(raw, { manifest: t.manifest, readProduct: t.readProduct, profile, plans: t.plans, rules: t.rules });
+    // 档案目录里的：65 岁以上稳定期按课程那一周有效的加项核对（和导出同一个算法）
+    let addOns: string[] | undefined;
+    if (profile && basename(rest[pi + 1]) === "档案.json") {
+      const src = (raw as any)?.source ?? {};
+      const wk = ((profile.segments ?? []) as any[]).filter((s) => s.n === src.segment && s.week === src.week).pop();
+      if (wk && typeof wk.start === "string") addOns = activeAddOns(assessCtx(t, profile, scanDir(dirname(rest[pi + 1]), t, profile)), wk.start);
+    }
+    const issues = checkCourse(raw, { manifest: t.manifest, readProduct: t.readProduct, profile, plans: t.plans, rules: t.rules, addOns });
     if (profile) {
       // 档案目录里的周复盘、进度日志也要过：不复盘、不按规则改进度，课程就不能交出去
       if (basename(rest[pi + 1]) === "档案.json") {

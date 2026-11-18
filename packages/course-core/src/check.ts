@@ -26,6 +26,8 @@ export interface CheckContext {
   /** 训练单、规则参数（模板 dist/data/）：课程由 course export 导出时，按它们和档案进度逐项核对。 */
   plans?: PlansData | null;
   rules?: RulesData | null;
+  /** 65 岁以上稳定期这一周有效的加项（命令按档案和评估记录算好传进来，和导出时一样；不传的只按 addOnLog 重放）。 */
+  addOns?: string[];
 }
 
 const REST = /休息|歇/;
@@ -267,7 +269,7 @@ export function checkCourse(raw: unknown, ctx: CheckContext): Issue[] {
     }
     if (!profileObj) err("source.plan", "从训练单导出的课程要连同档案一起检查（--profile）");
     else {
-      issues.push(...checkPlanCourse(course, ctx.plans, ctx.rules, m, profileObj));
+      issues.push(...checkPlanCourse(course, ctx.plans, ctx.rules, m, profileObj, ctx.addOns));
       textLevel = isStartCourse(ctx.plans, ctx.rules, profileObj, course) ? "warning" : null;
     }
   } else if (ctx.plans && ctx.rules && profileObj) {

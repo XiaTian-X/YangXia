@@ -3,7 +3,8 @@
 import { describe, expect, it } from "vitest";
 import { ASSESS_FORMAT, type AssessContext, assessRules, checkAssessments, cycleEnd, segmentEnd } from "../src/assess.ts";
 import { exportCourse } from "../src/plan.ts";
-import { REVIEW_FORMAT } from "../src/progress.ts";
+import { checkProgressLog, FEELS, REVIEW_FORMAT } from "../src/progress.ts";
+import { SESSION_FORMAT } from "../src/profile.ts";
 import { buildSheet } from "../src/sheet.ts";
 import { FIX, fixtureManifest, fixturePlans, fixtureRules, readJson } from "./helpers.ts";
 
@@ -94,6 +95,38 @@ describe("13–17 岁稳定期的课程和计划单", () => {
     const s = buildSheet(ctx(p, rv2, A));
     expect(s.text).toMatch(/第 2 轮 · 第 1 周/);
     expect(s.text).not.toMatch(/有氧：这一周做/);
+  });
+});
+
+describe("13–17 岁稳定期的进度规则", () => {
+  const plog = (p: Obj, rv: Rv[], sessions: any[] = [], A: any[] = []) =>
+    checkProgressLog(p, plans, rules, sessions, Object.fromEntries(rv), new Date(`${plus(p.segments[p.segments.length - 1].start, 2)}T12:00:00`), A)
+      .filter((i) => i.level === "error").map((i) => i.message).join("\n");
+  /** 起始期 4 周 + 稳定期 wk 周，最后一周开始那天把俯卧撑从起始级升到第 2 级，依据是上一周的复盘。 */
+  const run = (wk: number, each: (k: number) => Obj = () => ({})) => {
+    const p = profile([[1, 1, T], [1, 2, T], [1, 3, T], [1, 4, T], ...Array.from({ length: wk }, (_, w) => [2, w + 1, TS] as Seg)], "2026-01-05",
+      { progress: { pushup: { level: 2, reps: 8 } } });
+    const i = p.segments.length - 1;
+    p.progressLog = [{ date: p.segments[i].start, move: "pushup", field: "level", to: 2, rule: "升级", evidence: `复盘/${p.segments[i - 1].start}-第${p.segments[i - 1].week}周.json` }];
+    const rv = p.segments.slice(0, -1).map((_: unknown, k: number) => review(p, k, { ...(k === i - 1 ? { moves: [{ move: "pushup", allAtTop: true, spare: 2 }] } : {}), ...each(k) }));
+    return plog(p, rv);
+  };
+  it("升级：每一轮第 4 周（第 4、8 周）；第 5、7 周拦下", () => {
+    expect(run(4)).toBe("");
+    expect(run(8)).toBe("");
+    expect(run(5)).toMatch(/不能升级/);
+    expect(run(7)).toMatch(/不能升级/);
+  });
+  it("这一轮里有不适：这一轮第 4 周不升", () => {
+    expect(run(4, (k) => (k === 5 ? { symptoms: true } : {}))).toMatch(/这一轮（4 周）里/);
+  });
+  it("从起始期升上来的人第 1–2 周不能往上找级（只给中断回来的人）", () => {
+    const p = profile([[1, 1, T], [1, 2, T], [1, 3, T], [1, 4, T], [2, 1, TS]], "2026-01-05", { progress: { pushup: { level: 2 } } });
+    const d = p.segments[4].start;
+    p.progressLog = [{ date: d, move: "pushup", field: "level", to: 3, rule: "找级", evidence: `打卡/${d}.json` }];
+    const s = { name: `打卡/${d}.json`, raw: { schema: SESSION_FORMAT, course: { id: "c", name: "x", source: {} }, startedAt: `${d}T19:00:00`, feeling: "正好",
+      items: [{ exercise: "pushup", setsPlanned: 3, setsDone: 3, feel: FEELS[2] }], symptoms: { pain: false, dizzy: false, chest: false } } };
+    expect(plog(p, p.segments.slice(0, 4).map((_: unknown, k: number) => review(p, k)), [s])).toMatch(/稳定期的找级只给/);
   });
 });
 

@@ -1,7 +1,7 @@
 // 65 岁以上稳定期（v4 阶段 6b）：加一项。起始期"下一轮的方向"那一条"想加量先问医生，医生同意的话，一次只加一项"：
 // 医生同意（addClear）以后，一轮的第 1 周最多加一项（addOnLog），训练单不动、导出时按 rules.stable.addOns 改坐站起的上限或组数。
 // 设计值 A65_ADD_ONE、A65_ADD_REPS、A65_ADD_CLEAR；摔倒、头晕的轮末处理在 assess.ts（A65_STABLE_FALL）。
-import { type AssessContext, assessRules, param, productInfo } from "./assess.ts";
+import { type AssessContext, assessRules, cycleHold, param, productInfo } from "./assess.ts";
 import { clearValid } from "./goals.ts";
 import { type AddOnDef, addOnDefs, addOnsFromLog, roundWeek } from "./plan.ts";
 import { reviewDataName, type SegmentEntry } from "./progress.ts";
@@ -48,9 +48,10 @@ export function activeAddOns(ctx: AssessContext, date: string): string[] {
   if (i < 0 || !inAddStable(ctx, list[i])) return [];
   const code = famOf(ctx, list[i])!;
   const log = (Array.isArray(ctx.profile.addOnLog) ? ctx.profile.addOnLog : []) as Obj[];
-  // 清零的日子：看完医生回来的触发评估（稳定期里）
-  const clears = ctx.assessments.filter((a) => hasReason(a, "看完医生回来") && typeof a.raw.date === "string" && a.raw.date <= date
-    && inAddStable(ctx, list[indexAt(list, a.raw.date)])).map((a) => a.raw.date as string);
+  // 清零的日子：稳定期里的看完医生回来、生病住院（那天起）
+  const dayOf = (a: Obj) => (hasReason(a, "生病住院") && typeof a.raw.eventDate === "string" ? a.raw.eventDate : a.raw.date) as string;
+  const clears = ctx.assessments.filter((a) => (hasReason(a, "看完医生回来") || hasReason(a, "生病住院")) && typeof a.raw.date === "string" && dayOf(a) <= date
+    && inAddStable(ctx, list[indexAt(list, dayOf(a))])).map(dayOf);
   const lastClear = clears.sort().pop() ?? "";
   let on = addOnsFromLog(ctx.profile, date).filter((item) => {
     // 清零以后又加的才算
@@ -65,23 +66,31 @@ export function activeAddOns(ctx: AssessContext, date: string): string[] {
   return on;
 }
 
-/** 某一轮（稳定期里第 1 周那一项的下标 k）前面那一轮的 4 周：训练数（每周不超过排的次数）、摔倒头晕不适、缺的复盘。 */
+/**
+ * 某一轮（稳定期里第 1 周那一项的下标 k）前面那一轮的 4 周：这一段的前 4 个周次，第 1 周的是上一段最后 4 个周次。
+ * 训练数每个周次只算最后一份复盘（每周不超过排的次数）；摔倒头晕不适每一份都算（重复的周）。
+ */
 function prevRound(ctx: AssessContext, k: number): { trainings: number; trouble: boolean; missing: boolean } {
   const list = ss(ctx);
   const ar = assessRules(ctx.rules);
-  const prev = list.slice(Math.max(0, k - 4), k);
-  // 每个周次只算最后一份（重复的周）
-  const byWeek = new Map<string, SegmentEntry>();
-  for (const s of prev) byWeek.set(`${s.n}-${s.week}`, s);
-  const weeks = [...byWeek.values()];
-  let trainings = 0, trouble = false, missing = weeks.length < 4;
-  for (const s of weeks) {
-    const rv = ctx.reviewData[reviewDataName(s)];
+  const cur = list[k];
+  const n = cur.week > 1 ? cur.n : k > 0 ? list[k - 1].n : cur.n;
+  const before = list.slice(0, k).filter((s) => s.n === n);
+  const top = cur.week > 1 ? cur.week - 1 : Math.max(0, ...before.map((s) => s.week));
+  const want = [top - 3, top - 2, top - 1, top].filter((w) => w >= 1);
+  let trainings = 0, trouble = false, missing = want.length < 4;
+  for (const w of want) {
+    const copies = before.filter((s) => s.week === w);
+    if (!copies.length) { missing = true; continue; }
+    for (const s of copies) {
+      const rv = ctx.reviewData[reviewDataName(s)];
+      if (rv && (rv.symptoms === true || (rv.falls ?? 0) > 0 || (rv.nearFalls ?? 0) > 0 || (rv.dizzy ?? 0) > 0)) trouble = true;
+    }
+    const last = copies[copies.length - 1];
+    const rv = ctx.reviewData[reviewDataName(last)];
     if (!rv) { missing = true; continue; }
-    const code = famOf(ctx, s) ?? "";
-    const cap = ar ? param(ar.assess, "每周排的训练", code)?.number ?? Infinity : Infinity;
+    const cap = ar ? param(ar.assess, "每周排的训练", famOf(ctx, last) ?? "")?.number ?? Infinity : Infinity;
     trainings += Math.min(rv.trainings ?? 0, cap);
-    if (rv.symptoms === true || (rv.falls ?? 0) > 0 || (rv.nearFalls ?? 0) > 0 || (rv.dizzy ?? 0) > 0) trouble = true;
   }
   return { trainings, trouble, missing };
 }
@@ -116,7 +125,7 @@ export function addOnIssues(ctx: AssessContext): Issue[] {
     else if (pr.trouble) err(i, "上一轮有摔倒、差点摔倒、头晕或者哪里疼：这一轮不加项");
     if (s.week === 1) {
       const prevN = k > 0 ? list[k - 1].n : null;
-      const hold = ctx.assessments.some((a) => a.raw?.kind === "周期末" && a.raw.segment === prevN && a.raw.conclusion?.next?.hold === true);
+      const hold = prevN !== null && cycleHold(ctx, prevN);
       if (hold) err(i, "上一个周期末的结论是习惯没达标：这个周期第 1 轮不加项");
     }
     if (!clearValid(ctx, "addClear", e.date, code, { item: e.item }).valid) {

@@ -551,7 +551,7 @@ export function isStartCourse(plans: PlansData, rules: RulesData, profile: Obj, 
 }
 
 /** 用同一份档案重新导出一遍，和课程逐项比对：动作、组数、次数或秒数、休息、节奏、轮数。 */
-export function checkPlanCourse(course: Course, plans: PlansData, rules: RulesData, manifest: Manifest, profile: Obj): Issue[] {
+export function checkPlanCourse(course: Course, plans: PlansData, rules: RulesData, manifest: Manifest, profile: Obj, addOns?: string[]): Issue[] {
   const issues: Issue[] = [];
   const err = (path: string, message: string) => issues.push({ level: "error", path, message });
   const src = course.source as Obj;
@@ -559,7 +559,7 @@ export function checkPlanCourse(course: Course, plans: PlansData, rules: RulesDa
   if (seg && src.segment !== undefined && src.segment !== seg.n) err("source.segment", `课程是第 ${src.segment} 段的，档案现在是第 ${seg.n} 段：重新导出`);
   if (seg && src.type !== undefined && src.type !== seg.type) err("source.type", `课程是${src.type}段的，档案现在是${seg.type}段：重新导出`);
   if (seg && (src.phase ?? "起始") !== seg.phase) err("source.phase", `课程是${src.phase ?? "起始"}期的，档案现在是${seg.phase}期：重新导出`);
-  const want = exportCourse({ plans, rules, manifest, profile, week: course.source.week, day: course.source.day ?? "", picks: src.picks, half: src.half === true });
+  const want = exportCourse({ plans, rules, manifest, profile, week: course.source.week, day: course.source.day ?? "", picks: src.picks, half: src.half === true, addOns });
   for (const i of want.issues) issues.push({ ...i, path: `训练单 ${i.path}` });
   if (!want.course) return issues;
   const a = course.blocks;
