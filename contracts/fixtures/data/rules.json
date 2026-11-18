@@ -2544,9 +2544,195 @@
      }
     ],
     "note": "设计值 STABLE_SYMPTOM"
+   },
+   {
+    "name": "周期周数",
+    "products": [
+     "a65·chair"
+    ],
+    "value": "12",
+    "quotes": [
+     {
+      "section": "稳定期说明",
+      "text": "一轮 4 周，连着走 3 轮，一共 12 周"
+     }
+    ],
+    "note": "设计值 STABLE_CYCLE：65 岁以上每周照起始期第 4 周练（A65_STABLE_WEEK4），仍按 4 周一轮算打卡、不适、加项",
+    "number": 12
+   },
+   {
+    "name": "每轮周数",
+    "products": [
+     "a65·chair"
+    ],
+    "value": "4",
+    "quotes": [
+     {
+      "section": "稳定期说明",
+      "text": "一轮 4 周，连着走 3 轮，一共 12 周"
+     }
+    ],
+    "note": "每一轮的打卡表重新打印；加项按轮加",
+    "number": 4
+   },
+   {
+    "name": "进稳定期的结论",
+    "products": [
+     "a65·chair"
+    ],
+    "value": "加一项",
+    "quotes": [
+     {
+      "section": "谁用这一份",
+      "text": "4 周完成 ≥ 10 次训练，那一轮没有摔倒、没有头晕、没有差点摔倒"
+     }
+    ],
+    "note": "段末是\"完成 ≥ 10 练，而且没有头晕、没有差点摔倒\"那一条（往上：是），没被降级"
+   },
+   {
+    "name": "进稳定期要习惯达标",
+    "products": [
+     "a65·chair"
+    ],
+    "value": "是",
+    "quotes": [
+     {
+      "section": "谁用这一份",
+      "text": "以前降过的散步时长也已经全部加回来"
+     }
+    ],
+    "note": "设计值 STABLE_ENTRY_HABITS"
+   },
+   {
+    "name": "直接进入",
+    "products": [
+     "a65·chair"
+    ],
+    "value": "否",
+    "quotes": [
+     {
+      "section": "谁用这一份",
+      "text": "这一份不设\"直接从这里开始\""
+     }
+    ],
+    "note": "65 岁以上不设更高的起点（v4 4.6）"
+   },
+   {
+    "name": "回起始期的中断天数",
+    "products": [
+     "a65·chair"
+    ],
+    "value": "28",
+    "quotes": [
+     {
+      "section": "不舒服、摔倒、生病、断了几天",
+      "text": "断了四周以上"
+     }
+    ],
+    "note": "设计值 A65_GAP_RESTART：断了超过 28 天回起始期第 1 周",
+    "number": 28
+   },
+   {
+    "name": "周期达标训练数",
+    "products": [
+     "a65·chair"
+    ],
+    "value": "24",
+    "quotes": [
+     {
+      "section": "周期末评估",
+      "text": "≥ 24 为达标"
+     }
+    ],
+    "note": "设计值 CYCLE_PASS_SENIOR",
+    "number": 24
+   },
+   {
+    "name": "习惯达标周数",
+    "products": [
+     "a65·chair"
+    ],
+    "value": "散步 9、放松 7",
+    "quotes": [
+     {
+      "section": "周期末评估",
+      "text": "≥ 9 周为达标"
+     },
+     {
+      "section": "周期末评估",
+      "text": "≥ 7 周为达标"
+     }
+    ],
+    "note": "设计值 CYCLE_PASS_SENIOR：散步 12 周里 ≥ 9 周；放松只算每一轮第 2–4 周，9 周里 ≥ 7 周"
+   },
+   {
+    "name": "不适按轮",
+    "products": [
+     "a65·chair"
+    ],
+    "value": "是",
+    "quotes": [
+     {
+      "section": "不舒服、摔倒、生病、断了几天",
+      "text": "这一轮（4 周）剩下的时间不加项、不加次数，可以减"
+     }
+    ],
+    "note": "设计值 STABLE_SYMPTOM"
+   },
+   {
+    "name": "加项医生同意有效天数",
+    "products": [
+     "a65·chair"
+    ],
+    "value": "365",
+    "quotes": [
+     {
+      "section": "加一项（先问医生，一轮最多一项）",
+      "text": "医生同意一年有效"
+     }
+    ],
+    "note": "设计值 A65_ADD_CLEAR：加新项用严格算法，已加的项按\"看了医生才算\"去留",
+    "number": 365
+   },
+   {
+    "name": "加项每轮最多",
+    "products": [
+     "a65·chair"
+    ],
+    "value": "1",
+    "quotes": [
+     {
+      "section": "加一项（先问医生，一轮最多一项）",
+      "text": "每一轮最多加一项"
+     }
+    ],
+    "note": "设计值 A65_ADD_ONE：只在一轮第 1 周加，上一轮 ≥ 10 练、没有摔倒头晕不适",
+    "number": 1
    }
   ],
   "nextCycle": [
+   {
+    "products": [
+     "a65·chair"
+    ],
+    "order": 0,
+    "when": [
+     {
+      "kind": "fallsOrDizzy"
+     }
+    ],
+    "result": "先看医生",
+    "next": {
+     "phase": "不开"
+    },
+    "quotes": [
+     {
+      "section": "下一个周期怎么走",
+      "text": "这个周期最后一轮摔倒过，或者出现过头晕、差点摔倒"
+     }
+    ],
+    "note": "设计值 A65_STABLE_FALL：看完医生 doctorRestart 是 true（或没写）回起始期标准段第 1 周；false 跳过这一行，照后面几行"
+   },
    {
     "products": [
      "a18·bw",
@@ -2600,6 +2786,29 @@
    },
    {
     "products": [
+     "a65·chair"
+    ],
+    "order": 1,
+    "when": [
+     {
+      "kind": "trainingsBelow"
+     }
+    ],
+    "result": "训练没达标",
+    "next": {
+     "phase": "起始",
+     "type": "减量"
+    },
+    "quotes": [
+     {
+      "section": "下一个周期怎么走",
+      "text": "12 周训练不到 24 次"
+     }
+    ],
+    "note": "设计值 CYCLE_LOW：照起始期\"完成 < 8 练……每周 2 练\"的意思"
+   },
+   {
+    "products": [
      "a18·bw",
      "a18·home",
      "a18·gym",
@@ -2632,6 +2841,32 @@
    {
     "products": [
      "a13·bw"
+    ],
+    "order": 2,
+    "when": [
+     {
+      "kind": "habitsMiss"
+     },
+     {
+      "kind": "prevMiss"
+     }
+    ],
+    "result": "连续两个周期没达标",
+    "next": {
+     "phase": "起始",
+     "type": "标准"
+    },
+    "quotes": [
+     {
+      "section": "下一个周期怎么走",
+      "text": "而且上一个周期也是这样"
+     }
+    ],
+    "note": "设计值 CYCLE_FAIL_TWICE"
+   },
+   {
+    "products": [
+     "a65·chair"
     ],
     "order": 2,
     "when": [
@@ -2708,6 +2943,29 @@
    },
    {
     "products": [
+     "a65·chair"
+    ],
+    "order": 3,
+    "when": [
+     {
+      "kind": "habitsMiss"
+     }
+    ],
+    "result": "习惯没达标",
+    "next": {
+     "phase": "稳定",
+     "hold": true
+    },
+    "quotes": [
+     {
+      "section": "下一个周期怎么走",
+      "text": "接着开下一个周期，第 1 轮不加项"
+     }
+    ],
+    "note": "设计值 CYCLE_HOLD：65 岁以上是第一轮不加项"
+   },
+   {
+    "products": [
      "a18·bw",
      "a18·home",
      "a18·gym",
@@ -2746,6 +3004,111 @@
      }
     ],
     "note": "设计值 CYCLE_PASS_YOUTH"
+   },
+   {
+    "products": [
+     "a65·chair"
+    ],
+    "order": 4,
+    "when": [],
+    "result": "达标",
+    "next": {
+     "phase": "稳定"
+    },
+    "quotes": [
+     {
+      "section": "下一个周期怎么走",
+      "text": "接着开下一个周期，已经加的项接着用"
+     }
+    ],
+    "note": "设计值 CYCLE_PASS_SENIOR"
+   }
+  ],
+  "addOns": [
+   {
+    "products": [
+     "a65·chair"
+    ],
+    "id": "sit12",
+    "move": "a65-01-sit-to-stand",
+    "kind": "repsMax",
+    "quotes": [
+     {
+      "section": "下一轮的方向",
+      "text": "坐站起每组加到 12 次，或者加第 3 组"
+     },
+     {
+      "section": "加一项（先问医生，一轮最多一项）",
+      "text": "坐站起：每组加到 12 次"
+     }
+    ],
+    "note": "设计值 A65_ADD_REPS：次数照\"连着两次都轻松才加 1–2 次\"往上走",
+    "number": 12,
+    "group": "坐站起"
+   },
+   {
+    "products": [
+     "a65·chair"
+    ],
+    "id": "sit3sets",
+    "move": "a65-01-sit-to-stand",
+    "kind": "sets",
+    "quotes": [
+     {
+      "section": "下一轮的方向",
+      "text": "坐站起每组加到 12 次，或者加第 3 组"
+     },
+     {
+      "section": "加一项（先问医生，一轮最多一项）",
+      "text": "或者加第 3 组"
+     }
+    ],
+    "note": "次数照原来的区间",
+    "number": 3,
+    "group": "坐站起"
+   },
+   {
+    "products": [
+     "a65·chair"
+    ],
+    "id": "stance30",
+    "move": "a65-06-tandem-stand",
+    "kind": "follow",
+    "quotes": [
+     {
+      "section": "下一轮的方向",
+      "text": "前后脚站每次站到 30 秒"
+     },
+     {
+      "section": "加一项（先问医生，一轮最多一项）",
+      "text": "前后脚站：每次站到 30 秒"
+     }
+    ],
+    "note": "平衡动作照成品做",
+    "number": 30
+   },
+   {
+    "products": [
+     "a65·chair"
+    ],
+    "id": "step",
+    "move": "a65-10-step",
+    "kind": "follow",
+    "quotes": [
+     {
+      "section": "下一轮的方向",
+      "text": "本轮没做过 10 号\"上下台阶\"的，加上它"
+     },
+     {
+      "section": "加一项（先问医生，一轮最多一项）",
+      "text": "只给家里有人、每次都有家人在旁边的"
+     }
+    ],
+    "note": "第七章\"必须有家人在旁边才做；家里没有别人就不做这个动作\"",
+    "requires": {
+     "name": "家里没有别人",
+     "value": false
+    }
    }
   ]
  },

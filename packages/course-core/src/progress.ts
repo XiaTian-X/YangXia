@@ -3,7 +3,7 @@
 // - 每一周结束都有周复盘（复盘/<开始日期>-第N周.md 和同名 .json），不复盘不能进下一周；
 // - 一周里有疼痛、头晕、胸闷，下一周不能往上走，这一周之后的进度也不能往上加；
 // - 进度只能照成品的规则改（找级、升级、加次数、加重各有允许的周和依据），一次只改一样，重放日志要等于档案的 progress。
-import { allowedLevels, currentSegment, planType, type PlansData, progressRow, ROUND_WEEKS, roundOf, roundWeek, ruleValue, type RulesData, stableParam, startLevel } from "./plan.ts";
+import { addOnsFromLog, allowedLevels, currentSegment, planType, type PlansData, progressRow, ROUND_WEEKS, roundOf, roundWeek, ruleValue, type RulesData, stableParam, startLevel } from "./plan.ts";
 import { validateGoalReview } from "./goals.ts";
 import type { Issue } from "./types.ts";
 
@@ -331,7 +331,8 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       err(i, `「${e.move}」不在${period.product}的训练单里`);
       continue;
     }
-    const row = progressRow(p, rules, profile, planType(period), period.week, e.move);
+    // 加项（65 岁以上稳定期）：这一条记的那天哪几项有效
+    const row = progressRow(p, rules, profile, planType(period), period.week, e.move, addOnsFromLog(profile, e.date));
     const ladder = p.ladders[e.move];
     const stable = stableOf(period);
     const kWeek = wk(period);

@@ -4,6 +4,7 @@
 // （以前几周的按那一周、生成时的进度重新生成；对不上就删掉——以前几周的单子不用留）。
 import { type AssessContext, assessRules, cardioMode, fallRiskList, productInfo } from "./assess.ts";
 import { bodySheetLines, goalSheetLines, severeObese } from "./goals.ts";
+import { activeAddOns, addOnSheetLines } from "./senior.ts";
 import { currentSegment, exportCourse, maxWeek, planType, ROUND_WEEKS, roundWeek } from "./plan.ts";
 import { DECLARATION } from "./profile.ts";
 import { localDate, progressOn } from "./progress.ts";
@@ -50,6 +51,7 @@ export function buildSheet(ctx: AssessContext): { text: string | null; issues: I
     `# ${profile.code} · 第 ${seg.n} 段第 ${w} 周计划（${seg.product}）`, "", DECLARATION, "",
     `<!-- 养夏计划单 段=${seg.n} 周=${w} 开始=${cur.start} 模板=${plans.version} 进度=${progressDate(profile)} -->`, "",
     stable && info.venue === "gym" ? `稳定期 12 周的第 ${w} 周：健身房每周一样，照第 4 周的组数（每个动作 3 组），主项次数和重量照《稳定期说明》的双进阶。`
+      : stable && info.venue === "chair" ? `稳定期 12 周的第 ${w} 周（第 ${Math.floor((w - 1) / ROUND_WEEKS) + 1} 轮 · 第 ${roundWeek(w)} 周）：每周都照第五章训练单第 4 周那一列练（2 组，平衡动作照第 4 周的扶法，全程扶着、不松手），加项见下。`
       : stable ? `稳定期 12 周的第 ${w} 周：第 ${Math.floor((w - 1) / ROUND_WEEKS) + 1} 轮 · 第 ${roundWeek(w)} 周（照成品里这一轮第 ${roundWeek(w)} 周做）。`
       : `起始期${seg.type}段第 ${w} 周。`,
     "", "## 训练", "",
@@ -61,7 +63,7 @@ export function buildSheet(ctx: AssessContext): { text: string | null; issues: I
     const cardioText = cm ? `这一周做**${cm.mode}**${cm.mode === "稳态" && cm.interval ? "，不做间歇" : ""}${cm.duration ? `，**${cm.duration}**` : ""}（${cm.why}）${cm.duration ? "" : "；时长照成品这一周的写法"}` : "";
     let cardioShown = false;
     for (const day of p.segments[planType(seg)]?.days ?? []) {
-      const r = exportCourse({ plans, rules, manifest, profile, week: w, day });
+      const r = exportCourse({ plans, rules, manifest, profile, week: w, day, addOns: activeAddOns(ctx, cur.start) });
       for (const i of r.issues.filter((x) => x.level === "error")) issues.push({ ...i, path: `${day} 日 ${i.path}` });
       lines.push(`### ${day} 日`, "");
       for (const b of r.course?.blocks ?? []) {
@@ -86,6 +88,7 @@ export function buildSheet(ctx: AssessContext): { text: string | null; issues: I
   // 目标（阶段 4）：减脂、增肌这一周的有氧和吃（保持的不写）
   lines.push(...goalSheetLines(ctx, entries.length - 1));
   lines.push(...bodySheetLines(ctx, entries.length - 1));
+  lines.push(...addOnSheetLines(ctx, entries.length - 1));
   // 习惯：打卡表里要数的项和这一段的习惯目标
   const ar = assessRules(rules);
   const targets: Obj = (entries.find((s) => s.n === seg.n) ?? {}).habitTargets ?? {};

@@ -86,11 +86,58 @@ export interface RulesData {
     roundWeeks: number;
     params: { name: string; products: string[]; value: string; number?: number; note: string }[];
     nextCycle: { products?: string[]; order: number; when: { kind: string }[]; result: string; next: { phase: string; type?: string; hold?: boolean }; quotes: { section: string; text: string }[]; note: string }[];
+    /** 65 岁以上稳定期的加项（v4 阶段 6b，设计值 A65_ADD_ONE）：训练单不动，导出时按这张表改次数上限、组数。 */
+    addOns?: AddOnDef[];
   };
   /** 每一轮哪几周稳态、哪几周间歇。 */
   cardio?: { products: string[]; phase?: string; weeks: number[]; mode: string; duration?: string; when: string; quotes: { section: string; text: string }[]; note: string }[];
   /** 由两项条件合起来的组合条件。 */
   derivedConditions?: { name: string; all: { name: string; value: boolean }[] }[];
+}
+
+export interface AddOnDef {
+  products: string[];
+  id: string;
+  move: string;
+  kind: "repsMax" | "sets" | "follow";
+  number?: number;
+  group?: string;
+  requires?: { name: string; value: boolean };
+  quotes: { section: string; text: string }[];
+  note: string;
+}
+
+/** 这个家族的加项定义（没有的返回空）。 */
+export const addOnDefs = (rules: RulesData | null | undefined, code: string): AddOnDef[] => (rules?.stable?.addOns ?? []).filter((a) => a.products.includes(code));
+
+/**
+ * 只看档案就能重放的加项（某一天以前）：addOnLog 的"加""减"按日期走；回到起始期（或换了家族）的那一段一开始就清零。
+ * 医生同意失效、看完医生回来清零要看评估记录，见 senior.ts 的 activeAddOns。
+ */
+export function addOnsFromLog(profile: Obj, date: string): string[] {
+  const ss = (profile.segments ?? []) as Obj[];
+  const log = (Array.isArray(profile.addOnLog) ? profile.addOnLog : []).filter((e: Obj) => typeof e?.date === "string" && e.date <= date);
+  const clears = ss.filter((s) => typeof s.start === "string" && s.start <= date && s.phase !== "稳定").map((s) => s.start as string);
+  const evs = [...clears.map((d) => ({ d, k: 0, item: "" })), ...log.map((e: Obj) => ({ d: e.date as string, k: e.action === "减" ? 2 : 1, item: e.item as string }))]
+    .sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : a.k - b.k));
+  const on = new Set<string>();
+  for (const e of evs) {
+    if (e.k === 0) on.clear();
+    else if (e.k === 1) on.add(e.item);
+    else on.delete(e.item);
+  }
+  return [...on];
+}
+
+/** 按加项改训练单这一行（只改次数上限、组数；训练单本身不动）。 */
+export function withAddOns(r: PlanRow, defs: AddOnDef[], active: string[]): PlanRow {
+  let x = r;
+  for (const d of defs) {
+    if (!active.includes(d.id) || !r.moves.includes(d.move) || typeof d.number !== "number") continue;
+    if (d.kind === "repsMax" && x.reps) x = { ...x, reps: { ...x.reps, max: d.number } };
+    if (d.kind === "sets" && x.block === "sets") x = { ...x, sets: d.number };
+  }
+  return x;
 }
 
 export const ROUND_WEEKS = 4;
@@ -193,10 +240,15 @@ export function dayRows(p: ProductPlan, rules: RulesData, profile: Obj, type: st
 }
 
 /** 这个动作（或阶梯）在这一周的处方行（次数来源是"进度"的那一行），用来查次数区间、允许的级。 */
-export function progressRow(p: ProductPlan, rules: RulesData, profile: Obj, type: string, week: number, move: string): PlanRow | null {
+export function progressRow(p: ProductPlan, rules: RulesData, profile: Obj, type: string, week: number, move: string, addOns?: string[]): PlanRow | null {
   const rows = p.rows.filter((r) => r.segments.includes(type) && r.weeks.includes(week) && r.moves.includes(move)
     && (!r.condition || conditionValue(rules, profile, r.condition.name) === r.condition.value));
-  return rows.find((r) => r.reps_from === "progress" && r.reps) ?? rows.find((r) => r.reps) ?? null;
+  const row = rows.find((r) => r.reps_from === "progress" && r.reps) ?? rows.find((r) => r.reps) ?? null;
+  // 65 岁以上稳定期：加项的次数上限（addOns 不传的按"加过就放行"，个人进度里留着的次数不算错，导出时再截）
+  const defs = type === "稳定" ? addOnDefs(rules, p.code) : [];
+  if (!row || !defs.length) return row;
+  const on = addOns ?? (Array.isArray(profile.addOnLog) ? profile.addOnLog.filter((e: Obj) => e?.action === "加").map((e: Obj) => e.item) : []);
+  return withAddOns(row, defs, on);
 }
 
 /** 起始级：阶梯表里这份成品标了"起始"的那一级。 */
@@ -257,6 +309,8 @@ export interface ExportInput {
   id?: string;
   /** 半量（中断、生病回来的第一次，设计值 HALF）：每个动作组数、循环轮数减半向上取整，次数、秒数、休息不变。 */
   half?: boolean;
+  /** 65 岁以上稳定期这一周有效的加项（命令按档案和评估算好传进来；不传的只按 addOnLog 重放）。 */
+  addOns?: string[];
 }
 
 export interface ExportResult {
@@ -314,7 +368,11 @@ export function exportCourse(input: ExportInput): ExportResult {
     err("day", `${productName}的${ptype}段没有 ${day} 日（有 ${days.join("、")}）`);
     return out;
   }
-  const rows = dayRows(p, rules, profile, ptype, week, day);
+  // 65 岁以上稳定期的加项：按加项改次数上限、组数（设计值 A65_ADD_ONE、A65_ADD_REPS）
+  const defs = seg.phase === "稳定" ? addOnDefs(rules, p.code) : [];
+  const weekStart = ((profile.segments ?? []) as Obj[]).filter((s) => s.n === seg.n && s.week === week).pop()?.start;
+  const active = defs.length ? input.addOns ?? addOnsFromLog(profile, typeof weekStart === "string" ? weekStart : "9999-12-31") : [];
+  const rows = dayRows(p, rules, profile, ptype, week, day).map((r) => (defs.length ? withAddOns(r, defs, active) : r));
   const choices: string[] = Array.isArray(profile.choices) ? profile.choices : [];
   const progress: Obj = profile.progress ?? {};
   const picks: Record<string, string> = {};
@@ -390,6 +448,12 @@ export function exportCourse(input: ExportInput): ExportResult {
     }
     let amount = r.reps.min;
     if (r.reps_from === "progress" && Number.isInteger(progress[move]?.reps)) amount = progress[move].reps;
+    // 加项"加到 12 次"去掉以后：个人进度里留着的次数不改，导出按现在的上限截（设计值 A65_ADD_REPS）
+    const addMax = Math.max(0, ...defs.filter((d) => d.kind === "repsMax" && d.move === move && typeof d.number === "number").map((d) => d.number as number));
+    if (amount > r.reps.max && amount <= addMax) {
+      out.notes.push(`「${move}」个人进度是 ${amount} 次，加项"加到 ${addMax} 次"现在没有：这一周按 ${r.reps.max} 次做`);
+      amount = r.reps.max;
+    }
     if (amount < r.reps.min || amount > r.reps.max) {
       err(`profile.progress.${move}.reps`, `「${move}」进度记的是 ${amount}，这一周的区间是 ${r.reps.min}–${r.reps.max}`);
       continue;

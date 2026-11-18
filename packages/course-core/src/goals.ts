@@ -2,7 +2,7 @@
 // 参数来自模板 rules.json 的 goals（content/rules/目标.md）；这里管：谁能选、减脂这一周的有氧台阶、中途退回、周期末下一周期能选什么、
 // 计划单上的基础代谢两栏。目标只改有氧、吃和周期末，力量课程不变；有氧不导出，只写在计划单和导出提示里。
 import { type AssessContext, type AssessFile, ageAt, assessRules, bmiOf, cardioMode, doctorEvents, entryHeight, productInfo } from "./assess.ts";
-import type { RulesData } from "./plan.ts";
+import { type RulesData, stableParam } from "./plan.ts";
 import { localDate, reviewDataName, type SegmentEntry } from "./progress.ts";
 import type { Issue } from "./types.ts";
 
@@ -264,10 +264,13 @@ export function goalGate(ctx: AssessContext, index: number): GateResult {
  *   不算失效；看了医生没续的，之后开始的周起失效（设计值 WEIGHT_CLEAR）。看医生的日子：档案 screening.doctorDate
  *   和"看完医生回来"触发评估记的 doctorDate。
  */
-export function clearValid(ctx: AssessContext, key: "cardioClear" | "weightClear", date: string, code: string, opts: { waitDoctor?: boolean } = {}): { valid: boolean; after: string } {
+export function clearValid(ctx: AssessContext, key: "cardioClear" | "weightClear" | "addClear", date: string, code: string,
+  opts: { waitDoctor?: boolean; item?: string } = {}): { valid: boolean; after: string } {
   const p = ctx.profile;
   const gr = goalRules(ctx.rules);
-  const keep = gr ? goalParam(gr, key === "weightClear" ? "减重医生同意有效天数" : "有氧医生同意有效天数", code) ?? 365 : 365;
+  // 加项的同意（65 岁以上稳定期，A65_ADD_CLEAR）：有效天数在稳定期规则里；item 给了只看同意了这一项的那几次
+  const keep = key === "addClear" ? stableParam(ctx.rules, code, "加项医生同意有效天数")?.number ?? 365
+    : gr ? goalParam(gr, key === "weightClear" ? "减重医生同意有效天数" : "有氧医生同意有效天数", code) ?? 365 : 365;
   const sd = typeof p.screening?.date === "string" ? p.screening.date : "";
   const docEv = doctorEvents(ctx).map((x) => x.date);
   let events: string[];
@@ -280,7 +283,8 @@ export function clearValid(ctx: AssessContext, key: "cardioClear" | "weightClear
   } else events = [sd, ...docEv];
   const after = events.filter((d) => d && d <= date).sort().pop() ?? "";
   // 每一周用当时有效的那一次同意（续过的不影响以前几周）
-  const d = (Array.isArray(p[key]) ? p[key] : []).map((e: Obj) => e?.date).filter((x: unknown) => typeof x === "string" && x <= date).sort().pop();
+  const list = (Array.isArray(p[key]) ? p[key] : []).filter((e: Obj) => !opts.item || (Array.isArray(e?.items) && e.items.includes(opts.item)));
+  const d = list.map((e: Obj) => e?.date).filter((x: unknown) => typeof x === "string" && x <= date).sort().pop();
   return { valid: typeof d === "string" && d >= after && days(d, date) <= keep, after };
 }
 

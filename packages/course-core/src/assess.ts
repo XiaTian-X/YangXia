@@ -6,6 +6,7 @@ import type { Manifest } from "./manifest.ts";
 import { habitPassWeeks, type PlansData, ROUND_WEEKS, roundWeek, type RulesData, stableParam } from "./plan.ts";
 import { fallRiskConclusion, fallRiskIssues, fallRiskRules, validateFallRisk, validateOfficial } from "./fallrisk.ts";
 import { bodyStateOn, cycleGoals, goalRules, lastWeighed, validateGoalFields, validateGoalRecord } from "./goals.ts";
+import { validateAddFields } from "./senior.ts";
 import { gapBefore, localDate, longGapDays, reviewDataName, type SegmentEntry, type SessionFile, trainingDates } from "./progress.ts";
 import type { Issue } from "./types.ts";
 
@@ -188,6 +189,7 @@ export function validateAssessFields(p: Obj): Issue[] {
     }
   });
   out.push(...validateGoalFields(p));
+  out.push(...validateAddFields(p));
   return out;
 }
 
@@ -702,7 +704,7 @@ export interface CycleConclusion {
  * 周期末结论（稳定期第 12 周之后）：照 rules.stable.nextCycle 从上往下取第一条。
  * 数字照 SEGMENT_COUNT：每个周次只取最后一份复盘，每周训练数不超过排的次数；习惯按"每周达标几天"数达标的周数。不适不计入。
  */
-export function cycleEnd(ctx: AssessContext, n: number): CycleConclusion | { error: string } {
+export function cycleEnd(ctx: AssessContext, n: number, opts: { afterDoctor?: boolean } = {}): CycleConclusion | { error: string } {
   const ar = assessRules(ctx.rules);
   const st = ctx.rules?.stable;
   const ss = (ctx.profile.segments as SegmentEntry[]).filter((s) => s.n === n);
@@ -741,7 +743,13 @@ export function cycleEnd(ctx: AssessContext, n: number): CycleConclusion | { err
   const first = all.findIndex((s) => s.n === n);
   const prevN = first > 0 ? all[first - 1].n : null;
   const prevMiss = prevN !== null && ctx.assessments.some((a) => a.raw?.kind === "周期末" && a.raw.segment === prevN && a.raw.conclusion?.next?.hold === true);
-  const test = (c: { kind: string }) => c.kind === "trainingsBelow" ? trainings < passTr
+  // 65 岁以上：最后一轮（第 9–12 周）摔倒、差点摔倒、头晕（含周期末坐站测试停下的原因是头晕），A65_STABLE_FALL
+  const lastRound = [9, 10, 11, 12].map((w) => lastOf.get(w)).filter(Boolean).map((s) => ctx.reviewData[reviewDataName(s!)] ?? {});
+  const endRec = ctx.assessments.filter((a) => a.raw?.kind === "周期末" && a.raw.segment === n).pop();
+  const fallsOrDizzy = lastRound.some((rv) => (rv.falls ?? 0) + (rv.nearFalls ?? 0) + (rv.dizzy ?? 0) > 0)
+    || ((endRec?.raw.tests ?? []) as Obj[]).some((x) => x.stopReason === "头晕");
+  const test = (c: { kind: string }) => c.kind === "fallsOrDizzy" ? fallsOrDizzy && !opts.afterDoctor
+    : c.kind === "trainingsBelow" ? trainings < passTr
     : c.kind === "habitsMiss" ? Object.entries(habitWeeks).some(([h, x]) => x < (passOf[h] as number))
     : c.kind === "prevMiss" ? prevMiss : false;
   // 下一周期的表按家族各一张（旧模板的行没有 products，照旧所有家族共用）
@@ -856,8 +864,20 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
         const end = cycleEnds.find((a) => a.raw.segment === prev.n);
         if (!end) { err(`segments[${i}]`, `第 ${prev.n} 段（稳定期）练完了，开第 ${s.n} 段之前要做周期末评估（评估/<日期>-周期末.json）`); continue; }
         if (end.raw.date < prev.start || end.raw.date > s.start) err(end.name, `周期末评估的日期要在第 ${cycleWeeks} 周开始（${prev.start}）之后、下一段开始（${s.start}）之前`);
-        const c = cycleEnd(ctx, prev.n);
+        let c = cycleEnd(ctx, prev.n);
         if ("error" in c) { err(end.name, c.error); continue; }
+        // 65 岁以上最后一轮摔倒、头晕（第 0 行"先看医生"）：周期末以后看医生；doctorRestart false 跳过这一行照后面几行，true（或没写）回起始期标准段
+        if (c.next.phase === "不开") {
+          const back = A.find((a) => hasReason(a, "看完医生回来") && a.raw.date >= end.raw.date && a.raw.date <= s.start
+            && a.raw.doctorCleared === true && typeof a.raw.doctorDate === "string" && a.raw.doctorDate >= end.raw.date);
+          if (!back) { err(`segments[${i}]`, `第 ${prev.n} 段周期末的结论是"${c.result}"：要有一份触发评估（看完医生回来，医生同意的日期在周期末之后）才能开下一段`); continue; }
+          if (typeof back.raw.doctorRestart !== "boolean") err(`${back.name} doctorRestart`, "写明 doctorRestart：医生让从第 1 周重新开始写 true，说可以接着照第 4 周的做法练写 false（没写按 true，回起始期第 1 周）");
+          if (back.raw.doctorRestart === false) {
+            const c2 = cycleEnd(ctx, prev.n, { afterDoctor: true });
+            if ("error" in c2) { err(end.name, c2.error); continue; }
+            c = c2;
+          } else c = { ...c, next: { phase: "起始", type: "标准" } };
+        }
         // 结论是回起始期的：不论换不换成品（换场地、跨段），段型都照结论（减量段换场地还是减量段）
         if (c.next.phase === "起始" && curStable) err(`segments[${i}]`, `第 ${prev.n} 段周期末的结论是"${c.result}"：下一段回起始期（${c.next.type}段），不能接着开稳定期`);
         if (c.next.phase === "起始" && !curStable && s.type !== c.next.type) err(`segments[${i}].type`, `第 ${prev.n} 段周期末的结论是"${c.result}"：回起始期${c.next.type}段，写的是${s.type}段`);
@@ -868,8 +888,11 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
         }
       } else if (sameFam && !curStable) {
         // 周期中途回起始期：断了超过 8 周、医生建议从头来、自己要求——都要有触发评估，回标准段
+        const a65 = prevInfo?.age === "a65";
         const why = A.some((a) => a.raw.kind === "触发" && a.raw.date >= prevSeg[0].start && a.raw.date <= s.start
-          && (hasReason(a, "中断") || hasReason(a, "回起始期") || a.raw.doctorRestart === true));
+          && (hasReason(a, "中断") || hasReason(a, "回起始期") || a.raw.doctorRestart === true
+            // 65 岁以上：生病住院回来从第 1 周重新开始；摔倒、头晕看完医生没写 doctorRestart 的按从头来（A65_STABLE_FALL）
+            || (a65 && (hasReason(a, "生病住院") || (hasReason(a, "看完医生回来") && a.raw.doctorRestart !== false)))));
         if (!why) err(`segments[${i}]`, "稳定期一个周期没练完就回起始期，要有触发评估：断了八周以上（中断）、医生建议从头来（doctorRestart）、或者自己要求（回起始期）");
         if (s.type !== "标准") err(`segments[${i}].type`, "周期中途回起始期：从标准段第 1 周开始");
       } else if (!sameFam && info && prevInfo && prevInfo.age !== info.age && info.age !== "a65" && prev.week % ROUND_WEEKS !== 0) {
@@ -955,6 +978,27 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
         const sick = prevSeg.reduce((sum, x) => sum + (ctx.reviewData[reviewDataName(x)]?.sickDays ?? 0), 0);
         if (sick <= 7) err(`segments[${i}].restart`, `第 ${prev.n} 段加起来生病 ${sick} 天：超过 7 天才这一轮不评、从头开始`);
       }
+    }
+  }
+  // 65 岁以上稳定期一轮里摔倒、差点摔倒、头晕（A65_STABLE_FALL，起始期"本轮摔倒过……先去看医生"对到 4 周一轮）：
+  // 第 4、8 周练完先不开下一轮，轮末以后看医生；"看完医生回来"写 doctorRestart，true（或没写）回起始期标准段第 1 周
+  for (const { s, i } of segStarts) {
+    const info = productInfo(ctx.manifest, s.product);
+    if (phaseOf(s) !== "稳定" || info?.age !== "a65") continue;
+    const seg = ss.map((x, k) => ({ x, k })).filter(({ x }) => x.n === s.n && ss.indexOf(x) >= i);
+    for (const endWeek of [4, 8]) {
+      const inRound = seg.filter(({ x }) => x.week > endWeek - 4 && x.week <= endWeek);
+      const w4 = inRound.filter(({ x }) => x.week === endWeek).pop();
+      if (!w4) continue;
+      const trouble = inRound.some(({ x }) => { const rv = ctx.reviewData[reviewDataName(x)]; return (rv?.falls ?? 0) + (rv?.nearFalls ?? 0) + (rv?.dizzy ?? 0) > 0; });
+      const nx = ss[w4.k + 1];
+      if (!trouble || !nx) continue;
+      const roundEnd = addDays(w4.x.start, 6);
+      const back = A.find((a) => hasReason(a, "看完医生回来") && a.raw.date >= roundEnd && a.raw.date <= nx.start
+        && a.raw.doctorCleared === true && typeof a.raw.doctorDate === "string" && a.raw.doctorDate >= roundEnd);
+      if (!back) { err(`segments[${w4.k + 1}]`, `第 ${s.n} 段第 ${endWeek - 3}–${endWeek} 周摔倒、差点摔倒或头晕过：这一轮练完先不开下一轮，先看医生（看完医生回来的触发评估，医生同意在 ${roundEnd} 以后）`); continue; }
+      if (typeof back.raw.doctorRestart !== "boolean") err(`${back.name} doctorRestart`, "写明 doctorRestart：医生让从第 1 周重新开始写 true，说可以接着照第 4 周的做法练写 false（没写按 true，回起始期第 1 周）");
+      if (back.raw.doctorRestart !== false && phaseOf(nx) === "稳定") err(`segments[${w4.k + 1}]`, "医生让从头来（或者没写 doctorRestart）：回起始期那一份，从标准段第 1 周开始，加项清零");
     }
   }
   for (const a of byKind("触发")) {

@@ -460,6 +460,35 @@
         }
       }
     },
+    "addClear": {
+      "type": "array",
+      "minItems": 1,
+      "description": "65 岁以上稳定期加项的医生同意（v4 阶段 6b）：医生说可以照这份计划一轮加一项的那天和同意的那几项（加项 ID），按日期从早到晚；一年有效，重做筛查、摔倒、生病住院、看完医生回来以后要重问",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["date", "items"],
+        "properties": {
+          "date": { "type": "string", "format": "date" },
+          "items": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+        }
+      }
+    },
+    "addOnLog": {
+      "type": "array",
+      "description": "65 岁以上稳定期哪天加了 / 减了哪一项（v4 阶段 6b）：一轮第 1 周最多加一项；清零、失效由命令算，不用写",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["date", "item", "action", "why"],
+        "properties": {
+          "date": { "type": "string", "format": "date" },
+          "item": { "type": "string" },
+          "action": { "enum": ["加", "减"] },
+          "why": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "dietByPro": {
       "type": "array",
       "minItems": 1,

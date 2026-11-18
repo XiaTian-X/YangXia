@@ -24,6 +24,7 @@ import { loadTemplates, requirePlans, type Templates } from "./node.ts";
 import { currentSegment, exportCourse, stableParam } from "./plan.ts";
 import { fallRiskRules } from "./fallrisk.ts";
 import { cycleGoals, goalCardioHint, goalIssues, severeObese } from "./goals.ts";
+import { activeAddOns, addOnIssues } from "./senior.ts";
 import { ASSESS_FORMAT, type AssessFile, ageAt, assessRules, cardioMode, cycleEnd, balanceHold, checkAssessments, checkRecord, doctorNeed, gap, param, productInfo, recordConclusion, segmentEnd, validateAssessment } from "./assess.ts";
 import { checkDeclaration, checkNotes, DECLARATION, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
 import { buildSheet, checkSheet, sheetFile } from "./sheet.ts";
@@ -201,6 +202,7 @@ function progressIssues(t: Templates, profile: Record<string, any>, scan: Return
   else out.push({ level: "warning", path: "档案.json", message: "模板还没有训练单（dist/data/）：个人进度没核对，先更新模板" });
   out.push(...checkAssessments(assessCtx(t, profile, scan)));
   out.push(...goalIssues(assessCtx(t, profile, scan)));
+  out.push(...addOnIssues(assessCtx(t, profile, scan)));
   return out;
 }
 
@@ -239,14 +241,17 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
   // 每次轮换：这一段这一天已经练过几次（练习记录里的课程是同一段、同一天）
   const sessionsDone = scan.sessions.filter((s) => s.raw.course?.source?.day === day && s.raw.course?.source?.segment === seg.n).length;
   const half = rest.includes("--half");
-  const r = exportCourse({ plans, rules, manifest: t.manifest, profile, week: Number(weekArg), day, picks, sessionsDone, half });
   const ctx = assessCtx(t, profile, scan);
+  // 65 岁以上稳定期：这一周有效的加项（医生同意、看完医生回来清零都算上）
+  const wkStart = (profile.segments as any[]).filter((s) => s.n === seg.n && s.week === Number(weekArg)).pop()?.start;
+  const addOns = typeof wkStart === "string" ? activeAddOns(ctx, wkStart) : undefined;
+  const r = exportCourse({ plans, rules, manifest: t.manifest, profile, week: Number(weekArg), day, picks, sessionsDone, half, addOns });
   const doc = doctorNeed(ctx);
   if (r.course && doc.needed && !doc.ok) {
     r.issues.push({ level: "error", path: "screening", message: `医生同意之前不出课程（${doc.reason}：医生同意的日期 doctorDate 要不早于 ${doc.after}）` });
   }
   // 重度肥胖按导出的这一周开始那天推（和计划单一样）
-  const weekStart = (profile.segments as any[]).filter((s) => s.n === seg.n && s.week === Number(weekArg)).pop()?.start ?? localDate(new Date());
+  const weekStart = wkStart ?? localDate(new Date());
   const cm = info0(t, seg.product) ? cardioMode(t.rules, profile, info0(t, seg.product)!, seg.n, Number(weekArg), scan.reviewData,
     { severe: severeObese(ctx, weekStart, info0(t, seg.product)!.code) }) : null;
   if (cm) r.notes.push(`有氧：这一周做${cm.mode}${cm.mode === "稳态" && cm.interval ? "，不做间歇" : ""}${cm.duration ? `，${cm.duration}` : ""}（${cm.why}）`);
@@ -400,7 +405,9 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
       else if ("error" in end) console.log(`周期末结论：${end.error}`);
       else {
         console.log(`第 ${n} 段（稳定期）：12 周训练 ${end.trainings} 次；达标周数 ${Object.entries(end.habitWeeks).map(([h, w]) => `${h} ${w}`).join("、")}`);
-        console.log(`结论：${end.result}；下一段：${end.next.phase === "稳定" ? `下一周期${end.next.hold ? "（第一轮不升级）" : ""}` : `回起始期${end.next.type}段`}`);
+        const a65 = productInfo(t.manifest, (segs.find((x: any) => x.n === n) ?? {}).product)?.age === "a65";
+        console.log(`结论：${end.result}；下一段：${end.next.phase === "不开" ? "先不开：周期末以后看医生，做触发评估\"看完医生回来\"写明 doctorRestart（true 回起始期第 1 周；false 照后面几条再算一次）"
+          : end.next.phase === "稳定" ? `下一周期${end.next.hold ? (a65 ? "（第一轮不加项）" : "（第一轮不升级）") : ""}` : `回起始期${end.next.type}段`}`);
         for (const q of end.quotes) console.log(`  原文：${q}`);
         if (end.next.phase === "稳定") {
           const cg = cycleGoals(assessCtx(t, profile, scan), n);
