@@ -21,7 +21,7 @@ import { validateCourse } from "./validate.ts";
 import { bedtimeFor, checkProfileWithTemplates } from "./intake.ts";
 import { checkProgress, checkProgressLog, localDate, progressOn, REVIEW_FORMAT, type SessionFile, validateReview } from "./progress.ts";
 import { loadTemplates, requirePlans, type Templates } from "./node.ts";
-import { currentSegment, exportCourse } from "./plan.ts";
+import { currentSegment, exportCourse, stableParam } from "./plan.ts";
 import { fallRiskRules } from "./fallrisk.ts";
 import { cycleGoals, goalCardioHint, goalIssues, severeObese } from "./goals.ts";
 import { ASSESS_FORMAT, type AssessFile, ageAt, assessRules, cardioMode, cycleEnd, balanceHold, checkAssessments, checkRecord, doctorNeed, gap, param, productInfo, recordConclusion, segmentEnd, validateAssessment } from "./assess.ts";
@@ -44,7 +44,7 @@ const USAGE = `用法：
   npm run profile -- check <档案目录>`;
 
 async function intake(age?: string): Promise<number> {
-  const { manifest } = await loadTemplates();
+  const { manifest, rules } = await loadTemplates();
   const it = manifest.intake as any;
   console.log("问题：");
   for (const q of it.questions) console.log(`  ${q.id} ${q.question}：${q.options.join(" / ")}（${q.purpose}）`);
@@ -61,7 +61,8 @@ async function intake(age?: string): Promise<number> {
   const books = manifest.products.filter((x) => (!age || x.age === age) && (x as Record<string, any>).phase === "附册");
   for (const p of manifest.products.filter((x) => (!age || x.age === age) && (x as Record<string, any>).phase !== "附册")) {
     const stable = (p as Record<string, any>).phase === "稳定";
-    console.log(`  ${p.name}（${p.age}·${p.venue}，${VENUE[p.venue] ?? p.venue}${stable ? "；稳定期：起始期段末到了进阶线、或者有基础的人直接进入才用，新手选起始期那一份" : ""}）`);
+    const direct = stable && stableParam(rules, `${p.age}·${p.venue}`, "直接进入")?.value === "是";
+    console.log(`  ${p.name}（${p.age}·${p.venue}，${VENUE[p.venue] ?? p.venue}${!stable ? "" : direct ? "；稳定期：起始期段末到了进阶线、或者有基础的人直接进入才用，新手选起始期那一份" : "；稳定期：起始期段末到了进阶线才用，不设直接进入，建档选起始期那一份"}）`);
   }
   if (books.length) console.log(`\n附册（不是计划，不能选成档案的 product；超重、肥胖的人配合本年龄段的计划看）：${books.map((p) => p.name).join("、")}`);
   console.log("\n不覆盖的人群：");

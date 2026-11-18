@@ -85,7 +85,7 @@ export interface RulesData {
     cycleWeeks: number;
     roundWeeks: number;
     params: { name: string; products: string[]; value: string; number?: number; note: string }[];
-    nextCycle: { order: number; when: { kind: string }[]; result: string; next: { phase: string; type?: string; hold?: boolean }; quotes: { section: string; text: string }[]; note: string }[];
+    nextCycle: { products?: string[]; order: number; when: { kind: string }[]; result: string; next: { phase: string; type?: string; hold?: boolean }; quotes: { section: string; text: string }[]; note: string }[];
   };
   /** 每一轮哪几周稳态、哪几周间歇。 */
   cardio?: { products: string[]; phase?: string; weeks: number[]; mode: string; duration?: string; when: string; quotes: { section: string; text: string }[]; note: string }[];
@@ -103,6 +103,21 @@ export const planType = (seg: { phase?: string; type?: string }) => (seg.phase =
 /** 稳定期参数（按家族代码取）。 */
 export function stableParam(rules: RulesData | null | undefined, code: string, name: string): { value: string; number?: number } | undefined {
   return rules?.stable?.params.find((x) => x.name === name && x.products.includes(code));
+}
+
+/**
+ * 稳定期"习惯达标周数"：值写一个数（每个打卡项都是它），或者按打卡项写（"散步 9、放松 7"）。
+ * 返回这个打卡项要达标几周（没登记的返回 undefined）。
+ */
+export function habitPassWeeks(rules: RulesData | null | undefined, code: string, habit: string): number | undefined {
+  const p = stableParam(rules, code, "习惯达标周数");
+  if (!p) return undefined;
+  if (typeof p.number === "number") return p.number;
+  for (const part of p.value.split("、")) {
+    const m = /^(.+?)\s*(\d+)$/.exec(part.trim());
+    if (m && m[1] === habit) return Number(m[2]);
+  }
+  return undefined;
 }
 
 type Obj = Record<string, any>;

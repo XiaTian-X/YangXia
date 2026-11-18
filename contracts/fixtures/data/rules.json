@@ -2366,10 +2366,196 @@
      }
     ],
     "note": "设计值 STABLE_SYMPTOM：一轮里有不适，这一轮后面不往上加；下一轮等有一周没有不适才放开"
+   },
+   {
+    "name": "直接进入",
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a40·bw",
+     "a40·home"
+    ],
+    "value": "是",
+    "quotes": [
+     {
+      "section": "谁用这一份",
+      "text": "有训练基础、直接从这里开始"
+     }
+    ],
+    "note": "有训练基础的人可以直接从稳定期开始（门槛见\"有基础……\"三项）"
+   },
+   {
+    "name": "直接进入",
+    "products": [
+     "a18·gym",
+     "a40·gym"
+    ],
+    "value": "否",
+    "quotes": [
+     {
+      "section": "谁用这一份",
+      "text": "健身房版不设\"直接从这里开始\""
+     }
+    ],
+    "note": "起始重量要在起始期第 1 周试出来"
+   },
+   {
+    "name": "周期周数",
+    "products": [
+     "a13·bw"
+    ],
+    "value": "12",
+    "quotes": [
+     {
+      "section": "稳定期说明",
+      "text": "一轮 4 周，连着走 3 轮，一共 12 周"
+     }
+    ],
+    "note": "设计值 STABLE_CYCLE",
+    "number": 12
+   },
+   {
+    "name": "每轮周数",
+    "products": [
+     "a13·bw"
+    ],
+    "value": "4",
+    "quotes": [
+     {
+      "section": "稳定期说明",
+      "text": "一轮 4 周，连着走 3 轮，一共 12 周"
+     }
+    ],
+    "note": "每一轮照起始期标准段第 1–4 周的训练单",
+    "number": 4
+   },
+   {
+    "name": "进稳定期的结论",
+    "products": [
+     "a13·bw"
+    ],
+    "value": "原样",
+    "quotes": [
+     {
+      "section": "谁用这一份",
+      "text": "4 周完成 ≥ 10 次训练（起始期\"下一轮的方向\"第一条：习惯已经立住）"
+     }
+    ],
+    "note": "设计值 TEEN_STABLE_ENTRY：段末是\"完成 ≥ 10 练\"那一条（往上：是），没被不适降级；\"完成 8–9 练\"那一条结论也是\"原样\"，往上是\"否\"，不能进"
+   },
+   {
+    "name": "进稳定期要习惯达标",
+    "products": [
+     "a13·bw"
+    ],
+    "value": "是",
+    "quotes": [
+     {
+      "section": "谁用这一份",
+      "text": "以前降成每周 4 天的那一项也已经改回每周 5 天"
+     }
+    ],
+    "note": "设计值 STABLE_ENTRY_HABITS：段末重算出的下一段习惯目标要是空的"
+   },
+   {
+    "name": "直接进入",
+    "products": [
+     "a13·bw"
+    ],
+    "value": "否",
+    "quotes": [
+     {
+      "section": "谁用这一份",
+      "text": "这一份不设\"直接从这里开始\""
+     }
+    ],
+    "note": "13–17 岁的入门评估不做测试，没有可用的门槛；起始期第 1–2 周本来就找级"
+   },
+   {
+    "name": "找级窗口天数",
+    "products": [
+     "a13·bw"
+    ],
+    "value": "14",
+    "quotes": [
+     {
+      "section": "难度级：接着用，做得稳的才升",
+      "text": "只给断了四周以上回来的人（回来后的头两周）"
+     }
+    ],
+    "note": "设计值 STABLE_FIND：只给中断超过 28 天回来的人（回来后头 14 天）；其他人只能往下调",
+    "number": 14
+   },
+   {
+    "name": "回起始期的中断天数",
+    "products": [
+     "a13·bw"
+    ],
+    "value": "56",
+    "quotes": [
+     {
+      "section": "不舒服、断了几天",
+      "text": "断了八周以上"
+     }
+    ],
+    "note": "设计值 GAP_RESTART：断了超过 56 天（8 周）回起始期标准段",
+    "number": 56
+   },
+   {
+    "name": "周期达标训练数",
+    "products": [
+     "a13·bw"
+    ],
+    "value": "24",
+    "quotes": [
+     {
+      "section": "周期末评估",
+      "text": "≥ 24 为达标"
+     }
+    ],
+    "note": "设计值 CYCLE_PASS_YOUTH：12 周 ≥ 24 练（每周 3 练，和起始期\"完成 8–9 练算训练这一条达标\"的 8/12 同一比例）",
+    "number": 24
+   },
+   {
+    "name": "习惯达标周数",
+    "products": [
+     "a13·bw"
+    ],
+    "value": "9",
+    "quotes": [
+     {
+      "section": "周期末评估",
+      "text": "≥ 9 周为达标"
+     }
+    ],
+    "note": "设计值 CYCLE_PASS_YOUTH：动够 60 分钟、按时上床各自达标（每周 ≥ 5 天）的周数都要 ≥ 9",
+    "number": 9
+   },
+   {
+    "name": "不适按轮",
+    "products": [
+     "a13·bw"
+    ],
+    "value": "是",
+    "quotes": [
+     {
+      "section": "不舒服、断了几天",
+      "text": "这一轮（4 周）剩下的时间不升级、不加次数，可以降"
+     }
+    ],
+    "note": "设计值 STABLE_SYMPTOM"
    }
   ],
   "nextCycle": [
    {
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
     "order": 1,
     "when": [
      {
@@ -2390,6 +2576,37 @@
     "note": "设计值 CYCLE_LOW：照起始期\"完成 < 12 练……降到每周 3 练\"的意思，回起始期减量段"
    },
    {
+    "products": [
+     "a13·bw"
+    ],
+    "order": 1,
+    "when": [
+     {
+      "kind": "trainingsBelow"
+     }
+    ],
+    "result": "训练没达标",
+    "next": {
+     "phase": "起始",
+     "type": "减量"
+    },
+    "quotes": [
+     {
+      "section": "下一个周期怎么走",
+      "text": "12 周训练不到 24 次"
+     }
+    ],
+    "note": "设计值 CYCLE_LOW：照起始期\"完成 < 8 练……下一轮每周 2 练\"的意思，回起始期减量段"
+   },
+   {
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
     "order": 2,
     "when": [
      {
@@ -2413,6 +2630,40 @@
     "note": "设计值 CYCLE_FAIL_TWICE：回起始期标准段，从第 1 周把习惯重新立住"
    },
    {
+    "products": [
+     "a13·bw"
+    ],
+    "order": 2,
+    "when": [
+     {
+      "kind": "habitsMiss"
+     },
+     {
+      "kind": "prevMiss"
+     }
+    ],
+    "result": "连续两个周期没达标",
+    "next": {
+     "phase": "起始",
+     "type": "标准"
+    },
+    "quotes": [
+     {
+      "section": "下一个周期怎么走",
+      "text": "而且上一个周期也是这样"
+     }
+    ],
+    "note": "设计值 CYCLE_FAIL_TWICE"
+   },
+   {
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
     "order": 3,
     "when": [
      {
@@ -2433,6 +2684,37 @@
     "note": "设计值 CYCLE_HOLD：下一周期的第一轮不升级"
    },
    {
+    "products": [
+     "a13·bw"
+    ],
+    "order": 3,
+    "when": [
+     {
+      "kind": "habitsMiss"
+     }
+    ],
+    "result": "习惯没达标",
+    "next": {
+     "phase": "稳定",
+     "hold": true
+    },
+    "quotes": [
+     {
+      "section": "下一个周期怎么走",
+      "text": "接着开下一个周期，第 1 轮不升级"
+     }
+    ],
+    "note": "设计值 CYCLE_HOLD"
+   },
+   {
+    "products": [
+     "a18·bw",
+     "a18·home",
+     "a18·gym",
+     "a40·bw",
+     "a40·home",
+     "a40·gym"
+    ],
     "order": 4,
     "when": [],
     "result": "达标",
@@ -2446,6 +2728,24 @@
      }
     ],
     "note": "设计值 CYCLE_PASS"
+   },
+   {
+    "products": [
+     "a13·bw"
+    ],
+    "order": 4,
+    "when": [],
+    "result": "达标",
+    "next": {
+     "phase": "稳定"
+    },
+    "quotes": [
+     {
+      "section": "下一个周期怎么走",
+      "text": "接着开下一个周期，难度级和次数接着用"
+     }
+    ],
+    "note": "设计值 CYCLE_PASS_YOUTH"
    }
   ]
  },

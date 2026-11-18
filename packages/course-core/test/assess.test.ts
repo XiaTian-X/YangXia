@@ -501,7 +501,7 @@ describe("复核后的修订（拦下 / 放行）", () => {
     expect(errs(ctx(p, rv, [entry(p, { tests: bwT, conclusion: {} }), end, sw])).join()).toMatch(/下一段要是减量段/);
     p.segments[4].type = "减量";
     p.segments[4].habitTargets = { 散步: { days: 1 } };
-    expect(errs(ctx(p, rv, [entry(p, { tests: bwT, conclusion: {} }), end, sw])).join()).toMatch(/习惯目标应该是 \{\}/);
+    expect(errs(ctx(p, rv, [entry(p, { tests: bwT, conclusion: {} }), end, sw])).join()).toMatch(/换到别的家族的成品，上一段的习惯目标不带过去/);
   });
   it("拖长的周：没有练习记录时按开始后第 7 天算最后一次训练，长时间中断照样报", () => {
     const p = profile("18-39岁-纯徒手版", [[1, 1], [1, 2]]);

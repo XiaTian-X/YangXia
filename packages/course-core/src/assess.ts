@@ -3,7 +3,7 @@
 // BMI 切点来自 manifest 的官方参数（BMI_CN、WEIGHT_LOW_CN）。结论由这里重算，评估记录里写的结论对不上就报错。
 // 稳定期（阶段 3）：周期末结论照 rules.json 的 stable.nextCycle 重算；进稳定期的两条路、有氧稳态 / 间歇（cardio）也在这里。
 import type { Manifest } from "./manifest.ts";
-import { type PlansData, ROUND_WEEKS, roundWeek, type RulesData, stableParam } from "./plan.ts";
+import { habitPassWeeks, type PlansData, ROUND_WEEKS, roundWeek, type RulesData, stableParam } from "./plan.ts";
 import { fallRiskConclusion, fallRiskIssues, fallRiskRules, validateFallRisk, validateOfficial } from "./fallrisk.ts";
 import { bodyStateOn, cycleGoals, goalRules, lastWeighed, validateGoalFields, validateGoalRecord } from "./goals.ts";
 import { gapBefore, localDate, longGapDays, reviewDataName, type SegmentEntry, type SessionFile, trainingDates } from "./progress.ts";
@@ -711,10 +711,11 @@ export function cycleEnd(ctx: AssessContext, n: number): CycleConclusion | { err
   const info = productInfo(ctx.manifest, ss[0].product);
   if (!info) return { error: `模板里没有成品「${ss[0].product}」` };
   const passTr = stableParam(ctx.rules, info.code, "周期达标训练数")?.number;
-  const passHabit = stableParam(ctx.rules, info.code, "习惯达标周数")?.number;
-  if (passTr === undefined || passHabit === undefined) return { error: `稳定期.md 没有 ${info.code} 的周期达标线` };
   const cap = param(ar.assess, "每周排的训练", info.code)?.number ?? Infinity;
   const habitRules = ar.habits.filter((h) => h.products.includes(info.code) && h.segments.includes("标准") && h.per === "week");
+  // 习惯达标周数：一个数（每项都是它），或者按打卡项写（"散步 9、放松 7"）
+  const passOf: Record<string, number | undefined> = Object.fromEntries(habitRules.map((h) => [h.habit, habitPassWeeks(ctx.rules, info.code, h.habit)]));
+  if (passTr === undefined || Object.values(passOf).some((x) => x === undefined)) return { error: `稳定期.md 没有 ${info.code} 的周期达标线（周期达标训练数、每个打卡项的习惯达标周数）` };
   const lastOf = new Map<number, SegmentEntry>();
   for (const s of ss) lastOf.set(s.week, s);
   let trainings = 0;
@@ -741,9 +742,11 @@ export function cycleEnd(ctx: AssessContext, n: number): CycleConclusion | { err
   const prevN = first > 0 ? all[first - 1].n : null;
   const prevMiss = prevN !== null && ctx.assessments.some((a) => a.raw?.kind === "周期末" && a.raw.segment === prevN && a.raw.conclusion?.next?.hold === true);
   const test = (c: { kind: string }) => c.kind === "trainingsBelow" ? trainings < passTr
-    : c.kind === "habitsMiss" ? Object.values(habitWeeks).some((x) => x < passHabit)
+    : c.kind === "habitsMiss" ? Object.entries(habitWeeks).some(([h, x]) => x < (passOf[h] as number))
     : c.kind === "prevMiss" ? prevMiss : false;
-  const hit = [...st.nextCycle].sort((x, y) => x.order - y.order).find((r) => r.when.every(test));
+  // 下一周期的表按家族各一张（旧模板的行没有 products，照旧所有家族共用）
+  const rows = st.nextCycle.filter((r) => !r.products || r.products.includes(info.code));
+  const hit = [...rows].sort((x, y) => x.order - y.order).find((r) => r.when.every(test));
   if (!hit) return { error: "稳定期.md 的下一周期规则没有一条对得上" };
   return { result: hit.result, next: hit.next, trainings, habitWeeks, quotes: hit.quotes.map((q) => q.text) };
 }
@@ -869,8 +872,9 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
           && (hasReason(a, "中断") || hasReason(a, "回起始期") || a.raw.doctorRestart === true));
         if (!why) err(`segments[${i}]`, "稳定期一个周期没练完就回起始期，要有触发评估：断了八周以上（中断）、医生建议从头来（doctorRestart）、或者自己要求（回起始期）");
         if (s.type !== "标准") err(`segments[${i}].type`, "周期中途回起始期：从标准段第 1 周开始");
-      } else if (!sameFam && info && prevInfo && prevInfo.age === "a18" && info.age === "a40" && prev.week % ROUND_WEEKS !== 0) {
-        err(`segments[${i}]`, `满 40 岁在轮的边界换版：这一轮（4 周）练完再换，上一段才到第 ${prev.week} 周`);
+      } else if (!sameFam && info && prevInfo && prevInfo.age !== info.age && info.age !== "a65" && prev.week % ROUND_WEEKS !== 0) {
+        // 满 40 岁、13–17 岁满 18 岁：在轮的边界换版（满 65 岁不等，A65_SWITCH）
+        err(`segments[${i}]`, `${info.age === "a40" ? "满 40 岁" : "满 18 岁"}在轮的边界换版：这一轮（4 周）练完再换，上一段才到第 ${prev.week} 周`);
       }
     } else if (prev.week === 4) {
       // 上一段练完了：照样要段末评估、照结论开（写了 restart 也一样）
@@ -896,15 +900,18 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
         const want = c.next === "减量" ? "减量" : "标准";
         if (s.type !== want) err(`segments[${i}].type`, `第 ${prev.n} 段段末的结论是"${c.result}"，下一段要是${want}段，写的是${s.type}段`);
       }
-      // 进稳定期：段末结论要是进阶线那一条，而且没被不适降级
-      if (curStable && prevInfo && !(enterResults(prevInfo.code).includes(c.result) && !c.downgraded)) {
-        err(`segments[${i}]`, `第 ${prev.n} 段段末的结论是"${c.result}"${c.downgraded ? "（有不适，降级了）" : ""}：到了进阶线（${enterResults(prevInfo.code).join("、") || "这份成品没有登记"}）而且这一段没有不适，才能进稳定期；否则照结论再跑一段起始期`);
+      // 进稳定期：段末结论要是进阶线那一条（往上是"是"），而且没被不适降级；登记了"进稳定期要习惯达标"的，下一段习惯目标还要是空的
+      if (curStable && prevInfo && !(enterResults(prevInfo.code).includes(c.result) && c.upward && !c.downgraded)) {
+        err(`segments[${i}]`, `第 ${prev.n} 段段末的结论是"${c.result}"${c.downgraded ? "（有不适，降级了）" : !c.upward ? "（不是往上那一条）" : ""}：到了进阶线（${enterResults(prevInfo.code).join("、") || "这份成品没有登记"}，往上那一条）而且这一段没有不适，才能进稳定期；否则照结论再跑一段起始期`);
+      } else if (curStable && prevInfo && stableParam(ctx.rules, prevInfo.code, "进稳定期要习惯达标")?.value === "是" && Object.keys(c.habitTargets).length) {
+        err(`segments[${i}]`, `第 ${prev.n} 段段末重算出的下一段习惯目标是 ${JSON.stringify(c.habitTargets)}：降过的习惯目标都改回来（下一段习惯目标是空的）才能进稳定期，先带着这个目标再跑一段起始期（STABLE_ENTRY_HABITS）`);
       }
-      // 换成品：只留新成品这种段型也有的打卡项
+      // 换成品：同一家族只留新成品这种段型也有的打卡项；换到别的家族的，上一段的习惯目标都不带过去（CROSS_FAMILY_RESET）
       const newHabits = new Set(ar.habits.filter((h) => h.products.includes(info?.code ?? "") && h.segments.includes(s.type)).map((h) => h.habit));
-      const wantTargets = s.product === prev.product ? c.habitTargets : Object.fromEntries(Object.entries(c.habitTargets).filter(([h]) => newHabits.has(h)));
+      const wantTargets = s.product === prev.product ? c.habitTargets : !sameFam ? {} : Object.fromEntries(Object.entries(c.habitTargets).filter(([h]) => newHabits.has(h)));
       if (!sameJson((s as Obj).habitTargets ?? {}, wantTargets)) {
-        err(`segments[${i}].habitTargets`, `按第 ${prev.n} 段段末，下一段的习惯目标应该是 ${JSON.stringify(wantTargets)}，写的是 ${JSON.stringify((s as Obj).habitTargets ?? {})}`);
+        err(`segments[${i}].habitTargets`, !sameFam && s.product !== prev.product ? "换到别的家族的成品，上一段的习惯目标不带过去（CROSS_FAMILY_RESET）：这一段不写 habitTargets"
+          : `按第 ${prev.n} 段段末，下一段的习惯目标应该是 ${JSON.stringify(wantTargets)}，写的是 ${JSON.stringify((s as Obj).habitTargets ?? {})}`);
       }
     } else if (rs) {
       // 中途重来：段型、习惯目标照被中断的那一段
@@ -914,8 +921,9 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       // 一段中间换场地、换成品：段型照被换掉的那一段（减量段换场地还是减量段，第十三节第 5 条），习惯目标只留新成品也有的
       if (s.type !== prevSeg[0].type) err(`segments[${i}].type`, `一段中间换成品，段型照原来那一段（${prevSeg[0].type}段）`);
       const newHabits = new Set(ar.habits.filter((h) => h.products.includes(info?.code ?? "") && h.segments.includes(s.type)).map((h) => h.habit));
-      const want = Object.fromEntries(Object.entries((prevSeg[0] as Obj).habitTargets ?? {}).filter(([h]) => newHabits.has(h)));
-      if (!sameJson((s as Obj).habitTargets ?? {}, want)) err(`segments[${i}].habitTargets`, `一段中间换成品，习惯目标照原来那一段（只留新成品也有的）：${JSON.stringify(want)}`);
+      const want = !sameFam ? {} : Object.fromEntries(Object.entries((prevSeg[0] as Obj).habitTargets ?? {}).filter(([h]) => newHabits.has(h)));
+      if (!sameJson((s as Obj).habitTargets ?? {}, want)) err(`segments[${i}].habitTargets`, !sameFam ? "换到别的家族的成品，上一段的习惯目标不带过去（CROSS_FAMILY_RESET）：这一段不写 habitTargets"
+        : `一段中间换成品，习惯目标照原来那一段（只留新成品也有的）：${JSON.stringify(want)}`);
     } else if ((s as Obj).habitTargets !== undefined) {
       err(`segments[${i}].habitTargets`, "习惯目标只能来自上一段的段末结论");
     }
@@ -977,8 +985,13 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
   const curInfo = productInfo(ctx.manifest, last.product);
   const curStart = segStarts[segStarts.length - 1].s;
   if (!ageProblem && curInfo) {
-    const atStart = ageAt(p, curStart.start, ar.assess);
-    if (atStart.stage && p.stage !== atStart.stage && STAGE_AGE[p.stage] === atStart.age) err("档案.json stage", `这一段开始那天推算是${atStart.stage}，档案写的是${p.stage}：改 stage，重算上床时间`);
+    // 学段（初中升高中）：起始期和这一段开始那天比；稳定期一段 12 周，和这一轮开始那天比（"这一轮练完按高中重新算上床时间"）
+    let stageDay = curStart.start;
+    if (phaseOf(last) === "稳定") {
+      for (let k = ss.length - 1; k >= 0 && ss[k].n === last.n; k--) if (roundWeek(ss[k].week) === 1) { stageDay = ss[k].start; break; }
+    }
+    const atStart = ageAt(p, stageDay, ar.assess);
+    if (atStart.stage && p.stage !== atStart.stage && STAGE_AGE[p.stage] === atStart.age) err("档案.json stage", `这一${phaseOf(last) === "稳定" ? "轮" : "段"}开始那天推算是${atStart.stage}，档案写的是${p.stage}：改 stage，重算上床时间`);
     const atNow = ageAt(p, today, ar.assess);
     const curStable = phaseOf(last) === "稳定";
     if (atNow.age === "a65" && curInfo.age !== "a65") err("档案.json", "已经满 65 岁：要换 65 岁以上版（重新筛查、医生同意），不等这一段练完（A65_SWITCH）");
@@ -1196,12 +1209,13 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
     }
     ss.forEach((s) => {
       const rv = ctx.reviewData[reviewDataName(s)];
-      if (rv && rv.trainings === 0) warn(`复盘/${reviewDataName(s)}`, "这一周没有训练：回来第一次只做一半的量（course export 加 --half）");
+      // 6–12 岁没有"训练"这一项：升初中以后，那几周不出这条提醒（CROSS_FAMILY_RESET）
+      if (rv && rv.trainings === 0 && productInfo(ctx.manifest, s.product)?.age !== "a06") warn(`复盘/${reviewDataName(s)}`, "这一周没有训练：回来第一次只做一半的量（course export 加 --half）");
     });
     const trained = trainingDates(ss, ctx.sessions, ctx.reviewData, today);
     const longDays = ctx.rules ? longGapDays(ctx.rules, code) : 28;
     for (const a of A.filter((x) => hasReason(x, "中断"))) {
-      const d = gapBefore(trained, ss[0].start, a.raw.date);
+      const d = gapBefore(trained, gapBase(ctx), a.raw.date);
       if (d <= longDays) warn(a.name, `这份"中断"触发评估之前只断了 ${d} 天（不超过 ${longDays} 天）：不算长时间中断，稳定期不能按它找级`);
       if (d <= longDays && a.raw.body !== undefined) err(`${a.name} body`, `没有真的断过 ${longDays} 天以上：这份"中断"触发评估不能记身体数据（体重腰围只在入门、段末、周期末评估里记）`);
     }
@@ -1249,6 +1263,12 @@ function productAt(ss: SegmentEntry[], date: string): string | undefined {
  * 最后一次训练：练习记录，和"训练数 > 0 的周复盘覆盖的那一周的最后一天"（下一项开始的前一天；拖长的周也算到那天）里较晚的；
  * 还没练过就按第一段开始那天。
  */
+/** 中断从哪天起算：第一项不是 6–12 岁成品的那一段开始那天（6–12 岁没有"训练"这一项）；都是的按第一段。 */
+function gapBase(ctx: AssessContext): string {
+  const ss = ctx.profile.segments as SegmentEntry[];
+  return ss.find((s) => productInfo(ctx.manifest, s.product)?.age !== "a06")?.start ?? ss[0].start;
+}
+
 export function gap(ctx: AssessContext, code: string, today: string): { last: string; days: number; remindDays: number; longDays: number; long: boolean } | null {
   const ar = assessRules(ctx.rules);
   if (!ar) return null;
@@ -1256,8 +1276,8 @@ export function gap(ctx: AssessContext, code: string, today: string): { last: st
   const longDays = param(ar.assess, "长时间中断天数", code)?.number;
   if (remindDays === undefined || longDays === undefined) return null;
   const ss = ctx.profile.segments as SegmentEntry[];
-  // 这一周有练习记录的，以练习记录为准；没有的，按这一周开始后的第 7 天算（trainingDates）
-  const dates = [ss[0].start, ...trainingDates(ss, ctx.sessions, ctx.reviewData, today)];
+  // 这一周有练习记录的，以练习记录为准；没有的，按这一周开始后的第 7 天算（trainingDates）；6–12 岁那几段不算（CROSS_FAMILY_RESET）
+  const dates = [gapBase(ctx), ...trainingDates(ss, ctx.sessions, ctx.reviewData, today)];
   const last = dates.sort().pop()!;
   const days = Math.round((dayStart(today) - dayStart(last)) / DAY);
   return { last, days, remindDays, longDays, long: days > longDays };
