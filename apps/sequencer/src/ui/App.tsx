@@ -81,6 +81,18 @@ export function App() {
     hud.current.layoutMode = settings.layout;
   }, [settings.background, settings.layout]);
 
+  // e2e：按某一时刻重画一帧，和导出的视频对比
+  useEffect(() => {
+    if (import.meta.env.MODE !== "e2e") return;
+    (window as unknown as { __hudAt?: (t: number) => OffscreenCanvas }).__hudAt = (t) => {
+      const c = new OffscreenCanvas(HUD_WIDTH, HUD_HEIGHT);
+      const f = figureState.current;
+      drawHud(c.getContext("2d") as unknown as CanvasRenderingContext2D, { ...initialHud(), bgMode: "magenta", layoutMode: settings.layout }, HUD_WIDTH, HUD_HEIGHT,
+        f.course && timeline ? hudFigure(f.course, timeline, f.clips, figures.current, t) : null);
+      return c;
+    };
+  }, [timeline, settings.layout]);
+
   // 画面：每帧平滑一次再画
   useEffect(() => {
     let raf = 0;
@@ -177,7 +189,11 @@ export function App() {
       else {
         abort.current = new AbortController();
         const bgMode = settings.background === "dark" ? "magenta" : settings.background;
+        const withFigure = settings.motionFigure !== false;
+        // 导出前等动图加载完，视频里不会缺图；加载失败的动作只是不显示
+        if (withFigure) await figures.current.prepare(courseClips(course, clips), clips);
         const blob = await exportWebm(input(), { hud: { bgMode, layoutMode: settings.layout }, signal: abort.current.signal,
+          figure: withFigure ? (t) => hudFigure(course, timeline, clips, figures.current, t) : undefined,
           onProgress: (stage, pct) => setProgress(stage === "audio" ? 2 : pct) });
         download(blob, exportName(course, "webm"));
       }

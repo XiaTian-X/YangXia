@@ -4,7 +4,7 @@ import { buildSession, buildSrt, type Course, type SessionInput, type Timeline }
 import { AudioBufferSource, BufferTarget, canEncodeAudio, canEncodeVideo, CanvasSource, Output, WebMOutputFormat } from "mediabunny";
 import { renderOffline, type RenderInput } from "../audio/render.ts";
 import { audioBufferToWav } from "../audio/sounds.ts";
-import { applyEvent, drawHud, HUD_HEIGHT, HUD_WIDTH, initialHud, stepHud, type HudState } from "../hud/draw.ts";
+import { applyEvent, drawHud, HUD_HEIGHT, HUD_WIDTH, initialHud, stepHud, type HudFigure, type HudState } from "../hud/draw.ts";
 
 export async function exportWav(input: RenderInput): Promise<Blob> {
   return audioBufferToWav(await renderOffline(input));
@@ -40,6 +40,8 @@ export async function webmSupport(): Promise<WebmSupport | null> {
 
 export interface WebmOptions {
   hud: Pick<HudState, "bgMode" | "layoutMode">;
+  /** 这一刻的动作示意；不传或返回 null 就不画。和实时跟练用同一个函数。 */
+  figure?: (t: number) => HudFigure | null;
   onProgress?: (stage: "audio" | "video", pct: number) => void;
   signal?: AbortSignal;
 }
@@ -89,7 +91,7 @@ export async function exportWebm(input: RenderInput, opts: WebmOptions): Promise
       }
       if (hud.voiceText && t >= voiceClear) hud.voiceText = "";
       stepHud(hud, last >= 0 ? events[last] : undefined, events[last + 1], t);
-      drawHud(ctx, hud);
+      drawHud(ctx, hud, HUD_WIDTH, HUD_HEIGHT, opts.figure?.(t));
       await video.add(t, 1 / FPS);
       if (f % 20 === 0) {
         opts.onProgress?.("video", Math.min(99, Math.round(((f + 1) / totalFrames) * 100)));

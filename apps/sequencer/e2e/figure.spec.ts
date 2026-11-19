@@ -1,6 +1,7 @@
 // 动作示意动图：导出的课程显示动图，手写课程、关掉设置、改过动作名不显示；全程不访问外部地址。
 import { expect, test, type Page } from "@playwright/test";
-import type { Course } from "@yangxia/course-core";
+import { buildTimeline, type Course } from "@yangxia/course-core";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -64,6 +65,48 @@ test("动作示意：显示、不显示、动起来，不访问外部地址", as
   await expect.poll(async () => { seen.add((await card(page)).hash); return seen.size; }, { timeout: 25_000, intervals: [120] }).toBeGreaterThan(4);
   await page.getByRole("button", { name: "停止" }).click();
   await page.getByRole("button", { name: "不记录" }).click();
+
+  // 导出：可以取消；导出的视频里图在动，并且和同一时刻重画的图卡一致
+  await page.locator('[data-export="webm"]').click();
+  await page.getByRole("button", { name: "取消" }).click();
+  await expect(page.getByText("已取消导出")).toBeVisible({ timeout: 30_000 });
+  const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 150_000 }), page.locator('[data-export="webm"]').click()]);
+  const webm = readFileSync((await dl.path())!).toString("base64");
+  const tl = buildTimeline(COURSE);
+  const down = tl.motion.find((s) => s.kind === "phase" && s.phase === "down")!;
+  const hold = tl.motion.find((s) => s.kind === "timed")!;
+  const times = [down.start + 0.4, down.start + 1.6, hold.start + 1, hold.start + 4].map((t) => Math.round(t * 60) / 60);
+  const got = await page.evaluate(async ({ webm, times }) => {
+    const bytes = Uint8Array.from(atob(webm), (c) => c.charCodeAt(0));
+    const v = document.createElement("video");
+    v.muted = true;
+    v.src = URL.createObjectURL(new Blob([bytes], { type: "video/webm" }));
+    await new Promise((ok, no) => { v.onloadeddata = ok; v.onerror = no; });
+    const [X, Y, W, H] = [626, 218, 588, 378];
+    const read = (src: CanvasImageSource) => {
+      const c = new OffscreenCanvas(W, H);
+      const g = c.getContext("2d", { willReadFrequently: true })!;
+      g.drawImage(src, X, Y, W, H, 0, 0, W, H);
+      return g.getImageData(0, 0, W, H).data;
+    };
+    const diff = (a: Uint8ClampedArray, b: Uint8ClampedArray) => {
+      let sum = 0;
+      for (let i = 0; i < a.length; i += 4) sum += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+      return sum / (a.length / 4) / 3;
+    };
+    const frames: Uint8ClampedArray[] = [];
+    const vsHud: number[] = [];
+    for (const t of times) {
+      await new Promise((ok) => { v.onseeked = ok; v.currentTime = t + 0.002; });
+      const f = read(v);
+      frames.push(f);
+      vsHud.push(diff(f, read((window as unknown as { __hudAt: (t: number) => OffscreenCanvas }).__hudAt(t))));
+    }
+    return { vsHud, moved: diff(frames[0], frames[1]), held: diff(frames[2], frames[3]) };
+  }, { webm, times });
+  for (const d of got.vsHud) expect(d).toBeLessThan(6);
+  expect(got.moved).toBeGreaterThan(1);      // 下放过程中人在动
+  expect(got.held).toBeLessThan(1);          // 平板撑住不动
 
   // 编辑器改了动作名：这个动作不再显示
   await page.locator(".item-head input[type=text]").first().fill("别的动作");
