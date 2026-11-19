@@ -1,10 +1,10 @@
 // 导出：WAV 音频、SRT 字幕、WebM 跟练视频（WebCodecs 离线高速合成）、练习记录 JSON。
-// WebM 的流程照原版 exportWebmOfflineFast 移植：先离线渲染 48kHz 音轨，再按 60FPS 虚拟时钟逐帧画面、编码、封装。
+// WebM：先离线渲染 48kHz 音轨，再按 60FPS 虚拟时钟逐帧画面；编码、封装交给 Mediabunny。
 import { buildSession, buildSrt, type Course, type SessionInput, type Timeline } from "@yangxia/course-core";
+import { AudioBufferSource, BufferTarget, canEncodeAudio, canEncodeVideo, CanvasSource, Output, WebMOutputFormat } from "mediabunny";
 import { renderOffline, type RenderInput } from "../audio/render.ts";
 import { audioBufferToWav } from "../audio/sounds.ts";
 import { applyEvent, drawHud, HUD_HEIGHT, HUD_WIDTH, initialHud, stepHud, type HudState } from "../hud/draw.ts";
-import { createSimpleWebmMuxer } from "./webm-muxer.js";
 
 export async function exportWav(input: RenderInput): Promise<Blob> {
   return audioBufferToWav(await renderOffline(input));
@@ -15,20 +15,22 @@ export function exportSrt(timeline: Timeline): Blob {
 }
 
 export interface WebmSupport {
-  videoCodec: string;
-  videoWebmId: string;
+  videoCodec: "vp9" | "vp8";
 }
+
+const VIDEO_BITRATE = 5_000_000;
+const AUDIO_BITRATE = 128_000;
+const FPS = 60;
+const SAMPLE_RATE = 48_000;
 
 export async function webmSupport(): Promise<WebmSupport | null> {
   if (typeof VideoEncoder !== "function" || typeof AudioEncoder !== "function" || typeof VideoFrame !== "function" || typeof AudioData !== "function") {
     return null;
   }
   try {
-    const a = await AudioEncoder.isConfigSupported({ codec: "opus", sampleRate: 48000, numberOfChannels: 2, bitrate: 128000 });
-    if (!a.supported) return null;
-    for (const c of [{ codec: "vp09.00.10.08", webmId: "V_VP9" }, { codec: "vp8", webmId: "V_VP8" }]) {
-      const v = await VideoEncoder.isConfigSupported({ codec: c.codec, width: HUD_WIDTH, height: HUD_HEIGHT, bitrate: 5_000_000, framerate: 60 });
-      if (v.supported) return { videoCodec: c.codec, videoWebmId: c.webmId };
+    if (!(await canEncodeAudio("opus", { sampleRate: SAMPLE_RATE, numberOfChannels: 2, bitrate: AUDIO_BITRATE }))) return null;
+    for (const videoCodec of ["vp9", "vp8"] as const) {
+      if (await canEncodeVideo(videoCodec, { width: HUD_WIDTH, height: HUD_HEIGHT, bitrate: VIDEO_BITRATE, frameRate: FPS })) return { videoCodec };
     }
   } catch {
     /* 不支持 */
@@ -49,44 +51,24 @@ export async function exportWebm(input: RenderInput, opts: WebmOptions): Promise
     if (opts.signal?.aborted) throw new DOMException("已取消", "AbortError");
   };
   const { timeline } = input;
-  const fps = 60;
-  const sr = 48000;
-  const totalFrames = Math.max(1, Math.ceil(timeline.totalDuration * fps));
+  const totalFrames = Math.max(1, Math.ceil(timeline.totalDuration * FPS));
   opts.onProgress?.("audio", 0);
-  const audio = await renderOffline(input, sr);
+  const audio = await renderOffline(input, SAMPLE_RATE);
   check();
-  const muxer = createSimpleWebmMuxer({ width: HUD_WIDTH, height: HUD_HEIGHT, fps, videoCodecId: support.videoWebmId,
-    sampleRate: sr, channels: 2, durationMs: timeline.totalDuration * 1000 });
-  let encoderError: unknown = null;
-  const copy = (chunk: EncodedVideoChunk | EncodedAudioChunk) => {
-    const buf = new Uint8Array(chunk.byteLength);
-    chunk.copyTo(buf);
-    return buf;
-  };
-  const vEnc = new VideoEncoder({ output: (c) => muxer.addVideoChunk(copy(c), c.timestamp, c.type === "key"), error: (e) => { encoderError = e; } });
-  vEnc.configure({ codec: support.videoCodec, width: HUD_WIDTH, height: HUD_HEIGHT, bitrate: 5_000_000, framerate: fps });
-  const aEnc = new AudioEncoder({ output: (c) => muxer.addAudioChunk(copy(c), c.timestamp), error: (e) => { encoderError = e; } });
-  aEnc.configure({ codec: "opus", sampleRate: sr, numberOfChannels: 2, bitrate: 128000 });
+  const canvas = new OffscreenCanvas(HUD_WIDTH, HUD_HEIGHT);
+  const ctx = canvas.getContext("2d") as unknown as CanvasRenderingContext2D;
+  const target = new BufferTarget();
+  const output = new Output({ format: new WebMOutputFormat(), target });
+  const video = new CanvasSource(canvas, { codec: support.videoCodec, bitrate: VIDEO_BITRATE, keyFrameInterval: 1 });
+  const sound = new AudioBufferSource({ codec: "opus", bitrate: AUDIO_BITRATE });
+  output.addVideoTrack(video, { frameRate: FPS });
+  output.addAudioTrack(sound);
   try {
-    // 音频：每块 960 采样（20ms，标准 Opus 帧），队列积压时等一等
-    const ch0 = audio.getChannelData(0);
-    const ch1 = audio.numberOfChannels > 1 ? audio.getChannelData(1) : ch0;
-    for (let off = 0; off < audio.length; off += 960) {
-      check();
-      if (encoderError) throw encoderError;
-      const len = Math.min(960, audio.length - off);
-      const planar = new Float32Array(len * 2);
-      planar.set(ch0.subarray(off, off + len), 0);
-      planar.set(ch1.subarray(off, off + len), len);
-      const data = new AudioData({ format: "f32-planar", sampleRate: sr, numberOfFrames: len, numberOfChannels: 2,
-        timestamp: Math.round((off / sr) * 1_000_000), data: planar });
-      aEnc.encode(data);
-      data.close();
-      while (aEnc.encodeQueueSize > 24 && !encoderError) await new Promise((r) => setTimeout(r, 2));
-    }
+    await output.start();
+    // 音轨和画面同时写：封装器要按时间交错，先把一条写完可能卡住
+    let audioError: unknown = null;
+    const audioDone = sound.add(audio).catch((e: unknown) => { audioError = e; });
     // 画面：60FPS 虚拟时钟逐帧画
-    const canvas = new OffscreenCanvas(HUD_WIDTH, HUD_HEIGHT);
-    const ctx = canvas.getContext("2d") as unknown as CanvasRenderingContext2D;
     const hud: HudState = { ...initialHud(), ...opts.hud, pulseScale: 1 };
     const events = timeline.events;
     let cursor = 0;
@@ -94,8 +76,8 @@ export async function exportWebm(input: RenderInput, opts: WebmOptions): Promise
     let voiceClear = 0;
     for (let f = 0; f < totalFrames; f++) {
       check();
-      if (encoderError) throw encoderError;
-      const t = f / fps;
+      if (audioError) throw audioError;
+      const t = f / FPS;
       while (cursor < events.length && t >= events[cursor].time - 0.0001) {
         const ev = events[cursor];
         applyEvent(hud, ev);
@@ -108,21 +90,20 @@ export async function exportWebm(input: RenderInput, opts: WebmOptions): Promise
       if (hud.voiceText && t >= voiceClear) hud.voiceText = "";
       stepHud(hud, last >= 0 ? events[last] : undefined, events[last + 1], t);
       drawHud(ctx, hud);
-      const frame = new VideoFrame(canvas, { timestamp: Math.round((f * 1_000_000) / fps) });
-      vEnc.encode(frame, { keyFrame: f % 60 === 0 });
-      frame.close();
-      if (vEnc.encodeQueueSize > 16 || f % 20 === 0) {
+      await video.add(t, 1 / FPS);
+      if (f % 20 === 0) {
         opts.onProgress?.("video", Math.min(99, Math.round(((f + 1) / totalFrames) * 100)));
-        while (vEnc.encodeQueueSize > 8 && !encoderError) await new Promise((r) => setTimeout(r, 4));
+        await new Promise((r) => setTimeout(r));     // 让进度条和"取消"按钮有机会响应
       }
     }
-    await Promise.all([vEnc.flush(), aEnc.flush()]);
-    if (encoderError) throw encoderError;
+    await audioDone;
+    if (audioError) throw audioError;
+    await output.finalize();
     opts.onProgress?.("video", 100);
-    return muxer.finalize();
-  } finally {
-    if (vEnc.state !== "closed") vEnc.close();
-    if (aEnc.state !== "closed") aEnc.close();
+    return new Blob([target.buffer!], { type: "video/webm" });
+  } catch (e) {
+    await output.cancel().catch(() => undefined);
+    throw e;
   }
 }
 

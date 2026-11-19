@@ -2,6 +2,7 @@
 // 并和核心库在 Node 里算出的时间轴对数（SRT 最后一条时间码、WAV 时长）。
 import { buildSrt, buildTimeline, validateSession, type Course } from "@yangxia/course-core";
 import { expect, test, type Download, type Page } from "@playwright/test";
+import { ALL_FORMATS, BufferSource, Input } from "mediabunny";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -92,11 +93,19 @@ test("养夏跟练编排器：导入、跟练、导出", async ({ page }) => {
   expect(ch).toBe(2);
   expect(Math.abs(seconds - tl.totalDuration)).toBeLessThan(2 / sr);
 
-  // WebM：EBML 文件头、封装器名字
+  // WebM：EBML 文件头、封装器名字，读回轨道、时长（元数据里没有 Keep）
   const webm = await saved(page, () => page.locator('[data-export="webm"]').click(), 150_000);
   expect(webm.subarray(0, 4).toString("hex")).toBe("1a45dfa3");
   expect(webm.length).toBeGreaterThan(10_000);
-  expect(webm.includes(Buffer.from("YangXia-Sequencer"))).toBe(true);
+  expect(webm.subarray(0, 4096).includes(Buffer.from("Mediabunny"))).toBe(true);
+  expect(webm.subarray(0, 4096).toString("latin1")).not.toMatch(/keep/i);
+  const file = new Input({ formats: ALL_FORMATS, source: new BufferSource(webm) });
+  const videoTrack = (await file.getPrimaryVideoTrack())!;
+  const audioTrack = (await file.getPrimaryAudioTrack())!;
+  expect(["vp9", "vp8"]).toContain(videoTrack.codec);
+  expect([await videoTrack.getCodedWidth(), await videoTrack.getCodedHeight()]).toEqual([1280, 720]);
+  expect([audioTrack.codec, await audioTrack.getSampleRate(), await audioTrack.getNumberOfChannels()]).toEqual(["opus", 48000, 2]);
+  expect(Math.abs(await file.computeDuration() - tl.totalDuration)).toBeLessThan(0.1);
 
   expect(errors).toEqual([]);
 });
