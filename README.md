@@ -21,7 +21,7 @@
 | 部分 | 是什么 | 在哪 |
 |---|---|---|
 | **养夏计划模板** | 9 份运动计划 + 1 份全家餐饮模板，另有三餐菜谱手册、动作图解手册（87 张动作示意图） | 独立仓库 `YangXia-templates`，放在 `templates/`；怎么选版本见 `templates/README.md` |
-| **养夏跟练编排器** | 把一天的训练编成跟练音频（WAV）、视频（WebM）和字幕（SRT），跟练完导出练习记录 | `apps/sequencer/`；`npm run build` 生成单文件 `apps/sequencer/dist/养夏跟练编排器.html`，双击打开、离线可用 |
+| **养夏跟练编排器** | 把一天的训练编成跟练音频（WAV）、视频（WebM）和字幕（SRT），画面带动作示意动图，跟练完导出练习记录 | `apps/sequencer/`；`npm run build` 生成单文件 `apps/sequencer/dist/养夏跟练编排器.html`，双击打开、离线可用 |
 | **养夏课程核心库** | 课程格式、节奏、时间轴、字幕，课程导出和检查，档案检查（`npm run course`、`npm run profile`） | `packages/course-core/` |
 | **数据约定** | 课程、练习记录、个人档案、复盘数据的 JSON Schema 和离线样例 | `contracts/`；说明见 [docs/数据约定.md](docs/数据约定.md) |
 | **agent 工作流** | 建档、导出课程、周复盘、排菜单的流程，以及安全底线、隐私和提交规则 | [AGENTS.md](AGENTS.md)、[.claude/skills/](.claude/skills/) |
@@ -171,7 +171,7 @@ profiles/                个人数据（不提交）
 ```bash
 npm test             # 单元测试（模板不在时，安全相关测试照样跑）
 npm run typecheck    # 类型检查
-npm run e2e          # 打包编排器，用 Playwright 跑冒烟测试
+npm run e2e          # 用离线样例打包编排器，用 Playwright 跑冒烟和动作示意测试
 ```
 
 第一次跑冒烟测试前装一次 Chromium：
@@ -188,7 +188,7 @@ npx playwright install chromium
 ### 改模板
 
 - 在模板仓库里按 `templates/AGENTS.md` 的规则改、在模板仓库里提交（`template-maintain` skill）。不直接改 `dist/`：改 `content/` 或 `figures/` 后运行 `python3 templates/tpl.py all`，要求 0 错误 0 警告。
-- 本仓库只读模板的发布物：`templates/dist/` 里的成品、`dist/manifest.json`、`dist/data/plans.json` 和 `rules.json`；不读 `content/`，不 import 模板的代码。
+- 本仓库只读模板的发布物：`templates/dist/` 里的成品、`dist/manifest.json`、`dist/data/plans.json`、`rules.json` 和 `motions.json`；不读 `content/`，不 import 模板的代码。
 
 ### 提交规则
 

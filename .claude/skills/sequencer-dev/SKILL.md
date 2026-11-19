@@ -14,7 +14,7 @@ npm run e2e
 ```
 
 - `npm test`：单元测试。包括和原版比对：内置语音逐采样、语音长度、4 个样例课程的时间轴。
-- `npm run e2e`：打包单文件，再用 Playwright 跑一遍导入、跟练、导出 WAV / SRT / WebM。
+- `npm run e2e`：用离线样例的动图打包到 `dist-e2e/`，再用 Playwright 跑一遍导入、跟练、导出 WAV / SRT / WebM，以及动作示意的显示、节拍和视频读回。
 
 三条都过了才算改完。每轮结束时的 hook 会自动跑单元测试。
 
@@ -28,7 +28,8 @@ npm run e2e
   - 加了规则就加一条"被拦下"的测试（`packages/course-core/test/check.test.ts`）。
 - **和原版的一致性**：改了时间轴或语音合成，导致 `test/original.test.ts` 不再一致的，先确认是有意的改动，在 `docs/编排器功能清单.md` 写明原因，再更新测试。
 - **模板更新后**重新生成离线样例：`node packages/course-core/test/make-fixtures.ts`。
-- **不再出现 Keep**（标题、选项、文件名、存储键、视频元数据）；冒烟测试会查。
+- **不再出现 Keep**（标题、页面文字、选项、文件名、存储键、视频元数据）；冒烟测试会查。打包进来的第三方库和授权全文不算。
+- **动作示意**：编排器只认课程的 `figure`，帧号由核心库 `motionAt` 算，实时和导出都走 `src/figure/hud.ts`，不要各写一套。动图引擎必须先 `setWasmUrl` 指向内嵌文件；页面的内容安全策略不放行任何外部地址。升级依赖时同步 `docs/第三方授权.md`。
 - **依赖**：选发布超过两周的稳定版本，写死版本号，`package-lock.json` 一起提交。
-- **构建产物**（`apps/sequencer/dist/`）和导出的媒体不提交。
+- **构建产物**（`apps/sequencer/dist/`、`dist-e2e/`）和导出的媒体不提交。
 - 新功能、去掉的功能，记进 `docs/编排器功能清单.md`。
