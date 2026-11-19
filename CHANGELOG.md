@@ -2,7 +2,9 @@
 
 模板仓库（YangXia-templates）的改动记在 `templates/CHANGELOG.md`。重构方案和每个阶段的验收标准见 `docs/重构方案-v3（agent驱动）.md`。
 
-## 未发布 · v4 阶段 7：编排器的动作示意动图（分支 `v4-phase7`）
+## 未发布 · v4 阶段 7：编排器的动作示意动图（2026-11-19 合并回 main）
+
+- 两个仓库的 `v4-phase7` 分支快进合并回 `main`，没有发版。新增依赖 dotLottie、Mediabunny，已有的克隆要重新 `npm ci`。
 
 - 跟练画面和导出的视频显示动作示意动图，动作跟课程节拍走；设置里可以关。课程由 `course export` 写 `figure`，共用图的难度级、条件版本看过图登记了才写。
 - 时间轴多一列 `motion`（`events` 不变），核心库 `motionAt` 算帧。编排器内嵌 dotLottie，WebM 封装换成 Mediabunny，页面加内容安全策略和第三方授权入口。
