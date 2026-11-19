@@ -60,7 +60,9 @@ def template_checks(paths):
         shown = "、".join(loose[:5]) + ("……" if len(loose) > 5 else "")
         return [f"content/、tools/、dist/ 还有没暂存的改动或没跟踪的新文件（{shown}）：先 git add 或撤销，"
                 "提交前检查查的是工作区，要和要提交的内容一致"]
-    r = subprocess.run([sys.executable, "tpl.py", "check"], cwd=root, capture_output=True, text=True)
+    # 提交时必须和上一发布版比对动作库（普通副本没有标签可以跳过，提交不行）
+    env = {**os.environ, "YANGXIA_REQUIRE_BASELINE": "1"}
+    r = subprocess.run([sys.executable, "tpl.py", "check"], cwd=root, capture_output=True, text=True, env=env)
     if r.returncode:
         tail = [ln for ln in r.stdout.splitlines() if ln.startswith("[错误]")][:8]
         return ["python3 tpl.py check 没通过（先 python3 tpl.py all，改到 0 错误）：", *[f"    {t}" for t in tail]]
