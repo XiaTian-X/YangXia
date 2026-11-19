@@ -46,7 +46,14 @@ export async function loadTemplates(): Promise<Templates> {
     if (d.format !== format) throw new Error(`模板 ${file} 的格式是「${d.format}」，需要 ${format}：请先更新模板仓库`);
     return d;
   };
-  return { dir, manifest, readProduct, plans: data<PlansData>("plans.json", PLANS_FORMAT), rules: data<RulesData>("rules.json", RULES_FORMAT), motions: data<MotionsData>("motions.json", MOTIONS_FORMAT) };
+  // 动图是可选的：格式不认识时只是没有动图，不影响导出和检查
+  let motions: MotionsData | null = null;
+  try {
+    motions = data<MotionsData>("motions.json", MOTIONS_FORMAT);
+  } catch {
+    motions = null;
+  }
+  return { dir, manifest, readProduct, plans: data<PlansData>("plans.json", PLANS_FORMAT), rules: data<RulesData>("rules.json", RULES_FORMAT), motions };
 }
 
 /** 训练单和规则参数：导出课程、核对进度要用，没有就提示先更新模板。 */

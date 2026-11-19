@@ -1,7 +1,7 @@
 // 养夏 · 跟练编排器：导入课程 → 预览、跟练 → 导出 WAV / SRT / 视频 → 练完导出练习记录。
 import {
   buildTimeline, courseClips, DEFAULT_SETTINGS, FEELS, itemSpec, setsDoneFromPlayed, settingsOf, validateCourse,
-  type Course, type Issue, type ItemNote, type MotionClip, type PlaybackSettings, type TimelineEvent,
+  type Course, type Issue, type ItemNote, type MotionClip, type PlaybackSettings, type Timeline, type TimelineEvent,
 } from "@yangxia/course-core";
 import { notices } from "virtual:yangxia-figures";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -46,9 +46,13 @@ export function App() {
   const [dragOver, setDragOver] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [clips, setClips] = useState<Record<string, MotionClip>>({});
+  const [figureIssue, setFigureIssue] = useState("");
 
   const canvas = useRef<HTMLCanvasElement>(null);
   const figures = useRef(new FigurePlayer());
+  // 跟练用开始时的课程和时间轴（声音也是），中途改设置不会让图和报数错开
+  const liveRun = useRef<{ course: Course; timeline: Timeline } | null>(null);
+  const figureTime = useRef(0);          // 没在跟练时，动作示意显示哪一刻（预览的那一段、停下或练完的时刻）
   const hud = useRef(initialHud());
   const player = useRef<LivePlayer | null>(null);
   const curIdx = useRef(-1);
@@ -67,12 +71,12 @@ export function App() {
 
   // 动作示意：解开内嵌的动图，预载这节课用到的片段。失败只是不显示，不影响跟练和导出
   useEffect(() => {
-    loadClips().then(setClips).catch(() => setNotice("动作示意加载失败：这次不显示动图，跟练和导出不受影响。"));
+    loadClips().then(setClips).catch(() => setFigureIssue("动作示意加载失败：这次不显示动图，跟练和导出不受影响。"));
   }, []);
   useEffect(() => {
     if (!course) return;
     void figures.current.prepare(courseClips(course, clips), clips).then((failed) => {
-      if (failed.length) setNotice("有的动作示意加载失败：这些动作不显示动图，跟练和导出不受影响。");
+      setFigureIssue(failed.length ? "有的动作示意加载失败：这些动作不显示动图，跟练和导出不受影响。" : "");
     });
   }, [course, clips]);
 
@@ -100,11 +104,15 @@ export function App() {
       const ctx = canvas.current?.getContext("2d");
       if (ctx) {
         const p = player.current;
-        const events = timeline?.events ?? [];
-        if (p?.running && curIdx.current >= 0) stepHud(hud.current, events[curIdx.current], events[curIdx.current + 1], p.elapsed());
+        const run = p?.running ? liveRun.current : null;
+        const tl = run?.timeline ?? timeline;
+        const events = tl?.events ?? [];
+        if (run) figureTime.current = p!.elapsed();
+        if (run && curIdx.current >= 0) stepHud(hud.current, events[curIdx.current], events[curIdx.current + 1], figureTime.current);
         else stepHud(hud.current);
         const f = figureState.current;
-        const figure = f.on && f.course && timeline ? hudFigure(f.course, timeline, f.clips, figures.current, p?.running ? p.elapsed() : 0) : null;
+        const c = run?.course ?? f.course;
+        const figure = f.on && c && tl ? hudFigure(c, tl, f.clips, figures.current, figureTime.current) : null;
         drawHud(ctx, hud.current, HUD_WIDTH, HUD_HEIGHT, figure);
       }
       raf = requestAnimationFrame(frame);
@@ -126,6 +134,7 @@ export function App() {
     }
     setCourse(c);
     setSettings(settingsOf(c));
+    figureTime.current = 0;
     setEdited(false);
     setSession(null);
     setNotice(`已载入：${c.name}`);
@@ -156,6 +165,8 @@ export function App() {
     played.current = new Set();
     startedAt.current = new Date();
     setSession(null);
+    liveRun.current = { course, timeline: tl };
+    figureTime.current = 0;
     const p = new LivePlayer(input(), {
       onEvent: (ev: TimelineEvent, i: number) => {
         curIdx.current = i;
@@ -166,6 +177,8 @@ export function App() {
         setPlayingItem(ev.itemIndex);
       },
       onEnd: (completed) => {
+        liveRun.current = null;
+        if (completed) figureTime.current = tl.totalDuration;
         setPlaying(false);
         setPlayingItem(-1);
         setSession({ ...snapshot, startedAt: startedAt.current, endedAt: new Date(), completed, setsDone: setsDoneFromPlayed(tl.events, played.current) });
@@ -183,24 +196,28 @@ export function App() {
     await stop();
     setBusy(kind);
     setProgress(0);
+    let done = `已导出 ${kind.toUpperCase()}`;
+    // 导出用自己的动图播放器：中途换课程、改动作不影响正在导出的视频
+    const exportFigures = kind === "webm" && settings.motionFigure !== false ? new FigurePlayer() : null;
     try {
       if (kind === "srt") download(exportSrt(timeline), exportName(course, "srt"));
       else if (kind === "wav") download(await exportWav(input()), exportName(course, "wav"));
       else {
         abort.current = new AbortController();
         const bgMode = settings.background === "dark" ? "magenta" : settings.background;
-        const withFigure = settings.motionFigure !== false;
         // 导出前等动图加载完，视频里不会缺图；加载失败的动作只是不显示
-        if (withFigure) await figures.current.prepare(courseClips(course, clips), clips);
+        const failed = exportFigures ? await exportFigures.prepare(courseClips(course, clips), clips, abort.current.signal) : [];
+        if (failed.length) done += `（有 ${failed.length} 段动作示意没加载成功，视频里不显示）`;
         const blob = await exportWebm(input(), { hud: { bgMode, layoutMode: settings.layout }, signal: abort.current.signal,
-          figure: withFigure ? (t) => hudFigure(course, timeline, clips, figures.current, t) : undefined,
+          figure: exportFigures ? (t) => hudFigure(course, timeline, clips, exportFigures, t) : undefined,
           onProgress: (stage, pct) => setProgress(stage === "audio" ? 2 : pct) });
         download(blob, exportName(course, "webm"));
       }
-      setNotice(`已导出 ${kind.toUpperCase()}`);
+      setNotice(done);
     } catch (e) {
       setNotice((e as Error).name === "AbortError" ? "已取消导出" : `导出失败：${(e as Error).message}`);
     } finally {
+      exportFigures?.dispose();
       setBusy(null);
       abort.current = null;
     }
@@ -250,6 +267,7 @@ export function App() {
     if (player.current?.running) return player.current.jumpTo(id);
     const ev = timeline?.events.find((e) => e.phaseGroup === id);
     if (ev) {
+      figureTime.current = ev.time;
       applyEvent(hud.current, ev);
       hud.current.phaseText = `预览：${ev.label}`;
       setActiveStage(id);
@@ -300,6 +318,7 @@ export function App() {
             </p>
           )}
           {notice && <p class="note" role="status">{notice}</p>}
+          {figureIssue && <p class="note" role="status" data-figure-issue>{figureIssue}</p>}
           {session && <SessionForm session={session} onDone={() => setSession(null)} />}
         </div>
 

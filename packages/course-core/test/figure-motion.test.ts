@@ -218,6 +218,11 @@ describe("导出：写不写 figure", () => {
     expect(figureFor(rules, "a18·bw", ex("plank"), "plank", null, null, { condition: { name: "高血压", value: false } })).toBe("plank");
     expect(figureFor(rules, "a18·bw", ex("glute-bridge"), "glute-bridge", null, null, { condition: { name: "高血压", value: true } })).toBeNull();
   });
+  it("写明这个家族不显示的动作不写，别的家族不受影响", () => {
+    const m = { ...rules, motion: { ...rules.motion!, hide: [{ family: "a13·bw", exercise: "table-row" }] } };
+    expect(figureFor(m, "a13·bw", ex("table-row"), "table-row", null, null, none)).toBeNull();
+    expect(figureFor(m, "a18·bw", ex("table-row"), "table-row", null, null, none)).toBe("table-row");
+  });
   it("不生成的动作、没有 motion 的旧模板都不写", () => {
     expect(figureFor({ ...rules, motion: { ...rules.motion!, skip: ["squat"] } }, "a18·bw", ex("glute-bridge"), "glute-bridge", null, null, none)).toBe("glute-bridge");
     expect(figureFor({ ...rules, motion: { ...rules.motion!, skip: ["glute-bridge"] } }, "a18·bw", ex("glute-bridge"), "glute-bridge", null, null, none)).toBeNull();
@@ -261,15 +266,14 @@ describe("课程检查：figure", () => {
     figured(c).figure = "plank";
     expect(figureIssues(c)).toMatchObject([{ level: "error" }]);
   });
-  it("同一版模板导出的课程被删了 figure：报错", () => {
+  it("只少了一部分 figure：报错（课程被改过）", () => {
     const c = exported();
     delete figured(c).figure;
     expect(figureIssues(c)).toMatchObject([{ level: "error" }]);
   });
-  it("旧模板导出的课程没有 figure：只提醒，照常能用", () => {
+  it("整节课都没有 figure（有动图之前导出的）：只提醒，版本号相同也一样", () => {
     const c = exported();
     c.blocks.forEach((b) => b.items.forEach((x) => delete x.figure));
-    c.source.templates = "v3.3";
     const got = figureIssues(c);
     expect(got.length).toBeGreaterThan(0);
     expect(got.every((i) => i.level === "warning")).toBe(true);

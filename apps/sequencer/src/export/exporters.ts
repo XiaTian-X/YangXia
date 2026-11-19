@@ -52,6 +52,7 @@ export async function exportWebm(input: RenderInput, opts: WebmOptions): Promise
   const check = () => {
     if (opts.signal?.aborted) throw new DOMException("已取消", "AbortError");
   };
+  check();
   const { timeline } = input;
   const totalFrames = Math.max(1, Math.ceil(timeline.totalDuration * FPS));
   opts.onProgress?.("audio", 0);

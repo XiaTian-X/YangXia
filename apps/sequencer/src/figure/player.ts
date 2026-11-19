@@ -12,23 +12,30 @@ interface Entry {
   canvas: OffscreenCanvas;
 }
 
+let engine: Promise<void> | null = null;
+
+/** 必须在创建播放器之前指向内嵌的引擎，否则库会去 CDN 下载。整个页面只做一次。 */
+function prepareEngine(): Promise<void> {
+  engine ??= wasmUrl().then((url) => DotLottie.setWasmUrl(url)).catch((e: unknown) => {
+    engine = null;
+    throw e;
+  });
+  return engine;
+}
+
 export class FigurePlayer {
   private entries = new Map<string, Entry>();
-  private engine: Promise<void> | null = null;
   private queue: Promise<unknown> = Promise.resolve();
-
-  /** 必须在创建播放器之前指向内嵌的引擎，否则库会去 CDN 下载。 */
-  private prepareEngine(): Promise<void> {
-    this.engine ??= wasmUrl().then((url) => DotLottie.setWasmUrl(url));
-    return this.engine;
-  }
 
   private loadOne(id: string, clip: MotionClip): Promise<void> {
     return new Promise((resolve, reject) => {
       const canvas = new OffscreenCanvas(CANVAS_W, CANVAS_H);
-      const timer = setTimeout(() => reject(new Error("加载超时")), LOAD_TIMEOUT_MS);
       const player = new DotLottie({ canvas, data: JSON.stringify(clip.lottie), autoplay: false, loop: false, useFrameInterpolation: true,
         renderConfig: { autoResize: false, devicePixelRatio: 1, freezeOnOffscreen: false } });
+      const timer = setTimeout(() => {
+        player.destroy();
+        reject(new Error("加载超时"));
+      }, LOAD_TIMEOUT_MS);
       player.addEventListener("load", () => {
         clearTimeout(timer);
         this.entries.set(id, { player, canvas });
@@ -43,7 +50,7 @@ export class FigurePlayer {
   }
 
   /** 只留这节课要用的片段。返回没加载成功的片段号：它们只是不显示，不影响跟练。 */
-  prepare(ids: string[], clips: Record<string, MotionClip>): Promise<string[]> {
+  prepare(ids: string[], clips: Record<string, MotionClip>, signal?: AbortSignal): Promise<string[]> {
     const run = async () => {
       const failed: string[] = [];
       for (const [id, e] of this.entries) {
@@ -54,12 +61,12 @@ export class FigurePlayer {
       }
       if (!ids.length) return failed;
       try {
-        await this.prepareEngine();
+        await prepareEngine();
       } catch {
-        this.engine = null;
         return ids;
       }
       for (const id of ids) {
+        if (signal?.aborted) break;
         if (this.entries.has(id)) continue;
         try {
           await this.loadOne(id, clips[id]);
@@ -72,6 +79,12 @@ export class FigurePlayer {
     const job = this.queue.then(run, run);
     this.queue = job.catch(() => undefined);
     return job;
+  }
+
+  /** 释放所有片段（导出用的播放器用完就释放）。 */
+  dispose(): void {
+    for (const e of this.entries.values()) e.player.destroy();
+    this.entries.clear();
   }
 
   /** 定到某一帧并返回画面；还没加载好就是 null。 */

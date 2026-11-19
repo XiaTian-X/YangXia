@@ -4939,6 +4939,12 @@
   "skip": [
    "a13-jump",
    "pushup"
+  ],
+  "hide": [
+   {
+    "family": "a13·bw",
+    "exercise": "table-row"
+   }
   ]
  }
 }

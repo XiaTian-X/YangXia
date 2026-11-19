@@ -47,6 +47,13 @@ test("动作示意：显示、不显示、动起来，不访问外部地址", as
   // 导入课程后显示第一个动作的起始姿势
   await load(page, COURSE);
   await expect.poll(() => shown(page), { timeout: 20_000 }).toBe(true);
+  const ready = (await card(page)).hash;
+
+  // 路线图预览哪一段，图就显示哪个动作
+  await page.locator('[data-stage="ex-1-set-1"]').click();
+  await expect.poll(async () => (await card(page)).hash).not.toBe(ready);
+  await page.locator('[data-stage="ex-0-set-1"]').click();
+  await expect.poll(async () => (await card(page)).hash).toBe(ready);
 
   // 关掉设置就不显示，打开又回来
   await page.getByRole("button", { name: "画面" }).click();
@@ -58,20 +65,37 @@ test("动作示意：显示、不显示、动起来，不访问外部地址", as
   await expect.poll(() => shown(page)).toBe(true);
   await page.getByRole("button", { name: "课程" }).click();
 
-  // 跟练：下放的过程中画面在变
+  // 跟练中关掉开头倒数：声音还按开始时的时间轴走，图也一样，还停在准备姿势
   await page.getByRole("button", { name: "开始跟练" }).click();
   await expect(page.getByText("跟练中", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "声音" }).click();
+  await page.getByLabel("开头 3、2、1 倒数").uncheck();
+  await page.waitForTimeout(400);
+  expect((await card(page)).hash).toBe(ready);
+  await page.getByRole("button", { name: "课程" }).click();
+
+  // 下放的过程中画面在变
   const seen = new Set<number>();
   await expect.poll(async () => { seen.add((await card(page)).hash); return seen.size; }, { timeout: 25_000, intervals: [120] }).toBeGreaterThan(4);
   await page.getByRole("button", { name: "停止" }).click();
   await page.getByRole("button", { name: "不记录" }).click();
+  expect((await card(page)).hash, "停下以后图留在停下的那一刻").not.toBe(ready);
+  await load(page, COURSE);       // 恢复设置里的开头倒数
+  await expect.poll(async () => (await card(page)).hash).toBe(ready);
 
   // 导出：可以取消；导出的视频里图在动，并且和同一时刻重画的图卡一致
   await page.locator('[data-export="webm"]').click();
   await page.getByRole("button", { name: "取消" }).click();
   await expect(page.getByText("已取消导出")).toBeVisible({ timeout: 30_000 });
-  const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 150_000 }), page.locator('[data-export="webm"]').click()]);
+  // 导出途中换一节课：正在导出的视频不受影响
+  const finished = page.waitForEvent("download", { timeout: 150_000 });
+  await page.locator('[data-export="webm"]').click();
+  await expect(page.locator(".progress")).toBeVisible();
+  await load(page, { ...COURSE, name: "中途换的课", source: { product: COURSE.source.product, week: 1 } });
+  const dl = await finished;
   const webm = readFileSync((await dl.path())!).toString("base64");
+  await load(page, COURSE);
+  await expect.poll(() => shown(page)).toBe(true);
   const tl = buildTimeline(COURSE);
   const down = tl.motion.find((s) => s.kind === "phase" && s.phase === "down")!;
   const hold = tl.motion.find((s) => s.kind === "timed")!;
@@ -104,7 +128,7 @@ test("动作示意：显示、不显示、动起来，不访问外部地址", as
     }
     return { vsHud, moved: diff(frames[0], frames[1]), held: diff(frames[2], frames[3]) };
   }, { webm, times });
-  for (const d of got.vsHud) expect(d).toBeLessThan(6);
+  for (const d of got.vsHud) expect(d, "换课程以后的画面也要有图，并和重画的一致").toBeLessThan(6);
   expect(got.moved).toBeGreaterThan(1);      // 下放过程中人在动
   expect(got.held).toBeLessThan(1);          // 平板撑住不动
 
@@ -130,5 +154,34 @@ test("动作示意：显示、不显示、动起来，不访问外部地址", as
   await expect(page.locator("[data-notices] pre")).toContainText("Mozilla Public License");
 
   expect(external).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("动图引擎加载失败：不显示图，跟练和导出照常；导入音乐不受安全策略影响", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.addInitScript(() => {
+    const fail = () => Promise.reject(new Error("测试：wasm 不可用"));
+    WebAssembly.instantiate = fail as typeof WebAssembly.instantiate;
+    WebAssembly.instantiateStreaming = fail as typeof WebAssembly.instantiateStreaming;
+    WebAssembly.compile = fail as typeof WebAssembly.compile;
+  });
+  await page.goto(APP);
+  await load(page, COURSE);
+  await expect(page.locator("[data-figure-issue]")).toContainText("不显示动图", { timeout: 20_000 });
+  expect(await shown(page)).toBe(false);
+
+  await page.getByRole("button", { name: "声音" }).click();
+  await page.locator('select[data-setting="music"]').selectOption("file");
+  const rate = 44100;
+  const wav = Buffer.alloc(44 + rate * 2);
+  wav.write("RIFF", 0); wav.writeUInt32LE(36 + rate * 2, 4); wav.write("WAVEfmt ", 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write("data", 36); wav.writeUInt32LE(rate * 2, 40);
+  await page.locator('input[type=file][accept="audio/*"]').setInputFiles({ name: "音乐.wav", mimeType: "audio/wav", buffer: wav });
+  await expect(page.getByText("音乐.wav")).toBeVisible();
+
+  const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 150_000 }), page.locator('[data-export="webm"]').click()]);
+  expect(readFileSync((await dl.path())!).subarray(0, 4).toString("hex")).toBe("1a45dfa3");
+  await expect(page.getByText(/已导出 WEBM（有 2 段动作示意没加载成功/)).toBeVisible();
   expect(errors).toEqual([]);
 });

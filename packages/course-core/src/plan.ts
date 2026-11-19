@@ -98,6 +98,8 @@ export interface RulesData {
     levels: { family: string; ladder: string; level: number; name: string; clip: string }[];
     variants: { family: string; exercise: string; condition: string; value: boolean }[];
     skip: string[];
+    /** 这个家族不显示这个动作的动图（图上的做法不是这个家族起步时的做法）。 */
+    hide?: { family: string; exercise: string }[];
   };
 }
 
@@ -337,7 +339,7 @@ export interface ExportResult {
  */
 export function figureFor(rules: RulesData, code: string, ex: ManifestExercise, move: string, lv: LadderLevel | null, ladder: LadderLevel[] | null, row: Pick<PlanRow, "condition">): string | null {
   const m = rules.motion;
-  if (!m) return null;
+  if (!m || m.hide?.some((h) => h.family === code && h.exercise === ex.id)) return null;
   const c = row.condition;
   if (c && c.value !== rules.conditions[c.name]?.text &&
       !m.variants.some((v) => v.family === code && v.exercise === ex.id && v.condition === c.name && v.value === c.value)) return null;
@@ -627,9 +629,9 @@ export function checkPlanCourse(course: Course, plans: PlansData, rules: RulesDa
       if (ta !== tb) err(`${p}.tempo`, `节奏应该是 ${tb}，课程写 ${ta}`);
       if (it.figure !== undefined && it.figure !== w.figure) err(`${p}.figure`, `动作示意应该是 ${w.figure ?? "（不写）"}，课程写 ${it.figure}`);
       else if (it.figure === undefined && w.figure !== undefined) {
-        // 更新模板之前导出的旧课程没有动图，照常能用；同一版模板导出的课程少了它，说明被改过
+        // 整节课都没有动图：是有动图之前导出的旧课程，照常能用；只少了一部分，说明课程被改过
         const message = `这一项应该有动作示意 ${w.figure}，课程没写：重新导出`;
-        if (course.source.templates === plans.version) err(`${p}.figure`, message);
+        if (a.some((x) => x.items.some((y) => y.figure !== undefined))) err(`${p}.figure`, message);
         else issues.push({ level: "warning", path: `${p}.figure`, message });
       }
     });
