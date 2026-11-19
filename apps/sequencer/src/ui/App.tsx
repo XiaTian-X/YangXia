@@ -75,6 +75,7 @@ export function App() {
     [course, settings, bank, voiceVersion],
   );
   const input = () => ({ timeline: timeline!, settings, bank, music: music?.buffer ?? null });
+  const spoken = useMemo(() => timeline?.events.map((e) => e.voice) ?? [], [timeline]);   // 录报数声列这节课要说的话
   const figureState = useRef({ course, clips, on: true });
   figureState.current = { course, clips, on: settings.motionFigure !== false };
 
@@ -400,7 +401,7 @@ export function App() {
               onExportCourse={() => course && download(new Blob([JSON.stringify({ ...course, presentation: { ...course.presentation, sequencer: settings } }, null, 2) + "\n"],
                 { type: "application/json" }), exportName(course, "json"))} />
           )}
-          {tab === "voice" && <Recorder bank={bank} onChanged={() => setVoiceVersion((v) => v + 1)} />}
+          {tab === "voice" && <Recorder bank={bank} phrases={spoken} onChanged={() => setVoiceVersion((v) => v + 1)} />}
         </div>
       </div>
       <details class="note" style={{ marginTop: 12 }} data-notices>

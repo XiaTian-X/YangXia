@@ -79,3 +79,49 @@ export function estimateVoiceSeconds(text: string): number {
   const syllables = tokens.reduce((n, t) => n + (TOKEN_SYLLABLES[t]?.length ?? 1), 0);
   return syllables * 0.26 - Math.max(0, syllables - 1) * 0.014;
 }
+
+/** 自己录报数声时，固定口令按这个顺序列（"下一项"单独不会说，只在"准备下一项"里）。 */
+export const RECORD_WORDS = [
+  "准备", "开始", "呼", "吸", "深吸气", "慢呼气", "最后三次", "本组完成", "全部完成", "准备下一组", "准备下一项",
+] as const;
+
+export interface RecordUnits {
+  /** 固定口令，整句录。 */
+  words: string[];
+  /** 数字，一个数录一段；没录的数可以用录过的 1–10 拼。 */
+  numbers: string[];
+  /** 带数字的话（"30秒""休息 60 秒"），整句录。 */
+  counted: string[];
+}
+
+const byNumber = (a: string, b: string) => Number(a.match(/\d+/)![0]) - Number(b.match(/\d+/)![0]) || a.localeCompare(b);
+
+/**
+ * 自己录报数声要录哪些：按句录，不按字。"12，本组完成"这种拆成数字和口令分开录，录了就能拼起来。
+ * 不给课程（texts 为空）时列 1–10 和全部固定口令。说不出来的话（不在词表里）不列。
+ */
+export function recordUnits(texts: Iterable<string | null | undefined>): RecordUnits {
+  const words = new Set<string>();
+  const numbers = new Set<string>();
+  const counted = new Set<string>();
+  let any = false;
+  for (const text of texts) {
+    if (!text || !canSpeak(text)) continue;
+    any = true;
+    const m = text.match(/^(\d+)，(本组完成|全部完成)$/);
+    if (m) {
+      numbers.add(String(Number(m[1])));
+      words.add(m[2]);
+    } else if (/^\d+$/.test(text)) numbers.add(String(Number(text)));
+    else if (/\d/.test(text)) counted.add(text);
+    else words.add(text);
+  }
+  if (!any) return { words: [...RECORD_WORDS], numbers: Array.from({ length: 10 }, (_, i) => String(i + 1)), counted: [] };
+  const order = RECORD_WORDS as readonly string[];
+  const rank = (w: string) => (order.includes(w) ? order.indexOf(w) : order.length);
+  return {
+    words: [...words].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b)),
+    numbers: [...numbers].sort(byNumber),
+    counted: [...counted].sort(byNumber),
+  };
+}

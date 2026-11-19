@@ -88,13 +88,15 @@ export class LivePlayer {
       if (settings.voiceBake && useTts) {
         while (this.ttsCursor < events.length && t >= events[this.ttsCursor].time - 0.12) {
           const ev = events[this.ttsCursor++];
-          if (ev.voice) speak(ev.voice, { rate: ev.bpm > 78 ? 1.42 : 1.28, volScale: ev.voiceVolScale || 1, settings, voice });
+          // 自己录过的句子放录音（下面和打点一起排），没录的才用系统语音
+          if (ev.voice && !this.input.bank.own(ev.voice)) speak(ev.voice, { rate: ev.bpm > 78 ? 1.42 : 1.28, volScale: ev.voiceVolScale || 1, settings, voice });
         }
       }
       while (this.audioCursor < events.length && t >= events[this.audioCursor].time - 0.08) {
         const ev = events[this.audioCursor++];
         const at = Math.max(now + 0.005, now + (ev.time - t));
-        scheduleEventSounds(ctx, master, at, ev, this.input, { voice: settings.voiceBake && !useTts, breathDest: breathTrim,
+        const recorded = !!ev.voice && !!this.input.bank.own(ev.voice);
+        scheduleEventSounds(ctx, master, at, ev, this.input, { voice: settings.voiceBake && (!useTts || recorded), breathDest: breathTrim,
           voiceDest: voiceTrim, breathGain: 1, voiceGain: 1 });
         if (mode !== "none") {
           scheduleSingleBeatGroove(ctx, kickBus, duckable, at, ev, ev.beatDur || 1, mode, ev.actionBeatIdx || 0);
