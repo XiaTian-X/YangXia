@@ -23,6 +23,8 @@ export interface CourseItem {
   tempo?: Tempo;
   rest: number;
   quote: string[];
+  /** 动作示意动图的片段号（course export 写，这一级有合适的动图才有；手写课程不用）。 */
+  figure?: string;
 }
 
 export interface SetsBlock {
@@ -87,6 +89,8 @@ export interface PlaybackSettings {
   duckSubBeats: boolean;
   background: "dark" | "green" | "magenta" | "black";
   layout: "overlay" | "center";
+  /** 显示动作示意动图（跟练和导出都算）；没写的（旧方案）按开。 */
+  motionFigure?: boolean;
 }
 
 export interface Issue {

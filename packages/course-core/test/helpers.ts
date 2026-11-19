@@ -28,6 +28,8 @@ export const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 import type { PlansData, RulesData } from "../src/plan.ts";
 export const fixturePlans = () => readJson<PlansData>(join(FIX, "data", "plans.json"));
 export const fixtureRules = () => readJson<RulesData>(join(FIX, "data", "rules.json"));
+import type { MotionsData } from "../src/figure-motion.ts";
+export const fixtureMotions = () => readJson<MotionsData>(join(FIX, "data", "motions.json"));
 
 /** 按年龄段补齐跨段推算要用的资料：成年人的出生年月、未成年人的学段（测试用的虚构值）。 */
 export function fitAge(p: Record<string, any>, age: string, stage?: string): Record<string, any> {

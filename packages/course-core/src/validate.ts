@@ -3,7 +3,7 @@
 import type { Course, Issue } from "./types.ts";
 
 const AGES = ["a13", "a18", "a40", "a65"];
-const ITEM_KEYS = ["exercise", "name", "mode", "sets", "reps", "duration", "perSide", "tempo", "rest", "quote"];
+const ITEM_KEYS = ["exercise", "name", "mode", "sets", "reps", "duration", "perSide", "tempo", "rest", "quote", "figure"];
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -86,6 +86,7 @@ export function validateCourse(raw: unknown): { course: Course | null; issues: I
             if (tp.bottom !== undefined && !isHalf(tp.bottom, 0, 10)) err(`${p}.tempo.bottom`, "bottom 要是 0–10 秒（以 0.5 秒为单位）");
           }
         }
+        if (it.figure !== undefined && (typeof it.figure !== "string" || !/^[a-z0-9-]+(#[0-9]+)?$/.test(it.figure))) err(`${p}.figure`, "figure 是动图片段号（小写字母、数字、-，分级片段后面带 #级）");
         if (it.mode === "timed" && !isInt(it.duration, 5, 600)) err(`${p}.duration`, "计时动作要写 duration（5–600 秒）");
       });
     });

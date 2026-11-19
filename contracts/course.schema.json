@@ -313,6 +313,11 @@
             "maxLength": 200
           },
           "description": "成品原文：组数、次数、秒数、休息都要能在这里找到出处"
+        },
+        "figure": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+(#[0-9]+)?$",
+          "description": "动作示意动图的片段号（模板 dist/data/motions.json 的键）。course export 写，这一级有合适的动图才有；手写课程不写"
         }
       },
       "allOf": [

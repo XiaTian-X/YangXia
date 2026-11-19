@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { templatesDir } from "../src/node.ts";
-import { fixturePlans, fixtureRules, readJson } from "./helpers.ts";
+import { fixturePlans, fixtureRules, readJson, fixtureMotions } from "./helpers.ts";
 
 const dir = await templatesDir();
 const dist = dir ? join(dir, "dist", "data") : "";
@@ -17,14 +17,22 @@ describe.skipIf(!has)("离线样例和模板 dist/data 一致（不一致就运�
     expect(fix.version).toBe(full.version);
     for (const [name, p] of Object.entries(fix.products)) expect(p, name).toEqual(full.products[name]);
   });
+  it("样例里的动图片段和模板的一样", () => {
+    const full = readJson<MotionsData>(join(dist, "motions.json"));
+    const fix = fixtureMotions();
+    expect(fix.version).toBe(full.version);
+    for (const [id, clip] of Object.entries(fix.clips)) expect(clip, id).toEqual(full.clips[id]);
+  });
 });
 
+import { MOTIONS_FORMAT, type MotionsData } from "../src/figure-motion.ts";
 import { MANIFEST_FORMAT } from "../src/manifest.ts";
 import { PLANS_FORMAT, RULES_FORMAT } from "../src/plan.ts";
 import { CONTRACTS } from "./helpers.ts";
 
 describe("contracts/templates.json 写的格式号和代码一致", () => {
-  const c = readJson<{ manifestFormat: string; data: { file: string; format: string }[] }>(join(CONTRACTS, "templates.json"));
+  const c = readJson<{ manifestFormat: string; data: { file: string; format: string; optional?: boolean }[] }>(join(CONTRACTS, "templates.json"));
   it("manifest", () => expect(c.manifestFormat).toBe(MANIFEST_FORMAT));
-  it("训练单、规则参数", () => expect(c.data.map((d) => d.format).sort()).toEqual([PLANS_FORMAT, RULES_FORMAT].sort()));
+  it("必需的：训练单、规则参数", () => expect(c.data.filter((d) => !d.optional).map((d) => d.format).sort()).toEqual([PLANS_FORMAT, RULES_FORMAT].sort()));
+  it("可选的：动作示意动图", () => expect(c.data.filter((d) => d.optional).map((d) => d.format)).toEqual([MOTIONS_FORMAT]));
 });

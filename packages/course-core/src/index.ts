@@ -5,6 +5,7 @@ export { ATOMIC_TOKENS, TOKEN_SYLLABLES, canSpeak, estimateVoiceSeconds, numberT
 export { repBeats, holdBreathText, type Beat } from "./tempo.ts";
 export { buildTimeline, itemSpec, type CueType, type Stage, type Timeline, type TimelineEvent, type TimelineOptions } from "./timeline.ts";
 export { buildSrt, srtCues, srtTimecode, type SrtCue } from "./srt.ts";
+export { courseClips, courseItems, motionAt, MOTIONS_FORMAT, spanAt, usableClip, type FigureFrame, type MotionClip, type MotionNote, type MotionSpan, type MotionsData } from "./figure-motion.ts";
 export { barTarget, duckWindows, isPrimaryCue, isSubCue, type DuckWindow } from "./motion.ts";
 export { redlineHits, failedRedlineCases, type RedlineRules, type RedlineCase } from "./redlines.ts";
 export { validateCourse } from "./validate.ts";
@@ -13,5 +14,5 @@ export { MANIFEST_FORMAT, productCode, type Manifest, type ManifestExercise, typ
 export { checkNotes, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
 export { bedtimeFor, checkProfileWithTemplates, notCoveredItems, screeningFor } from "./intake.ts";
 export { checkProgress, checkProgressLog, FEELS, REVIEW_FORMAT, reviewDataName, reviewName, validateProgressShape, validateReview, validateSegments, type SegmentEntry, type SessionFile } from "./progress.ts";
-export { allowedLevels, baseTempo, checkPlanCourse, conditionValue, currentSegment, roundOf, dayRows, exportCourse, isStartCourse, PLANS_FORMAT, RULES_FORMAT, type ExportInput, type ExportResult, type LadderLevel, type PlanRow, type PlansData, type ProductPlan, type RulesData } from "./plan.ts";
+export { allowedLevels, baseTempo, checkPlanCourse, conditionValue, currentSegment, roundOf, dayRows, exportCourse, figureFor, isStartCourse, PLANS_FORMAT, RULES_FORMAT, type ExportInput, type ExportResult, type LadderLevel, type PlanRow, type PlansData, type ProductPlan, type RulesData } from "./plan.ts";
 export { buildSession, setsDoneFromPlayed, type Feeling, type ItemNote, type SessionInput, type Symptoms } from "./session.ts";

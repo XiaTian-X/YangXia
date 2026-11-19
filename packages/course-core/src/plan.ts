@@ -93,6 +93,12 @@ export interface RulesData {
   cardio?: { products: string[]; phase?: string; weeks: number[]; mode: string; duration?: string; when: string; quotes: { section: string; text: string }[]; note: string }[];
   /** 由两项条件合起来的组合条件。 */
   derivedConditions?: { name: string; all: { name: string; value: boolean }[] }[];
+  /** 动作示意动图（v4 阶段 7）：共用图的级、条件变体登记了才显示；skip 的动作不生成动图。 */
+  motion?: {
+    levels: { family: string; ladder: string; level: number; name: string; clip: string }[];
+    variants: { family: string; exercise: string; condition: string; value: boolean }[];
+    skip: string[];
+  };
 }
 
 export interface AddOnDef {
@@ -325,6 +331,22 @@ export interface ExportResult {
   issues: Issue[];
 }
 
+/**
+ * 这一项用哪段动作示意动图；没有合适的返回 null（课程不写 figure，画面不显示）。
+ * 不是正文那一边的条件行、多级共用一张图的级，都要在模板 rules/动作示意.md 登记过才显示。
+ */
+export function figureFor(rules: RulesData, code: string, ex: ManifestExercise, move: string, lv: LadderLevel | null, ladder: LadderLevel[] | null, row: Pick<PlanRow, "condition">): string | null {
+  const m = rules.motion;
+  if (!m) return null;
+  const c = row.condition;
+  if (c && c.value !== rules.conditions[c.name]?.text &&
+      !m.variants.some((v) => v.family === code && v.exercise === ex.id && v.condition === c.name && v.value === c.value)) return null;
+  const hit = lv && ladder ? m.levels.find((x) => x.family === code && x.ladder === move && x.level === lv.level && x.name === lv.name) : null;
+  if (hit) return hit.clip;
+  if (m.skip.includes(ex.id)) return null;
+  return lv && ladder && ladder.filter((l) => l.exercise === lv.exercise).length >= 2 ? null : ex.figure;
+}
+
 function exName(ex: ManifestExercise, lv: LadderLevel | null, ladder: LadderLevel[] | null): string {
   if (!lv || !ladder || lv.level === startLevel(ladder) || ladder.filter((l) => l.exercise === lv.exercise).length <= 1) return ex.short;
   const full = `${ex.short}·${lv.name}`;
@@ -476,6 +498,8 @@ export function exportCourse(input: ExportInput): ExportResult {
       rest: r.block === "circuit" ? 0 : r.rest ?? 0,
       quote: quotesFor(r, week),
     };
+    const figure = figureFor(rules, p.code, ex, move, lv, ladder, r);
+    if (figure) item.figure = figure;
     if (ex.mode === "reps") {
       // 呼吸节奏：训练单这一行在正文里那个位置的（循环用循环那里写的）；难度级换了动作的，用那个动作的；
       // "按器材选一个"的逐组训练用选中的那个动作自己的（循环行照旧用循环那里写的）
@@ -601,6 +625,13 @@ export function checkPlanCourse(course: Course, plans: PlansData, rules: RulesDa
       const ta = tempoText(it.tempo);
       const tb = tempoText(w.tempo);
       if (ta !== tb) err(`${p}.tempo`, `节奏应该是 ${tb}，课程写 ${ta}`);
+      if (it.figure !== undefined && it.figure !== w.figure) err(`${p}.figure`, `动作示意应该是 ${w.figure ?? "（不写）"}，课程写 ${it.figure}`);
+      else if (it.figure === undefined && w.figure !== undefined) {
+        // 更新模板之前导出的旧课程没有动图，照常能用；同一版模板导出的课程少了它，说明被改过
+        const message = `这一项应该有动作示意 ${w.figure}，课程没写：重新导出`;
+        if (course.source.templates === plans.version) err(`${p}.figure`, message);
+        else issues.push({ level: "warning", path: `${p}.figure`, message });
+      }
     });
   });
   return issues;

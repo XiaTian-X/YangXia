@@ -1,6 +1,7 @@
 // 时间轴：课程 → 一串带时间的事件（打点、报数、领呼、字幕、画面文字）。
 // 计时规则照原版编排器的 buildTimeline 移植（开头倒数、组间休息、换项、最后三次、计时动作的 4 秒呼吸循环），
 // 不读页面，只吃课程数据和播放设置。新增：每侧、循环、按人群的提示语、以秒为单位的节奏。
+import type { MotionSpan } from "./figure-motion.ts";
 import { settingsOf } from "./settings.ts";
 import { repBeats } from "./tempo.ts";
 import type { Age, Course, CourseItem, PlaybackSettings } from "./types.ts";
@@ -50,6 +51,8 @@ export interface Timeline {
   events: TimelineEvent[];
   stages: Stage[];
   totalDuration: number;
+  /** 动作示意动图：每段时间显示什么，从 0 秒连到结束，不影响 events。 */
+  motion: MotionSpan[];
 }
 
 export interface TimelineOptions {
@@ -119,6 +122,13 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
   const push = (ev: Omit<TimelineEvent, "setProgress" | "style" | "bpm"> & { bpm?: number }) => {
     events.push({ style, bpm, setProgress: 0, ...ev } as TimelineEvent);
   };
+  const motion: MotionSpan[] = [];
+  const addMotion = (span: MotionSpan) => {
+    if (span.end <= span.start) return;
+    const last = motion[motion.length - 1];
+    if (last?.kind === "phase" && span.kind === "phase" && last.phase === span.phase && last.itemIndex === span.itemIndex && last.end === span.start) last.end = span.end;
+    else motion.push(span);
+  };
 
   segments.forEach((seg, segIdx) => {
     const { item, itemIndex } = seg;
@@ -136,6 +146,7 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
     // ---- 整套课程开头的预备倒计时 ----
     if (segIdx === 0 && st.preCountdown) {
       const group = `ex-${itemIndex}-prep`;
+      const prepStart = t;
       stages.push({ id: group, label: "准备", isRest: false, firstEventIdx: events.length });
       push({ time: t, beatDur, cueType: "intro-cue", state: "prep", display: "PREP", tag: `${exPrefix} (第 1/${total} ${u}准备)`,
         label: `即将开始：${exName} (${spec})`, breathText: "🌬️ 自然呼吸", srtText: `【${exPrefix}】调整起始姿势 · 即将开始第 1/${total} ${u} (${spec})`,
@@ -159,6 +170,7 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
         voiceVolScale: 1, voiceOffset: 0, breathPluck: null, isLastThree: false, isSetFinalRep: false, isCountJumpBeat: false,
         dotIdx: 3, totalDots: 4, barProgress: isTimed ? 100 : 0, phaseGroup: group, itemIndex });
       t += 0.85;
+      addMotion({ kind: "pose", pose: "start", itemIndex, start: prepStart, end: t, note: "ready" });
     }
 
     const stageId = `ex-${itemIndex}-set-${s}`;
@@ -175,11 +187,13 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
           label: `换${side}，不休息`, breathText: "🌬️ 自然呼吸", srtText: `${setPrefix}换${side}`, voice: null, voiceVolScale: 1, voiceOffset: 0,
           breathPluck: null, isLastThree: false, isSetFinalRep: false, isCountJumpBeat: true, dotIdx: 0, totalDots: 4, barProgress: 100,
           phaseGroup: stageId, itemIndex });
+        addMotion({ kind: "pose", pose: "start", itemIndex, start: t, end: t + 2.0, note: "switch-side" });
         t += 2.0;
       }
 
       if (isTimed) {
         const halfSec = Math.floor(duration / 2);
+        const timedStart = t;
         for (let secLeft = duration; secLeft >= 1; secLeft--) {
           const elapsed = duration - secLeft;
           const isLastFive = secLeft <= 5;
@@ -229,6 +243,7 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
             barProgress: Math.max(5, Math.round((secLeft / duration) * 100)), actionBeatIdx: actionBeatCounter++, phaseGroup: stageId, itemIndex });
           t += 1;
         }
+        addMotion({ kind: "timed", itemIndex, start: timedStart, end: t, note: "doing" });
         if (lastSide) {
           const done = isVeryLast ? "全部完成" : "本组完成";
           push({ time: t, beatDur: 1, cueType: "rep", state: "action", display: "0s ✓", tag: `${exPrefix} (第 ${s}/${total} ${u}完成)`,
@@ -237,6 +252,7 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
             voice: done, voiceVolScale: 1, voiceOffset: -0.01, breathPluck: null, isLastThree: false, isSetFinalRep: true, isCountJumpBeat: true,
             isTimedMode: true, timedProgressRatio: 1, timedNextRatio: 1, dotIdx: 3, totalDots: 4, barProgress: 100,
             actionBeatIdx: actionBeatCounter++, phaseGroup: stageId, itemIndex });
+          addMotion({ kind: "pose", pose: "last", itemIndex, start: t, end: t + 1.85, note: "doing" });
           t += 1.85;
         }
       } else {
@@ -290,7 +306,11 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
               voiceVolScale: mainVoice ? 1 : Math.min(0.85, bVol * 0.95), voiceOffset: -0.015,
               breathPluck: pluck ? { direction: pluck, isRestPhase: false } : null, isLastThree, isSetFinalRep, isCountJumpBeat,
               dotIdx: idx, totalDots: beats.length, barProgress: beat.progress, actionBeatIdx: actionBeatCounter++, phaseGroup: stageId, itemIndex });
-            t += beat.type === "rep" && isSetFinalRep ? Math.max(beat.dur, 1.95) : beat.dur;
+            const step = beat.type === "rep" && isSetFinalRep ? Math.max(beat.dur, 1.95) : beat.dur;
+            addMotion({ kind: "phase", phase: beat.phase, itemIndex, start: t, end: t + beat.dur, note: "doing" });
+            // 每组最后一次报完数多等的时间：停在这一次结束的姿势
+            addMotion({ kind: "pose", pose: "last", itemIndex, start: t + beat.dur, end: t + step, note: "doing" });
+            t += step;
           });
         }
       }
@@ -303,6 +323,7 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
       const toNextItem = next.itemIndex !== itemIndex;
       const nextSpec = itemSpec(next.item, next.setTotal);
       const restId = `ex-${itemIndex}-rest-${s}`;
+      const restStart = t;
       stages.push({ id: restId, label: toNextItem ? "换项休" : `休${s}`, isRest: true, firstEventIdx: events.length });
       const window = Math.max(0, restSeconds - 3 - 2);
       const maxBreathElapsed = 2 + Math.floor(window / 4) * 4;
@@ -348,6 +369,7 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
         breathText: "💨 准备呼气", srtText: null, voice: null, voiceVolScale: 1, voiceOffset: 0, breathPluck: null, isLastThree: false,
         isSetFinalRep: false, isCountJumpBeat: false, dotIdx: 3, totalDots: 4, barProgress: nextTimed ? 100 : 0, phaseGroup: restId, itemIndex });
       t += 0.85;
+      addMotion({ kind: "pose", pose: "start", itemIndex: next.itemIndex, start: restStart, end: t, note: toNextItem ? "next-item" : "next-set" });
     }
   });
 
@@ -359,5 +381,12 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
   }
   const totalDuration = Math.max(t + 1.2, maxEnd + 0.9);
   for (const ev of events) ev.setProgress = Math.min(100, Math.round((ev.time / t) * 100));
-  return { events, stages, totalDuration };
+  if (motion.length) {
+    const first = motion[0];
+    if (first.kind === "pose") first.start = 0;
+    else if (first.start > 0) motion.unshift({ kind: "pose", pose: "start", itemIndex: first.itemIndex, start: 0, end: first.start, note: "ready" });
+    const last = motion[motion.length - 1];
+    addMotion({ kind: "pose", pose: "last", itemIndex: last.itemIndex, start: last.end, end: totalDuration, note: "done" });
+  }
+  return { events, stages, totalDuration, motion };
 }

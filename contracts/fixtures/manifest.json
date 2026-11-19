@@ -4789,6 +4789,11 @@
    "file": "data/rules.json",
    "format": "yangxia.rules/1",
    "about": "规则参数：适用条件、个人进度规则、下放放慢"
+  },
+  {
+   "file": "data/motions.json",
+   "format": "yangxia.motions/1",
+   "about": "动作示意动图：进跟练的动作的 Lottie 动画和节拍段，给跟练编排器用"
   }
  ]
 }

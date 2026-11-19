@@ -1,6 +1,7 @@
 // 只在 Node 里用：按 scripts/templates-path.mjs 的规则找模板仓库，读 manifest 和成品正文。
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { MOTIONS_FORMAT, type MotionsData } from "./figure-motion.ts";
 import { type Manifest, MANIFEST_FORMAT } from "./manifest.ts";
 import { PLANS_FORMAT, type PlansData, RULES_FORMAT, type RulesData } from "./plan.ts";
 
@@ -18,6 +19,8 @@ export interface Templates {
   /** 训练单、规则参数（模板 dist/data/）。模板还没有这两个文件时是 null（v4 之前的模板）。 */
   plans: PlansData | null;
   rules: RulesData | null;
+  /** 动作示意动图（dist/data/motions.json）。可选：v3.4 及以前的模板没有。 */
+  motions: MotionsData | null;
 }
 
 /** 读模板发布物。找不到模板、或 manifest 格式不对时抛出说明。 */
@@ -43,7 +46,7 @@ export async function loadTemplates(): Promise<Templates> {
     if (d.format !== format) throw new Error(`模板 ${file} 的格式是「${d.format}」，需要 ${format}：请先更新模板仓库`);
     return d;
   };
-  return { dir, manifest, readProduct, plans: data<PlansData>("plans.json", PLANS_FORMAT), rules: data<RulesData>("rules.json", RULES_FORMAT) };
+  return { dir, manifest, readProduct, plans: data<PlansData>("plans.json", PLANS_FORMAT), rules: data<RulesData>("rules.json", RULES_FORMAT), motions: data<MotionsData>("motions.json", MOTIONS_FORMAT) };
 }
 
 /** 训练单和规则参数：导出课程、核对进度要用，没有就提示先更新模板。 */

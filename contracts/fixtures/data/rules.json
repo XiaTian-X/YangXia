@@ -4340,5 +4340,605 @@
     "note": "官方 WM_AEROBIC_LONG（至少 250 分钟/周）当上限、取下限；设计值 CUT_CARDIO"
    }
   ]
+ },
+ "motion": {
+  "levels": [
+   {
+    "family": "a18·bw",
+    "ladder": "squat",
+    "level": 1,
+    "name": "徒手",
+    "clip": "squat"
+   },
+   {
+    "family": "a18·home",
+    "ladder": "squat",
+    "level": 1,
+    "name": "徒手",
+    "clip": "squat"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "squat",
+    "level": 1,
+    "name": "徒手",
+    "clip": "squat"
+   },
+   {
+    "family": "a40·home",
+    "ladder": "squat",
+    "level": 1,
+    "name": "徒手",
+    "clip": "squat"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "squat",
+    "level": 2,
+    "name": "下放 3 秒",
+    "clip": "squat"
+   },
+   {
+    "family": "a18·home",
+    "ladder": "squat",
+    "level": 2,
+    "name": "下放 3 秒",
+    "clip": "squat"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "squat",
+    "level": 2,
+    "name": "下放 3 秒",
+    "clip": "squat"
+   },
+   {
+    "family": "a40·home",
+    "ladder": "squat",
+    "level": 2,
+    "name": "下放 3 秒",
+    "clip": "squat"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "squat",
+    "level": 3,
+    "name": "底部停 2 秒",
+    "clip": "squat"
+   },
+   {
+    "family": "a18·home",
+    "ladder": "squat",
+    "level": 3,
+    "name": "底部停 2 秒",
+    "clip": "squat"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "squat",
+    "level": 3,
+    "name": "底部停 2 秒",
+    "clip": "squat"
+   },
+   {
+    "family": "a40·home",
+    "ladder": "squat",
+    "level": 3,
+    "name": "底部停 2 秒",
+    "clip": "squat"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "squat",
+    "level": 2,
+    "name": "徒手",
+    "clip": "squat"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "squat",
+    "level": 3,
+    "name": "下放 3 秒",
+    "clip": "squat"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "squat",
+    "level": 4,
+    "name": "底部停 2 秒",
+    "clip": "squat"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "glute-bridge",
+    "level": 1,
+    "name": "双腿",
+    "clip": "glute-bridge"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "glute-bridge",
+    "level": 1,
+    "name": "双腿",
+    "clip": "glute-bridge"
+   },
+   {
+    "family": "a18·home",
+    "ladder": "glute-bridge",
+    "level": 1,
+    "name": "双腿",
+    "clip": "glute-bridge"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "glute-bridge",
+    "level": 1,
+    "name": "双腿",
+    "clip": "glute-bridge"
+   },
+   {
+    "family": "a40·home",
+    "ladder": "glute-bridge",
+    "level": 1,
+    "name": "双腿",
+    "clip": "glute-bridge"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "glute-bridge",
+    "level": 2,
+    "name": "顶点停 3 秒",
+    "clip": "glute-bridge"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "glute-bridge",
+    "level": 2,
+    "name": "顶点停 3 秒",
+    "clip": "glute-bridge"
+   },
+   {
+    "family": "a18·home",
+    "ladder": "glute-bridge",
+    "level": 2,
+    "name": "顶点停 3 秒",
+    "clip": "glute-bridge"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "glute-bridge",
+    "level": 2,
+    "name": "顶点停 3 秒",
+    "clip": "glute-bridge"
+   },
+   {
+    "family": "a40·home",
+    "ladder": "glute-bridge",
+    "level": 2,
+    "name": "顶点停 3 秒",
+    "clip": "glute-bridge"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "sl-rdl",
+    "level": 3,
+    "name": "不扶",
+    "clip": "sl-rdl"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "sl-rdl",
+    "level": 3,
+    "name": "不扶",
+    "clip": "sl-rdl"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "sl-rdl",
+    "level": 4,
+    "name": "下放 3 秒",
+    "clip": "sl-rdl"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "sl-rdl",
+    "level": 4,
+    "name": "下放 3 秒",
+    "clip": "sl-rdl"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "pushup",
+    "level": 1,
+    "name": "推墙俯卧撑",
+    "clip": "pushup-ladder#1"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "pushup",
+    "level": 1,
+    "name": "推墙俯卧撑",
+    "clip": "pushup-ladder#1"
+   },
+   {
+    "family": "a18·home",
+    "ladder": "pushup",
+    "level": 1,
+    "name": "推墙俯卧撑",
+    "clip": "pushup-ladder#1"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "pushup",
+    "level": 1,
+    "name": "推墙俯卧撑",
+    "clip": "pushup-ladder#1"
+   },
+   {
+    "family": "a40·home",
+    "ladder": "pushup",
+    "level": 1,
+    "name": "推墙俯卧撑",
+    "clip": "pushup-ladder#1"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "pushup",
+    "level": 2,
+    "name": "上斜俯卧撑",
+    "clip": "pushup-ladder#2"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "pushup",
+    "level": 2,
+    "name": "上斜俯卧撑",
+    "clip": "pushup-ladder#2"
+   },
+   {
+    "family": "a18·home",
+    "ladder": "pushup",
+    "level": 2,
+    "name": "上斜俯卧撑",
+    "clip": "pushup-ladder#2"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "pushup",
+    "level": 2,
+    "name": "上斜俯卧撑",
+    "clip": "pushup-ladder#2"
+   },
+   {
+    "family": "a40·home",
+    "ladder": "pushup",
+    "level": 2,
+    "name": "上斜俯卧撑",
+    "clip": "pushup-ladder#2"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "pushup",
+    "level": 3,
+    "name": "跪姿俯卧撑",
+    "clip": "pushup-ladder#3"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "pushup",
+    "level": 3,
+    "name": "跪姿俯卧撑",
+    "clip": "pushup-ladder#3"
+   },
+   {
+    "family": "a18·home",
+    "ladder": "pushup",
+    "level": 3,
+    "name": "跪姿俯卧撑",
+    "clip": "pushup-ladder#3"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "pushup",
+    "level": 3,
+    "name": "跪姿俯卧撑",
+    "clip": "pushup-ladder#3"
+   },
+   {
+    "family": "a40·home",
+    "ladder": "pushup",
+    "level": 3,
+    "name": "跪姿俯卧撑",
+    "clip": "pushup-ladder#3"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "pushup",
+    "level": 4,
+    "name": "标准俯卧撑",
+    "clip": "pushup-ladder#4"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "pushup",
+    "level": 4,
+    "name": "标准俯卧撑",
+    "clip": "pushup-ladder#4"
+   },
+   {
+    "family": "a18·home",
+    "ladder": "pushup",
+    "level": 4,
+    "name": "标准俯卧撑",
+    "clip": "pushup-ladder#4"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "pushup",
+    "level": 4,
+    "name": "标准俯卧撑",
+    "clip": "pushup-ladder#4"
+   },
+   {
+    "family": "a40·home",
+    "ladder": "pushup",
+    "level": 4,
+    "name": "标准俯卧撑",
+    "clip": "pushup-ladder#4"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "pushup",
+    "level": 5,
+    "name": "下放 3 秒的标准俯卧撑",
+    "clip": "pushup-ladder#5"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "pushup",
+    "level": 5,
+    "name": "下放 3 秒的标准俯卧撑",
+    "clip": "pushup-ladder#5"
+   },
+   {
+    "family": "a18·home",
+    "ladder": "pushup",
+    "level": 5,
+    "name": "下放 3 秒的标准俯卧撑",
+    "clip": "pushup-ladder#5"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "pushup",
+    "level": 5,
+    "name": "下放 3 秒的标准俯卧撑",
+    "clip": "pushup-ladder#5"
+   },
+   {
+    "family": "a40·home",
+    "ladder": "pushup",
+    "level": 5,
+    "name": "下放 3 秒的标准俯卧撑",
+    "clip": "pushup-ladder#5"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "pushup",
+    "level": 6,
+    "name": "脚抬高俯卧撑",
+    "clip": "pushup-ladder#6"
+   },
+   {
+    "family": "a18·home",
+    "ladder": "pushup",
+    "level": 6,
+    "name": "脚抬高俯卧撑",
+    "clip": "pushup-ladder#6"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "pushup",
+    "level": 6,
+    "name": "脚抬高俯卧撑",
+    "clip": "pushup-ladder#6"
+   },
+   {
+    "family": "a40·home",
+    "ladder": "pushup",
+    "level": 6,
+    "name": "脚抬高俯卧撑",
+    "clip": "pushup-ladder#6"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "chair-dip",
+    "level": 1,
+    "name": "膝盖弯、脚踩近",
+    "clip": "chair-dip"
+   },
+   {
+    "family": "a18·home",
+    "ladder": "chair-dip",
+    "level": 1,
+    "name": "膝盖弯、脚踩近",
+    "clip": "chair-dip"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "chair-dip",
+    "level": 1,
+    "name": "膝盖弯、脚踩近",
+    "clip": "chair-dip"
+   },
+   {
+    "family": "a40·home",
+    "ladder": "chair-dip",
+    "level": 1,
+    "name": "膝盖弯、脚踩近",
+    "clip": "chair-dip"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "table-row",
+    "level": 2,
+    "name": "双腿伸直",
+    "clip": "table-row"
+   },
+   {
+    "family": "a18·home",
+    "ladder": "table-row",
+    "level": 2,
+    "name": "双腿伸直",
+    "clip": "table-row"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "table-row",
+    "level": 2,
+    "name": "双腿伸直",
+    "clip": "table-row"
+   },
+   {
+    "family": "a40·home",
+    "ladder": "table-row",
+    "level": 2,
+    "name": "双腿伸直",
+    "clip": "table-row"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "pike-pushup",
+    "level": 2,
+    "name": "地面派克",
+    "clip": "pike-pushup"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "pike-pushup",
+    "level": 2,
+    "name": "地面派克",
+    "clip": "pike-pushup"
+   },
+   {
+    "family": "a18·bw",
+    "ladder": "pike-pushup",
+    "level": 3,
+    "name": "下放 3 秒",
+    "clip": "pike-pushup"
+   },
+   {
+    "family": "a40·bw",
+    "ladder": "pike-pushup",
+    "level": 3,
+    "name": "下放 3 秒",
+    "clip": "pike-pushup"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "split-squat",
+    "level": 2,
+    "name": "不扶",
+    "clip": "split-squat"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "split-squat",
+    "level": 3,
+    "name": "下放 3 秒",
+    "clip": "split-squat"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "a13-sl-rdl-wall",
+    "level": 1,
+    "name": "扶墙",
+    "clip": "a13-sl-rdl-wall"
+   },
+   {
+    "family": "a13·bw",
+    "ladder": "a13-pike-high",
+    "level": 2,
+    "name": "高位",
+    "clip": "a13-pike-high"
+   }
+  ],
+  "variants": [
+   {
+    "family": "a18·bw",
+    "exercise": "plank",
+    "condition": "高血压",
+    "value": true
+   },
+   {
+    "family": "a18·home",
+    "exercise": "plank",
+    "condition": "高血压",
+    "value": true
+   },
+   {
+    "family": "a18·gym",
+    "exercise": "plank",
+    "condition": "高血压",
+    "value": true
+   },
+   {
+    "family": "a40·bw",
+    "exercise": "plank",
+    "condition": "高血压",
+    "value": true
+   },
+   {
+    "family": "a40·home",
+    "exercise": "plank",
+    "condition": "高血压",
+    "value": true
+   },
+   {
+    "family": "a40·gym",
+    "exercise": "plank",
+    "condition": "高血压",
+    "value": true
+   },
+   {
+    "family": "a18·bw",
+    "exercise": "wall-sit",
+    "condition": "高血压",
+    "value": true
+   },
+   {
+    "family": "a18·home",
+    "exercise": "wall-sit",
+    "condition": "高血压",
+    "value": true
+   },
+   {
+    "family": "a40·bw",
+    "exercise": "wall-sit",
+    "condition": "高血压",
+    "value": true
+   },
+   {
+    "family": "a40·home",
+    "exercise": "wall-sit",
+    "condition": "高血压",
+    "value": true
+   },
+   {
+    "family": "a13·bw",
+    "exercise": "door-row",
+    "condition": "家长在旁边",
+    "value": false
+   },
+   {
+    "family": "a13·bw",
+    "exercise": "a13-bar-row",
+    "condition": "家长在旁边",
+    "value": false
+   }
+  ],
+  "skip": [
+   "a13-jump",
+   "pushup"
+  ]
  }
 }

@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { checkCourse } from "../src/check.ts";
 import { loadTemplates, templatesDir } from "../src/node.ts";
-import { dayRows, exportCourse, maxWeek, NO_TEMPO_REASON } from "../src/plan.ts";
+import { dayRows, exportCourse, figureFor, maxWeek, NO_TEMPO_REASON } from "../src/plan.ts";
 import { PROFILE_FORMAT } from "../src/profile.ts";
 import { sweepCases } from "./sweep.ts";
 
@@ -89,4 +89,36 @@ describe.skipIf(!t?.plans || !t?.rules)("真模板：每个选项、每个可用
     expect(seen.size).toBeGreaterThan(100);
     expect(bad.slice(0, 5)).toEqual([]);
   }, 60_000);
+
+describe.skipIf(!t?.plans || !t?.rules || !t?.motions)("真模板：动作示意动图和训练单双向对得上", () => {
+  it("能导出的动作和级，写的 figure 都有片段；每段片段都有人用", () => {
+    const { plans, rules, motions, manifest } = { plans: t!.plans!, rules: t!.rules!, motions: t!.motions!, manifest: t!.manifest };
+    const byId = new Map(manifest.exercises.map((e) => [e.id, e]));
+    const used = new Set<string>();
+    const bad: string[] = [];
+    const see = (name: string, id: string, move: string, lv: Parameters<typeof figureFor>[4], ladder: Parameters<typeof figureFor>[5], row: Parameters<typeof figureFor>[6]) => {
+      const ex = byId.get(id);
+      if (!ex) return void bad.push(`${name} ${id}：不在动作索引里`);
+      const fig = figureFor(rules, plans.products[name].code, ex, move, lv, ladder, row);
+      if (!fig) return;
+      used.add(fig);
+      const clip = motions.clips[fig];
+      if (!clip) bad.push(`${name} ${id}：片段 ${fig} 不存在`);
+      else if (!clip.exercises.includes(id)) bad.push(`${name} ${id}：片段 ${fig} 不是给它用的`);
+      else if (ex.mode === "reps" ? !(clip.phases?.up && clip.phases?.down) : !(clip.loop || Number.isFinite(clip.hold))) bad.push(`${name} ${id}：片段 ${fig} 计次方式不对`);
+    };
+    for (const [name, p] of Object.entries(plans.products)) {
+      for (const r of p.rows) {
+        if (!r.export.ok) continue;
+        for (const m of r.moves) {
+          if (m.startsWith("（")) continue;
+          const ladder = r.levels ? p.ladders[m] ?? null : null;
+          if (!ladder) see(name, m, m, null, null, r);
+          else for (const lv of ladder) if (lv.export.ok && (lv.usable || Object.keys(lv.later ?? {}).length)) see(name, lv.exercise, m, lv, ladder, r);
+        }
+      }
+    }
+    expect(bad.slice(0, 10)).toEqual([]);
+    expect(Object.keys(motions.clips).filter((id) => !used.has(id))).toEqual([]);
+  });
 });

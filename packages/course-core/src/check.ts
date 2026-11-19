@@ -278,6 +278,11 @@ export function checkCourse(raw: unknown, ctx: CheckContext): Issue[] {
   } else {
     warn("source.plan", "这份课程不是用 course export 从训练单导出的：用 npm run course -- export 重新导出，不要手写处方");
   }
+  if (!fromPlan) {
+    course.blocks.forEach((b, bi) => b.items.forEach((it, ii) => {
+      if (it.figure !== undefined) err(`blocks[${bi}].items[${ii}].figure`, "手写的课程不能写 figure（动作示意动图只给 course export 导出的课程）");
+    }));
+  }
   const textErr = (path: string, message: string) => {
     if (!textLevel) return;
     // 第二层里，"原文在成品里找不到"是真错（训练单给的出处原文必须逐字在成品里），其余是原文核对认不出的写法，记警告
