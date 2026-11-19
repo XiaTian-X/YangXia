@@ -89,6 +89,7 @@ describe.skipIf(!t?.plans || !t?.rules)("真模板：每个选项、每个可用
     expect(seen.size).toBeGreaterThan(100);
     expect(bad.slice(0, 5)).toEqual([]);
   }, 60_000);
+});
 
 describe.skipIf(!t?.plans || !t?.rules || !t?.motions)("真模板：动作示意动图和训练单双向对得上", () => {
   it("能导出的动作和级，写的 figure 都有片段；每段片段都有人用", () => {
