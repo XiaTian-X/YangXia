@@ -266,10 +266,10 @@ describe("课程检查：figure", () => {
     figured(c).figure = "plank";
     expect(figureIssues(c)).toMatchObject([{ level: "error" }]);
   });
-  it("只少了一部分 figure：报错（课程被改过）", () => {
+  it("只少了一部分 figure（模板后来补了图）：只提醒，不报错", () => {
     const c = exported();
     delete figured(c).figure;
-    expect(figureIssues(c)).toMatchObject([{ level: "error" }]);
+    expect(figureIssues(c)).toMatchObject([{ level: "warning" }]);
   });
   it("整节课都没有 figure（有动图之前导出的）：只提醒，版本号相同也一样", () => {
     const c = exported();

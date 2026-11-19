@@ -629,10 +629,9 @@ export function checkPlanCourse(course: Course, plans: PlansData, rules: RulesDa
       if (ta !== tb) err(`${p}.tempo`, `节奏应该是 ${tb}，课程写 ${ta}`);
       if (it.figure !== undefined && it.figure !== w.figure) err(`${p}.figure`, `动作示意应该是 ${w.figure ?? "（不写）"}，课程写 ${it.figure}`);
       else if (it.figure === undefined && w.figure !== undefined) {
-        // 整节课都没有动图：是有动图之前导出的旧课程，照常能用；只少了一部分，说明课程被改过
-        const message = `这一项应该有动作示意 ${w.figure}，课程没写：重新导出`;
-        if (a.some((x) => x.items.some((y) => y.figure !== undefined))) err(`${p}.figure`, message);
-        else issues.push({ level: "warning", path: `${p}.figure`, message });
+        // 少了动图只提醒：模板后来给这一级补了图（动作库扩充补图批次），旧课程照常能用，只是这一项不显示；
+        // 写错图号仍然报错（上面那一条），不会显示错图
+        issues.push({ level: "warning", path: `${p}.figure`, message: `这一项现在有动作示意 ${w.figure}，课程没写：重新导出才会显示` });
       }
     });
   });
