@@ -55,6 +55,22 @@ test("动作示意：显示、不显示、动起来，不访问外部地址", as
   await page.locator('[data-stage="ex-0-set-1"]').click();
   await expect.poll(async () => (await card(page)).hash).toBe(ready);
 
+  // 预览以后改组数：时间轴重算了，图还对着预览的那一段；那一段没了就回到开头
+  await page.locator('[data-stage="ex-1-set-1"]').click();
+  await expect.poll(async () => (await card(page)).hash).not.toBe(ready);
+  const plank = (await card(page)).hash;
+  const sets = page.getByLabel("组数");
+  await sets.first().fill("2");           // 深蹲多一组，平板往后挪
+  await page.waitForTimeout(300);
+  expect((await card(page)).hash, "改了前面的组数，图还是预览的平板").toBe(plank);
+  await sets.nth(1).fill("2");
+  await page.locator('[data-stage="ex-1-set-2"]').click();
+  await expect.poll(async () => (await card(page)).hash).toBe(plank);
+  await sets.nth(1).fill("1");            // 预览的第 2 组没了
+  await expect.poll(async () => (await card(page)).hash).toBe(ready);
+  await load(page, COURSE);
+  await expect.poll(async () => (await card(page)).hash).toBe(ready);
+
   // 关掉设置就不显示，打开又回来
   await page.getByRole("button", { name: "画面" }).click();
   const box = page.locator('input[data-setting="motionFigure"]');
@@ -92,6 +108,7 @@ test("动作示意：显示、不显示、动起来，不访问外部地址", as
   await page.locator('[data-export="webm"]').click();
   await expect(page.locator(".progress")).toBeVisible();
   await load(page, { ...COURSE, name: "中途换的课", source: { product: COURSE.source.product, week: 1 } });
+  await expect(page.getByText("已载入：中途换的课")).toBeVisible();
   const dl = await finished;
   const webm = readFileSync((await dl.path())!).toString("base64");
   await load(page, COURSE);
@@ -170,6 +187,11 @@ test("动图引擎加载失败：不显示图，跟练和导出照常；导入�
   await load(page, COURSE);
   await expect(page.locator("[data-figure-issue]")).toContainText("不显示动图", { timeout: 20_000 });
   expect(await shown(page)).toBe(false);
+  await page.getByRole("button", { name: "开始跟练" }).click();
+  await expect(page.getByText("跟练中", { exact: true })).toBeVisible();
+  await page.waitForTimeout(500);
+  await page.getByRole("button", { name: "停止" }).click();
+  await page.getByRole("button", { name: "不记录" }).click();
 
   await page.getByRole("button", { name: "声音" }).click();
   await page.locator('select[data-setting="music"]').selectOption("file");
@@ -183,5 +205,26 @@ test("动图引擎加载失败：不显示图，跟练和导出照常；导入�
   const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 150_000 }), page.locator('[data-export="webm"]').click()]);
   expect(readFileSync((await dl.path())!).subarray(0, 4).toString("hex")).toBe("1a45dfa3");
   await expect(page.getByText(/已导出 WEBM（有 2 段动作示意没加载成功/)).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("动图数据解不开：载入课程后提示还在，导出写明视频里没有动作示意", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.addInitScript(() => {
+    (window as unknown as { DecompressionStream: unknown }).DecompressionStream = class {
+      constructor() { throw new Error("测试：解不开"); }
+    };
+  });
+  await page.goto(APP);
+  await expect(page.locator("[data-figure-issue]")).toContainText("动作示意加载失败");
+  await load(page, COURSE);
+  await expect(page.getByText("已载入：动图测试")).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(page.locator("[data-figure-issue]")).toContainText("动作示意加载失败");
+  expect(await shown(page)).toBe(false);
+  const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 150_000 }), page.locator('[data-export="webm"]').click()]);
+  expect(readFileSync((await dl.path())!).subarray(0, 4).toString("hex")).toBe("1a45dfa3");
+  await expect(page.getByText("已导出 WEBM（动作示意没加载成功，视频里不显示）")).toBeVisible();
   expect(errors).toEqual([]);
 });

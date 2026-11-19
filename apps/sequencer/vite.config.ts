@@ -48,10 +48,16 @@ function figureAssets(mode: string): Plugin {
       const file = await motionsFile(mode);
       let motions = "";
       if (file) {
+        // 格式不认识或文件坏了，和课程核心库一样当作没有动图：照常打包，只是不带
         const text = readFileSync(file, "utf8");
-        const format = (JSON.parse(text) as { format?: string }).format;
-        if (format !== MOTIONS_FORMAT) throw new Error(`${file} 的格式是「${format}」，需要 ${MOTIONS_FORMAT}：请先更新模板`);
-        motions = gz(text);
+        let format: unknown;
+        try {
+          format = (JSON.parse(text) as { format?: unknown }).format;
+        } catch {
+          format = "（解析不了）";
+        }
+        if (format === MOTIONS_FORMAT) motions = gz(text);
+        else this.warn(`${file} 的格式是「${String(format)}」，这个编排器只认 ${MOTIONS_FORMAT}：这次打包不带动作示意动图`);
       } else {
         this.warn("没有找到模板的 dist/data/motions.json：这次打包不带动作示意动图");
       }

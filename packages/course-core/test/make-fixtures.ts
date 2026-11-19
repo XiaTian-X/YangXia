@@ -4,7 +4,7 @@
 // 和 contracts/fixtures/products/<成品名>.md（只留样例课程原文、训练单出处原文所在的行），
 // 以及 contracts/fixtures/data/plans.json、rules.json（训练单只留 PLAN_PRODUCTS 这几份成品）、
 // motions.json（动图只留 MOTION_CLIPS 这几段，模板不在时测试和 e2e 用）。
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadTemplates, requirePlans } from "../src/node.ts";
 import type { Course } from "../src/types.ts";
@@ -74,7 +74,11 @@ const planFix = { ...plans, products: Object.fromEntries(PLAN_PRODUCTS.map((n) =
 writeFileSync(join(FIX, "data", "plans.json"), JSON.stringify(planFix) + "\n");
 writeFileSync(join(FIX, "data", "rules.json"), JSON.stringify(rules, null, 1) + "\n");
 const MOTION_CLIPS = ["squat", "plank", "gym-farmer-walk"];
-if (!t.motions) throw new Error("模板没有 dist/data/motions.json：先在模板仓库运行 python3 tpl.py all");
+if (!t.motions) {
+  throw new Error(existsSync(join(t.dir, "dist", "data", "motions.json"))
+    ? "模板的 dist/data/motions.json 读不出（格式不认识或文件坏了）：先更新模板仓库，再运行 python3 tpl.py all"
+    : "模板没有 dist/data/motions.json：先在模板仓库运行 python3 tpl.py all");
+}
 const motionRows = MOTION_CLIPS.map((id) => `${JSON.stringify(id)}:${JSON.stringify(t.motions!.clips[id])}`);
 writeFileSync(join(FIX, "data", "motions.json"),
   `{"format":${JSON.stringify(t.motions.format)},"version":${JSON.stringify(t.motions.version)},"clips":{\n${motionRows.join(",\n")}\n}}\n`);

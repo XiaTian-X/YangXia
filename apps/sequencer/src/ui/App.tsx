@@ -10,6 +10,7 @@ import { LivePlayer } from "../audio/live.ts";
 import { decodeAndResampleTo44100 } from "../audio/sounds.ts";
 import { VoiceBank } from "../audio/voice-bank.ts";
 import { download, exportName, exportSrt, exportWav, exportWebm, sessionRecord, type Feeling } from "../export/exporters.ts";
+import { anchorAt, anchorTime, type FigureAnchor } from "../figure/anchor.ts";
 import { loadClips } from "../figure/assets.ts";
 import { hudFigure } from "../figure/hud.ts";
 import { FigurePlayer } from "../figure/player.ts";
@@ -27,6 +28,9 @@ const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).pa
 /** 本地时分 HHMM：一天练两次，文件名也不会重名。 */
 const localTime = (d: Date) => `${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+const READY_TEXT = "点\"开始跟练\"，或导出音频、字幕、视频";
+/** 课程里有没有从训练单导出的动作示意。 */
+const hasFigure = (c: Course) => !!c.source.plan && c.blocks.some((b) => b.items.some((i) => i.figure));
 
 export function App() {
   const [course, setCourse] = useState<Course | null>(null);
@@ -46,13 +50,18 @@ export function App() {
   const [dragOver, setDragOver] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [clips, setClips] = useState<Record<string, MotionClip>>({});
-  const [figureIssue, setFigureIssue] = useState("");
+  // 动图数据解不开（整份没有）和个别片段预载失败分开记：载入新课程只会刷新后一种
+  const [unpackIssue, setUnpackIssue] = useState("");
+  const [prepareIssue, setPrepareIssue] = useState("");
+  const figureIssue = unpackIssue || prepareIssue;
 
   const canvas = useRef<HTMLCanvasElement>(null);
   const figures = useRef(new FigurePlayer());
   // 跟练用开始时的课程和时间轴（声音也是），中途改设置不会让图和报数错开
   const liveRun = useRef<{ course: Course; timeline: Timeline } | null>(null);
-  const figureTime = useRef(0);          // 没在跟练时，动作示意显示哪一刻（预览的那一段、停下或练完的时刻）
+  const figureTime = useRef(0);          // 动作示意这一帧画的是第几秒
+  // 没在跟练时图停在哪（预览的那一段、停下或练完的时刻），按段记，时间轴变了也对得上
+  const figureAnchor = useRef<FigureAnchor>({ kind: "start" });
   const hud = useRef(initialHud());
   const player = useRef<LivePlayer | null>(null);
   const curIdx = useRef(-1);
@@ -71,14 +80,34 @@ export function App() {
 
   // 动作示意：解开内嵌的动图，预载这节课用到的片段。失败只是不显示，不影响跟练和导出
   useEffect(() => {
-    loadClips().then(setClips).catch(() => setFigureIssue("动作示意加载失败：这次不显示动图，跟练和导出不受影响。"));
+    loadClips().then(setClips).catch(() => setUnpackIssue("动作示意加载失败：这次不显示动图，跟练和导出不受影响。"));
   }, []);
   useEffect(() => {
     if (!course) return;
     void figures.current.prepare(courseClips(course, clips), clips).then((failed) => {
-      setFigureIssue(failed.length ? "有的动作示意加载失败：这些动作不显示动图，跟练和导出不受影响。" : "");
+      setPrepareIssue(failed.length ? "有的动作示意加载失败：这些动作不显示动图，跟练和导出不受影响。" : "");
     });
   }, [course, clips]);
+
+  // 没在跟练时改了课程或设置：预览的那一段还在就刷新文字，没了就回到开头
+  useEffect(() => {
+    const a = figureAnchor.current;
+    if (!timeline || player.current?.running || a.kind !== "stage") return;
+    const ev = timeline.events.find((e) => e.phaseGroup === a.stage);
+    if (ev && anchorTime(timeline, a) !== null) {
+      if (a.preview) {
+        applyEvent(hud.current, ev);
+        hud.current.phaseText = `预览：${ev.label}`;
+      }
+      return;
+    }
+    figureAnchor.current = { kind: "start" };
+    setActiveStage(null);
+    if (a.preview) {
+      hud.current.repText = "READY";
+      hud.current.phaseText = READY_TEXT;
+    }
+  }, [timeline]);
 
   useEffect(() => {
     hud.current.bgMode = settings.background;
@@ -107,7 +136,7 @@ export function App() {
         const run = p?.running ? liveRun.current : null;
         const tl = run?.timeline ?? timeline;
         const events = tl?.events ?? [];
-        if (run) figureTime.current = p!.elapsed();
+        figureTime.current = run ? p!.elapsed() : tl ? anchorTime(tl, figureAnchor.current) ?? 0 : 0;
         if (run && curIdx.current >= 0) stepHud(hud.current, events[curIdx.current], events[curIdx.current + 1], figureTime.current);
         else stepHud(hud.current);
         const f = figureState.current;
@@ -134,14 +163,15 @@ export function App() {
     }
     setCourse(c);
     setSettings(settingsOf(c));
-    figureTime.current = 0;
+    figureAnchor.current = { kind: "start" };
+    setActiveStage(null);
     setEdited(false);
     setSession(null);
     setNotice(`已载入：${c.name}`);
     const h = hud.current;
     h.tagText = c.name;
     h.repText = "READY";
-    h.phaseText = "点\"开始跟练\"，或导出音频、字幕、视频";
+    h.phaseText = READY_TEXT;
   };
 
   const readFile = async (f: File) => {
@@ -178,7 +208,7 @@ export function App() {
       },
       onEnd: (completed) => {
         liveRun.current = null;
-        if (completed) figureTime.current = tl.totalDuration;
+        figureAnchor.current = completed ? { kind: "end" } : anchorAt(tl, figureTime.current);
         setPlaying(false);
         setPlayingItem(-1);
         setSession({ ...snapshot, startedAt: startedAt.current, endedAt: new Date(), completed, setsDone: setsDoneFromPlayed(tl.events, played.current) });
@@ -208,6 +238,7 @@ export function App() {
         // 导出前等动图加载完，视频里不会缺图；加载失败的动作只是不显示
         const failed = exportFigures ? await exportFigures.prepare(courseClips(course, clips), clips, abort.current.signal) : [];
         if (failed.length) done += `（有 ${failed.length} 段动作示意没加载成功，视频里不显示）`;
+        else if (exportFigures && unpackIssue && hasFigure(course)) done += "（动作示意没加载成功，视频里不显示）";
         const blob = await exportWebm(input(), { hud: { bgMode, layoutMode: settings.layout }, signal: abort.current.signal,
           figure: exportFigures ? (t) => hudFigure(course, timeline, clips, exportFigures, t) : undefined,
           onProgress: (stage, pct) => setProgress(stage === "audio" ? 2 : pct) });
@@ -236,10 +267,12 @@ export function App() {
   const stageRef = useRef<string | null>(null);
   stageRef.current = activeStage;
   const jumpRel = (d: number) => {
-    if (!timeline || !player.current?.running) return;
-    const i = timeline.stages.findIndex((st) => st.id === stageRef.current);
-    const j = Math.min(timeline.stages.length - 1, Math.max(0, i + d));
-    player.current.jumpTo(timeline.stages[j].id);
+    // 跟练中按开始时的时间轴跳（中途改了倒数，段会多出或少掉）
+    const tl = liveRun.current?.timeline;
+    if (!tl || !player.current?.running) return;
+    const i = tl.stages.findIndex((st) => st.id === stageRef.current);
+    const j = Math.min(tl.stages.length - 1, Math.max(0, i + d));
+    player.current.jumpTo(tl.stages[j].id);
   };
   const keys = useRef({ start, stop, jumpRel, playing });
   keys.current = { start, stop, jumpRel, playing };
@@ -267,7 +300,7 @@ export function App() {
     if (player.current?.running) return player.current.jumpTo(id);
     const ev = timeline?.events.find((e) => e.phaseGroup === id);
     if (ev) {
-      figureTime.current = ev.time;
+      figureAnchor.current = { kind: "stage", stage: id, offset: 0, preview: true };
       applyEvent(hud.current, ev);
       hud.current.phaseText = `预览：${ev.label}`;
       setActiveStage(id);
@@ -275,6 +308,8 @@ export function App() {
   };
 
   const totalItems = course ? course.blocks.reduce((n, b) => n + b.items.length, 0) : 0;
+  // 路线图：跟练中显示开始时的时间轴，和声音、跳段一致
+  const routeTl = (playing && liveRun.current?.timeline) || timeline;
   return (
     <div class="shell" onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)}
       onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer?.files[0]; if (f) void readFile(f); }}>
@@ -289,9 +324,9 @@ export function App() {
       <div class="grid">
         <div class="card">
           <canvas class="hud" ref={canvas} width={HUD_WIDTH} height={HUD_HEIGHT} />
-          {timeline && (
+          {routeTl && (
             <div class="chips" aria-label="路线图">
-              {timeline.stages.map((st) => (
+              {routeTl.stages.map((st) => (
                 <button key={st.id} data-stage={st.id} class={`chip ${st.isRest ? "rest" : ""} ${activeStage === st.id ? "active" : ""}`}
                   onClick={() => previewStage(st.id)}>{st.label}</button>
               ))}

@@ -1,5 +1,7 @@
 // 真模板全量导出：每份有训练单的成品、每种段型、每一周、每一天（含半量、条件两边、轮换两次）都能导出，
 // 而且课程检查 0 错误。模板不在（或没有训练单）时跳过。
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { checkCourse } from "../src/check.ts";
 import { loadTemplates, templatesDir } from "../src/node.ts";
@@ -89,6 +91,13 @@ describe.skipIf(!t?.plans || !t?.rules)("真模板：每个选项、每个可用
     expect(seen.size).toBeGreaterThan(100);
     expect(bad.slice(0, 5)).toEqual([]);
   }, 60_000);
+});
+
+describe.skipIf(!t)("真模板：动图数据读得出", () => {
+  it("有 motions.json 就要读得出：格式不认识、文件坏了，不能让下面的双向核对悄悄跳过", () => {
+    const f = join(t!.dir, "dist", "data", "motions.json");
+    if (existsSync(f)) expect(t!.motions, `${f} 读不出：格式不认识或文件坏了`).not.toBeNull();
+  });
 });
 
 describe.skipIf(!t?.plans || !t?.rules || !t?.motions)("真模板：动作示意动图和训练单双向对得上", () => {
