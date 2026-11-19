@@ -294,6 +294,9 @@ export function baseTempo(breathing: string): Tempo | null {
   return ok(t.up) && ok(t.down) && ok(t.top) && ok(t.bottom) ? t : null;
 }
 
+/** "进跟练"的动作：训练单标了可导出，并且读得出呼吸节奏（或者是计时动作）。标了可导出却落到这条原因，算模板的错（全量测试会拦）。 */
+export const NO_TEMPO_REASON = "呼吸节奏原文没写发力、下放各几秒，课程格式要写节奏，照成品做";
+
 export interface ExportInput {
   plans: PlansData;
   rules: RulesData;
@@ -446,6 +449,11 @@ export function exportCourse(input: ExportInput): ExportResult {
       err(`plans.${move}`, `动作索引里没有「${exerciseId}」，或训练单没写次数：先更新模板`);
       continue;
     }
+    // 训练单的数字按这一行的单位写：计时动作放进"8–15 次"的行，不能把 8 次当成 8 秒
+    if ((r.reps.unit === "seconds") !== (ex.mode === "timed")) {
+      err(`plans.${move}`, `「${ex.name}」是${ex.mode === "timed" ? "计时" : "计次"}动作，训练单这一行的单位是${r.reps.unit === "seconds" ? "秒" : "次"}：先更新模板`);
+      continue;
+    }
     let amount = r.reps.min;
     if (r.reps_from === "progress" && Number.isInteger(progress[move]?.reps)) amount = progress[move].reps;
     // 加项"加到 12 次"去掉以后：个人进度里留着的次数不改，导出按现在的上限截（设计值 A65_ADD_REPS）
@@ -469,12 +477,14 @@ export function exportCourse(input: ExportInput): ExportResult {
       quote: quotesFor(r, week),
     };
     if (ex.mode === "reps") {
-      // 呼吸节奏：训练单这一行在正文里那个位置的（循环用循环那里写的）；难度级换了动作的，用那个动作的
+      // 呼吸节奏：训练单这一行在正文里那个位置的（循环用循环那里写的）；难度级换了动作的，用那个动作的；
+      // "按器材选一个"的逐组训练用选中的那个动作自己的（循环行照旧用循环那里写的）
       const own = ex.used_in.filter((u) => u.product === productName).map((u) => u.breathing);
-      const breath = (lv && lv.exercise !== move ? own[0] : r.breathing) ?? own[0] ?? "";
+      const useOwn = (lv && lv.exercise !== move) || (r.trim.kind === "choose" && r.block === "sets");
+      const breath = (useOwn ? own[0] : r.breathing) ?? r.breathing ?? own[0] ?? "";
       const base = baseTempo(breath);
       if (!base) {
-        out.follow.push({ name: move, reason: "呼吸节奏原文没写发力、下放各几秒，课程格式要写节奏，照成品做" });
+        out.follow.push({ name: move, reason: NO_TEMPO_REASON });
         continue;
       }
       {

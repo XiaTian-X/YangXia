@@ -3,8 +3,9 @@
 import { describe, expect, it } from "vitest";
 import { checkCourse } from "../src/check.ts";
 import { loadTemplates, templatesDir } from "../src/node.ts";
-import { exportCourse, maxWeek } from "../src/plan.ts";
+import { dayRows, exportCourse, maxWeek, NO_TEMPO_REASON } from "../src/plan.ts";
 import { PROFILE_FORMAT } from "../src/profile.ts";
+import { sweepCases } from "./sweep.ts";
 
 const t = (await templatesDir()) ? await loadTemplates() : null;
 const START = "2025-01-06";
@@ -51,4 +52,41 @@ describe.skipIf(!t?.plans || !t?.rules)("真模板：每份成品每段每周每
       expect(bad.slice(0, 5)).toEqual([]);
     }, 60_000);
   }
+});
+
+// 分层：日常只跑下面这些（全部情形导出，每个选项、每个可用级过一次课程检查）；
+// 全部情形都过课程检查要几分钟，发版前用 npm run snapshot -- check。
+describe.skipIf(!t?.plans || !t?.rules)("真模板：每个选项、每个可用级", () => {
+  const src = { plans: t!.plans!, rules: t!.rules!, manifest: t!.manifest };
+  const cases = [...sweepCases(src)];
+
+  it("全部情形都能导出；标了可导出的动作都读得出节奏", () => {
+    const bad: string[] = [];
+    for (const c of cases) {
+      const r = exportCourse(c.input);
+      for (const i of r.issues.filter((x) => x.level === "error")) bad.push(`${c.key}：${i.message}`);
+      // 读不出节奏的动作要在训练单标"照成品做"（原因相同）；还标着可导出就是模板的错
+      const rows = dayRows(src.plans.products[c.product], src.rules, c.input.profile, c.type, c.input.week, c.input.day);
+      for (const f of r.follow.filter((x) => x.reason === NO_TEMPO_REASON)) {
+        if (rows.some((x) => x.moves.includes(f.name) && x.export.ok)) bad.push(`${c.key}：${f.name} 标了可导出，但读不出节奏`);
+      }
+    }
+    expect(bad.slice(0, 5)).toEqual([]);
+  }, 60_000);
+
+  it("每份成品的每个选项、每个级、每个加项，至少有一次通过课程检查", () => {
+    const seen = new Set<string>();
+    const bad: string[] = [];
+    for (const c of cases) {
+      const id = `${c.product}|${c.variant}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const r = exportCourse(c.input);
+      if (!r.course) continue;
+      const errs = checkCourse(r.course, { manifest: src.manifest, readProduct: t!.readProduct, profile: c.input.profile, plans: src.plans, rules: src.rules, addOns: c.input.addOns }).filter((i) => i.level === "error");
+      if (errs.length) bad.push(`${c.key}：${errs.map((i) => i.message).join(" | ").slice(0, 200)}`);
+    }
+    expect(seen.size).toBeGreaterThan(100);
+    expect(bad.slice(0, 5)).toEqual([]);
+  }, 60_000);
 });

@@ -221,3 +221,29 @@ describe("审查后补的拦截", () => {
     expect(r.notes.join()).toMatch(/每次练之前确认/);
   });
 });
+
+describe("按器材选一个：节奏和计量", () => {
+  const name = "18-39岁-纯徒手版";
+  const changed = (change: (e: (typeof manifest.exercises)[number]) => void) => {
+    const m = clone(manifest);
+    change(m.exercises.find((x) => x.id === "door-row")!);
+    return m;
+  };
+  const run = (m: typeof manifest, week: number, day: string) =>
+    exportCourse({ plans, rules, manifest: m, profile: profile(name, week, { choices: ["door-row"] }), week, day });
+  const door = (r: ReturnType<typeof run>) => r.course!.blocks.flatMap((b) => b.items).find((i) => i.exercise === "door-row");
+  const breathing = (e: (typeof manifest.exercises)[number]) => e.used_in.forEach((u) => { u.breathing = "呼气，拉约 2 秒 → 吸气，放回约 4 秒；不憋气。"; });
+
+  it("逐组训练：用选中的动作自己写的呼吸节奏", () => {
+    const t = door(run(changed(breathing), 1, "C"))!.tempo!;
+    expect([t.up, t.down]).toEqual([2, 4]);
+  });
+  it("循环：照旧用循环那里写的节奏，不受选项影响", () => {
+    expect(door(run(changed(breathing), 1, "D"))!.tempo).toEqual(door(run(manifest, 1, "D"))!.tempo);
+  });
+  it("拦下：计时动作放进按次数写的行，不能把次数当秒数", () => {
+    const r = run(changed((e) => { e.mode = "timed"; }), 1, "C");
+    expect(r.issues.some((i) => i.level === "error" && i.message.includes("计时动作"))).toBe(true);
+    expect(r.course).toBeNull();
+  });
+});
