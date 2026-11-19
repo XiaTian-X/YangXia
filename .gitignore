@@ -61,6 +61,7 @@ apps/sequencer/reference/
 # 依赖和构建产物
 node_modules/
 apps/*/dist/
+apps/*/dist-e2e/
 packages/*/dist/
 *.tsbuildinfo
 coverage/

@@ -1,0 +1,94 @@
+养夏跟练编排器用到的第三方组件
+
+本页面把下面的组件打包在一起，离线运行，不联网。这些组件都没有修改。
+
+动作示意动画引擎
+- dotLottie Web 0.82.1（@lottiefiles/dotlottie-web）：MIT，Copyright (c) 2023 LottieFiles.com
+- dotLottie 运行时（dotlottie-rs，打包在 wasm 里）：MIT，Copyright (c) 2024 LottieFiles.com
+- ThorVG：MIT，Copyright (c) 2020 - 2026 ThorVG Project
+- RapidJSON（ThorVG 内）：MIT，Copyright (C) 2015 THL A29 Limited, a Tencent company, and Milo Yip.
+- LodePNG（ThorVG 内）：zlib，Copyright (c) 2005-2020 Lode Vandevenne
+- libwebp 解码部分（ThorVG 内）：BSD-3-Clause，Copyright 2012 Google Inc. All Rights Reserved.
+- jpgd（ThorVG 内）：Richard Geldreich，公有领域
+- miniz_oxide 0.8.9：MIT（可选 MIT / Zlib / Apache-2.0，这里选 MIT）
+  Copyright 2013-2014 RAD Game Tools and Valve Software
+  Copyright 2010-2014 Rich Geldreich and Tenacious Software LLC
+  Copyright (c) 2017 Frommi
+  Copyright (c) 2017-2026 oyvindln and miniz_oxide github contributors
+- once_cell 1.21.4：MIT（可选 MIT / Apache-2.0，这里选 MIT）
+- console_error_panic_hook 0.1.7：MIT（可选 MIT / Apache-2.0，这里选 MIT），Copyright (c) 2018 Nick Fitzgerald
+- dlmalloc 0.2.13：MIT（可选 MIT / Apache-2.0，这里选 MIT），Copyright (c) 2014 Alex Crichton
+- hashbrown 0.17.1：MIT（可选 MIT / Apache-2.0，这里选 MIT），Copyright (c) 2016 Amanieu d'Antras
+- Rust 标准库：MIT（可选 MIT / Apache-2.0，这里选 MIT），Copyright (c) The Rust Project Contributors
+- tinyrlibc 0.5.1：Blue Oak Model License 1.0.0，许可全文 https://blueoakcouncil.org/license/1.0.0
+  其中 itoa.rs Copyright Jonathan 'theJPster' Pallant 2019，malloc.rs Copyright Gyungmin Myung；
+  strtol.rs 来自 c-ward（MIT），qsort.rs 来自 relibc（MIT，Copyright (c) 2018 Redox OS）
+
+视频封装
+- Mediabunny 1.65.1：Mozilla Public License 2.0，未修改。源码：https://github.com/Vanilagy/mediabunny
+
+
+MIT License（上面标 MIT 的组件）
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+zlib License（LodePNG）
+
+This software is provided 'as-is', without any express or implied warranty. In
+no event will the authors be held liable for any damages arising from the use
+of this software.
+
+Permission is granted to anyone to use this software for any purpose, including
+commercial applications, and to alter it and redistribute it freely, subject to
+the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim
+   that you wrote the original software. If you use this software in a product,
+   an acknowledgment in the product documentation would be appreciated but is
+   not required.
+2. Altered source versions must be plainly marked as such, and must not be
+   misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
+
+
+BSD 3-Clause License（libwebp）
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+* Neither the name of Google nor the names of its contributors may be used to
+  endorse or promote products derived from this software without specific prior
+  written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

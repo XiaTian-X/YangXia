@@ -47,7 +47,8 @@ export function Settings({ settings: s, onChange, ttsVoice, onTtsVoice, musicNam
       <div>
         {select("background", "画面背景", [["dark", "深色（直接看）"], ["green", "绿幕（剪辑时抠像）"], ["magenta", "品红幕（剪辑时抠像，保护绿色元素）"], ["black", "纯黑"]])}
         {select("layout", "布局", [["overlay", "左下角卡片（叠在视频上）"], ["center", "居中大字"]])}
-        <p class="note">导出视频默认用当前背景；深色背景导出时自动换成品红幕，方便在剪辑软件里抠像。</p>
+        <label class="check"><input type="checkbox" data-setting="motionFigure" checked={s.motionFigure !== false} onChange={(e) => set("motionFigure", e.currentTarget.checked)} />显示动作示意（跟练和导出的视频都带）</label>
+        <p class="note">导出视频默认用当前背景；深色背景导出时自动换成品红幕，方便在剪辑软件里抠像。动作示意里有绿色时，绿幕抠像可能受影响，用品红幕更稳；卡片是不透明的，会盖住它后面的画面，不想要就关掉。</p>
       </div>
     );
   }

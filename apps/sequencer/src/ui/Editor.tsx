@@ -20,8 +20,12 @@ export function Editor({ course, playingItem, onChange }: Props) {
     fn(c);
     onChange(c);
   };
+  // 改了动作名或计次方式，就不再是导出时的那个动作了：动作示意跟着去掉
   const setItem = (bi: number, ii: number, patch: Partial<CourseItem>) =>
-    update((c) => Object.assign(c.blocks[bi].items[ii], patch));
+    update((c) => {
+      const item = Object.assign(c.blocks[bi].items[ii], patch);
+      if ("name" in patch || "mode" in patch || "exercise" in patch) delete item.figure;
+    });
   const setTempo = (bi: number, ii: number, patch: Partial<Tempo>) =>
     update((c) => Object.assign(c.blocks[bi].items[ii].tempo ??= { start: "up", up: 1, down: 2 }, patch));
   const move = (bi: number, ii: number, d: number) =>

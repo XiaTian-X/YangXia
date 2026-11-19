@@ -24,6 +24,16 @@ export interface HudState {
   isLastThree: boolean;
 }
 
+/** 动作示意：一张已经定好帧的画面和它下面的小字。 */
+export interface HudFigure {
+  image: CanvasImageSource;
+  width: number;
+  height: number;
+  label: string;
+}
+
+const FIGURE_NOTICE = "未经专业审核，不是医学建议，不能替代医生的判断";
+
 export function initialHud(): HudState {
   return { bgMode: "dark", layoutMode: "overlay", tagText: "养夏 · 跟练编排器", repText: "READY", phaseText: "导入课程后点\"开始跟练\"",
     breathText: "🌬️ 领呼待命", voiceText: "", dotIdx: 0, totalDots: 3, barCurrent: 0.15, barTarget: 0.15, setProgress: 0,
@@ -63,7 +73,41 @@ function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w:
 }
 
 
-export function drawHud(ctx: CanvasRenderingContext2D, s: HudState, W = HUD_WIDTH, H = HUD_HEIGHT): void {
+function drawFigureCard(ctx: CanvasRenderingContext2D, fig: HudFigure, x: number, y: number, w: number, h: number, fill: string, stroke: string, labelColor: string): void {
+  const captionH = 66;
+  const maxW = w - 32;
+  const maxH = h - captionH - 16;
+  const scale = Math.min(maxW / fig.width, maxH / fig.height);
+  const iw = fig.width * scale;
+  const ih = fig.height * scale;
+  const ix = x + (w - iw) / 2;
+  const iy = y + 16 + (maxH - ih) / 2;
+  ctx.save();
+  drawRoundedRect(ctx, x, y, w, h, 24);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = stroke;
+  ctx.stroke();
+  ctx.save();
+  drawRoundedRect(ctx, ix, iy, iw, ih, 14);
+  ctx.clip();
+  ctx.fillStyle = '#f9fafb';
+  ctx.fillRect(ix, iy, iw, ih);
+  ctx.drawImage(fig.image, ix, iy, iw, ih);
+  ctx.restore();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = labelColor;
+  ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif';
+  ctx.fillText(fig.label, x + w / 2, y + h - 44, w - 32);
+  ctx.fillStyle = '#9ca3af';
+  ctx.font = '500 14px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif';
+  ctx.fillText(FIGURE_NOTICE, x + w / 2, y + h - 19, w - 32);
+  ctx.restore();
+}
+
+export function drawHud(ctx: CanvasRenderingContext2D, s: HudState, W = HUD_WIDTH, H = HUD_HEIGHT, figure?: HudFigure | null): void {
     ctx.clearRect(0, 0, W, H);
     if (s.bgMode === 'magenta') {
       ctx.fillStyle = '#FF00FF';
@@ -219,11 +263,14 @@ export function drawHud(ctx: CanvasRenderingContext2D, s: HudState, W = HUD_WIDT
       ctx.fillText(subPillText, pillX + 16, pillY + 22, pillW - 32);
       ctx.restore();
 
+      if (figure) drawFigureCard(ctx, figure, 610, 202, 620, 470, cardBgFill, accentColor, accentBright);
     } else {
-      const cardW = 760;
+      // 有动作示意时主卡片让到左边，右边放图；没有时和原来一样居中
+      const cardW = figure ? 590 : 760;
       const cardH = 420;
-      const cardX = (W - cardW) / 2;
+      const cardX = figure ? 40 : (W - cardW) / 2;
       const cardY = (H - cardH) / 2 + 24;
+      const cx = cardX + cardW / 2;
 
       ctx.save();
       drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 30);
@@ -234,24 +281,24 @@ export function drawHud(ctx: CanvasRenderingContext2D, s: HudState, W = HUD_WIDT
       ctx.stroke();
 
       ctx.save();
-      ctx.translate(W / 2, cardY + 135);
+      ctx.translate(cx, cardY + 135);
       ctx.scale(s.pulseScale, s.pulseScale);
       ctx.fillStyle = accentColor;
       ctx.font = '800 126px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(s.repText, 0, 0, 640);
+      ctx.fillText(s.repText, 0, 0, cardW - 120);
       ctx.restore();
 
       ctx.fillStyle = '#f3f4f6';
       ctx.font = '600 29px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(s.phaseText, W / 2, cardY + 248, 680);
+      ctx.fillText(s.phaseText, cx, cardY + 248, cardW - 80);
 
-      const hBarW = 560;
+      const hBarW = cardW - 200;
       const hBarH = 20;
-      const hBarX = (W - hBarW) / 2;
+      const hBarX = cx - hBarW / 2;
       const hBarY = cardY + 292;
       drawRoundedRect(ctx, hBarX, hBarY, hBarW, hBarH, 10);
       ctx.fillStyle = '#252736';
@@ -270,7 +317,9 @@ export function drawHud(ctx: CanvasRenderingContext2D, s: HudState, W = HUD_WIDT
       const bottomInfo = s.voiceText
         ? `${s.breathText}   ·   🗣️ “${s.voiceText}”`
         : s.breathText;
-      ctx.fillText(bottomInfo, W / 2, cardY + 356, 680);
+      ctx.fillText(bottomInfo, cx, cardY + 356, cardW - 80);
       ctx.restore();
+
+      if (figure) drawFigureCard(ctx, figure, 650, cardY, 590, cardH, cardBgFill, accentColor, accentBright);
     }
 }

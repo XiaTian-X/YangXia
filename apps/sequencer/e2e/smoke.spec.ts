@@ -1,4 +1,4 @@
-// 冒烟测试：打开 dist/养夏跟练编排器.html → 导入短课程 → 跟练（跳过第一个动作）、练完、导出练习记录 → 导出 SRT / WAV / WebM，
+// 冒烟测试：打开 dist-e2e/养夏跟练编排器.html（npm run e2e 用离线样例的动图打包） → 导入短课程 → 跟练（跳过第一个动作）、练完、导出练习记录 → 导出 SRT / WAV / WebM，
 // 并和核心库在 Node 里算出的时间轴对数（SRT 最后一条时间码、WAV 时长）。
 import { buildSrt, buildTimeline, validateSession, type Course } from "@yangxia/course-core";
 import { expect, test, type Download, type Page } from "@playwright/test";
@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { VoiceBank } from "../src/audio/voice-bank.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const APP = pathToFileURL(join(here, "..", "dist", "养夏跟练编排器.html")).href;
+const APP = pathToFileURL(join(here, "..", "dist-e2e", "养夏跟练编排器.html")).href;
 
 const COURSE: Course = {
   schema: "yangxia.course/1", id: "c_smoketest1", name: "冒烟测试", age: "a18",
@@ -36,7 +36,14 @@ test("养夏跟练编排器：导入、跟练、导出", async ({ page }) => {
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.goto(APP);
   await expect(page).toHaveTitle("养夏 · 跟练编排器");
-  expect(await page.content()).not.toMatch(/keep/i);
+  // 用户看得到的地方不出现 Keep（打包进来的第三方库、授权全文不算）
+  const visible = await page.evaluate(() => {
+    const body = document.body.cloneNode(true) as HTMLElement;
+    body.querySelectorAll("script, style, [data-notices]").forEach((x) => x.remove());
+    const options = [...document.querySelectorAll("option")].map((o) => `${o.value} ${o.textContent}`);
+    return [document.title, body.textContent, ...options, ...Object.keys(localStorage)].join("\n");
+  });
+  expect(visible).not.toMatch(/keep/i);
 
   await page.setInputFiles('input[data-input="course"]', { name: "course.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(COURSE)) });
   await expect(page.getByText("已载入：冒烟测试")).toBeVisible();

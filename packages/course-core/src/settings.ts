@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: PlaybackSettings = {
   duckSubBeats: false,
   background: "dark",
   layout: "overlay",
+  motionFigure: true,
 };
 
 export function settingsOf(course: Pick<Course, "presentation">, override: Partial<PlaybackSettings> = {}): PlaybackSettings {

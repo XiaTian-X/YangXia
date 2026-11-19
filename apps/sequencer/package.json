@@ -7,11 +7,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:e2e": "vite build --mode e2e",
     "typecheck": "tsc -p .",
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@lottiefiles/dotlottie-web": "0.82.1",
     "@yangxia/course-core": "0.1.0",
+    "mediabunny": "1.65.1",
     "preact": "10.29.8"
   },
   "devDependencies": {

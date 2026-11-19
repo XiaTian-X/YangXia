@@ -1,14 +1,18 @@
 // 养夏 · 跟练编排器：导入课程 → 预览、跟练 → 导出 WAV / SRT / 视频 → 练完导出练习记录。
 import {
-  buildTimeline, DEFAULT_SETTINGS, FEELS, itemSpec, setsDoneFromPlayed, settingsOf, validateCourse,
-  type Course, type Issue, type ItemNote, type PlaybackSettings, type TimelineEvent,
+  buildTimeline, courseClips, DEFAULT_SETTINGS, FEELS, itemSpec, setsDoneFromPlayed, settingsOf, validateCourse,
+  type Course, type Issue, type ItemNote, type MotionClip, type PlaybackSettings, type TimelineEvent,
 } from "@yangxia/course-core";
+import { notices } from "virtual:yangxia-figures";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import sample from "../../../../contracts/fixtures/courses/ok-a18-home-w1-a.json";
 import { LivePlayer } from "../audio/live.ts";
 import { decodeAndResampleTo44100 } from "../audio/sounds.ts";
 import { VoiceBank } from "../audio/voice-bank.ts";
 import { download, exportName, exportSrt, exportWav, exportWebm, sessionRecord, type Feeling } from "../export/exporters.ts";
+import { loadClips } from "../figure/assets.ts";
+import { hudFigure } from "../figure/hud.ts";
+import { FigurePlayer } from "../figure/player.ts";
 import { applyEvent, drawHud, HUD_HEIGHT, HUD_WIDTH, initialHud, stepHud } from "../hud/draw.ts";
 import { Editor } from "./Editor.tsx";
 import { Library, type Scheme } from "./Library.tsx";
@@ -41,8 +45,10 @@ export function App() {
   const [notice, setNotice] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
+  const [clips, setClips] = useState<Record<string, MotionClip>>({});
 
   const canvas = useRef<HTMLCanvasElement>(null);
+  const figures = useRef(new FigurePlayer());
   const hud = useRef(initialHud());
   const player = useRef<LivePlayer | null>(null);
   const curIdx = useRef(-1);
@@ -56,6 +62,19 @@ export function App() {
     [course, settings, bank, voiceVersion],
   );
   const input = () => ({ timeline: timeline!, settings, bank, music: music?.buffer ?? null });
+  const figureState = useRef({ course, clips, on: true });
+  figureState.current = { course, clips, on: settings.motionFigure !== false };
+
+  // 动作示意：解开内嵌的动图，预载这节课用到的片段。失败只是不显示，不影响跟练和导出
+  useEffect(() => {
+    loadClips().then(setClips).catch(() => setNotice("动作示意加载失败：这次不显示动图，跟练和导出不受影响。"));
+  }, []);
+  useEffect(() => {
+    if (!course) return;
+    void figures.current.prepare(courseClips(course, clips), clips).then((failed) => {
+      if (failed.length) setNotice("有的动作示意加载失败：这些动作不显示动图，跟练和导出不受影响。");
+    });
+  }, [course, clips]);
 
   useEffect(() => {
     hud.current.bgMode = settings.background;
@@ -72,7 +91,9 @@ export function App() {
         const events = timeline?.events ?? [];
         if (p?.running && curIdx.current >= 0) stepHud(hud.current, events[curIdx.current], events[curIdx.current + 1], p.elapsed());
         else stepHud(hud.current);
-        drawHud(ctx, hud.current);
+        const f = figureState.current;
+        const figure = f.on && f.course && timeline ? hudFigure(f.course, timeline, f.clips, figures.current, p?.running ? p.elapsed() : 0) : null;
+        drawHud(ctx, hud.current, HUD_WIDTH, HUD_HEIGHT, figure);
       }
       raf = requestAnimationFrame(frame);
     };
@@ -312,6 +333,10 @@ export function App() {
           {tab === "voice" && <Recorder bank={bank} onChanged={() => setVoiceVersion((v) => v + 1)} />}
         </div>
       </div>
+      <details class="note" style={{ marginTop: 12 }} data-notices>
+        <summary>第三方授权</summary>
+        <pre style={{ whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto" }}>{notices}</pre>
+      </details>
     </div>
   );
 }
