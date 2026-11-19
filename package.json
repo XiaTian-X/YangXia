@@ -19,6 +19,7 @@
     "build": "npm run build -w @yangxia/sequencer",
     "e2e": "npm run build && npm run e2e -w @yangxia/sequencer",
     "baseline": "node apps/sequencer/e2e/baseline.mjs",
+    "snapshot": "node packages/course-core/test/export-snapshot.ts",
     "profile": "node packages/course-core/src/cli.ts profile"
   },
   "devDependencies": {

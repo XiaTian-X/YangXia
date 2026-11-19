@@ -77,6 +77,7 @@
 npm run setup                                         # 新克隆后启用两个仓库的提交前检查
 npm test                                              # 单元测试（模板不在时，安全相关测试照样跑）
 npm run e2e                                           # 打包编排器并跑冒烟测试（Playwright）
+npm run snapshot -- write <文件> | compare <文件> | check   # 导出快照：改动前生成基线、改动后逐项比；check 是发版前的全量导出和课程检查
 npm run course -- export profiles/<代号> <第几周> <哪天>     # 按训练单和档案导出一天的课程（自带检查，0 错误才写文件）
 npm run course -- assess profiles/<代号> <入门|段末|周期末|触发> [记录.json]   # 评估：列出要问、要测的项；给了记录就重算结论、核对
 npm run course -- plan profiles/<代号>                # 个人计划单：现在这一周每天练什么、有氧、习惯达标线、下次评估（写 计划/第N段-第N周.md）
