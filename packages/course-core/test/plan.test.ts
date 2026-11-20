@@ -272,6 +272,11 @@ describe("v4 阶段 8：课程导出写进档案里的播放偏好和呼吸提�
     expect(r.course!.coaching).toEqual({ floor: "pluck", prefs: { breathAfter: "pluck" } });
     expect(r.issues.some((i) => i.path === "playback.breathAfter" && i.level === "warning")).toBe(true);
   });
+  it("成人有高血压：档案写的\"安静\"导出成提示音，并提醒", () => {
+    const r = ex("18-39岁-居家版", 1, "A", { conditions: { 高血压: true }, playback: { breathAfter: "quiet" } });
+    expect(r.course!.coaching).toEqual({ floor: "pluck", prefs: { breathAfter: "pluck" } });
+    expect(r.issues.some((i) => i.path === "playback.breathAfter" && i.level === "warning")).toBe(true);
+  });
   it("课程检查：下限少了报错，播放偏好和档案不一样只提醒", () => {
     const p = profile("65岁以上-椅子辅助版", 1, { playback: { countTiming: "on-rep" } });
     const c = exportCourse({ plans, rules, manifest, profile: p, week: 1, day: "A" }).course!;

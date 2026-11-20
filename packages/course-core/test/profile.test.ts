@@ -19,6 +19,17 @@ describe("个人档案", () => {
     expect(profileSchema(P())).toBe(true);
     expect(errors(validateProfile(P()))).toEqual([]);
   });
+  it("播放偏好写\"安静\"：65 岁以上、有高血压或没确认的成人提醒；确认没有高血压的成人、13–17 岁、全程 + 安静不提醒", () => {
+    const warned = (patch: Record<string, any>) =>
+      validateProfile(Object.assign(P(), patch)).some((i) => i.path === "playback.breathAfter" && i.level === "warning");
+    const quiet = { breathAfter: "quiet" };
+    expect(warned({ playback: quiet, conditions: {} })).toBe(true);
+    expect(warned({ playback: quiet, age: "a40", conditions: { 高血压: true } })).toBe(true);
+    expect(warned({ playback: quiet, age: "a65" })).toBe(true);
+    expect(warned({ playback: quiet, conditions: { 高血压: false } })).toBe(false);
+    expect(warned({ playback: quiet, age: "a13", conditions: {} })).toBe(false);
+    expect(warned({ playback: { breathLead: "all", breathAfter: "quiet" }, conditions: {} })).toBe(false);
+  });
   it("播放偏好（v4 阶段 8）：只记选择，合格的 Schema 和 TS 都通过", () => {
     const p = Object.assign(P(), { playback: { breathLead: "all", breathAfter: "quiet", countTiming: "on-rep" } });
     expect(profileSchema(p)).toBe(true);

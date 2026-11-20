@@ -68,7 +68,7 @@ export function Settings({ settings: s, onChange, ttsVoice, onTtsVoice, musicNam
       {check("preCountdown", "开头 3、2、1 倒数")}
       {check("lastThreeBoost", "最后三次加强提示")}
       <label class="field"><span>每组领几次"呼、吸"</span>
-        <select value={String(s.breathLead)} data-setting="breathLead"
+        <select value={String(s.breathLead)} data-setting="breathLead" disabled={floor && !s.voiceBake}
           onChange={(e) => set("breathLead", e.currentTarget.value === "all" ? "all" : Number(e.currentTarget.value))}>
           {leadOptions(s.breathLead).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
         </select>
