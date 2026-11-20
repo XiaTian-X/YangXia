@@ -125,12 +125,17 @@
     sound: async () => show("sound", await beep(), "ok"),
     tts: async () => {
       if (!("speechSynthesis" in window)) return show("tts", "没有系统语音", "bad");
+      // 语音列表是异步加载的：刚打开页面时可能还是空的，最多等 2 秒
+      if (!speechSynthesis.getVoices().length) {
+        await new Promise((ok) => { speechSynthesis.addEventListener("voiceschanged", ok, { once: true }); setTimeout(ok, 2000); });
+      }
+      const all = speechSynthesis.getVoices().length;
       const zh = voicesZh();
       const u = new SpeechSynthesisUtterance("一，吸");
       u.lang = "zh-CN"; if (zh[0]) u.voice = zh[0];
       u.onerror = (e) => show("tts", "出错：" + (e.error || "未知"), "bad");
       speechSynthesis.cancel(); speechSynthesis.speak(u);
-      show("tts", "已请求朗读；中文发音人 " + zh.length + " 个" + (zh[0] ? "（用的是 " + zh[0].name + "）" : "，会用默认发音人"), zh.length ? "ok" : "warn");
+      show("tts", "已请求朗读；发音人共 " + all + " 个，中文 " + zh.length + " 个" + (zh[0] ? "（用的是 " + zh[0].name + "）" : "，会用默认发音人"), zh.length ? "ok" : "warn");
     },
     wake: async () => {
       if (!("wakeLock" in navigator)) return show("wake", "不支持屏幕常亮（没有 Wake Lock）", "bad");
