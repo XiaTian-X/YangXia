@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src blob: data:; connect-src blob: data:; base-uri 'none'; form-action 'none'" />
+<title>养夏 · 真机检查</title>
+<style>
+  :root { --bg: #0b0f14; --panel: #131a22; --line: rgba(255,255,255,.12); --text: #eef2f6; --muted: #94a3b8; --ok: #14b8a6; --bad: #f87171; --warn: #f59e0b; }
+  @media (prefers-color-scheme: light) { :root { --bg: #f6f7f9; --panel: #fff; --line: rgba(0,0,0,.12); --text: #111827; --muted: #4b5563; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 22px; margin: 4px 0 4px; }
+  p { margin: 6px 0; }
+  .note { color: var(--muted); font-size: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 12px 0; }
+  .card h2 { font-size: 17px; margin: 0 0 6px; }
+  button { font: inherit; padding: 10px 14px; margin: 4px 6px 4px 0; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--text); min-height: 44px; }
+  button.main { background: var(--ok); color: #fff; border-color: var(--ok); }
+  .r { font-size: 15px; margin-top: 4px; word-break: break-all; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+  textarea { width: 100%; min-height: 220px; font: 13px/1.5 ui-monospace, Menlo, monospace; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>养夏 · 真机检查</h1>
+  <p class="note">在手机或平板上逐项点一遍，看养夏跟练编排器要用的功能能不能用。这个页面不联网、不保存、不上传任何东西；最下面的结果可以复制发给 agent。</p>
+  <p id="js" class="bad"><b>脚本没有运行</b>：用这种方式打开时，编排器也用不了（比如只是"预览"）。换一种打开方式试试。</p>
+
+  <section class="card"><h2>1. 打开方式</h2><div class="r" id="env">—</div></section>
+
+  <section class="card"><h2>2. 声音</h2>
+    <p class="note">iPhone 先确认侧面的静音键没开。</p>
+    <button class="main" data-t="sound">播放提示音</button>
+    <button data-heard="sound" data-v="是">听到了</button><button data-heard="sound" data-v="否">没听到</button>
+    <div class="r" id="r-sound">—</div></section>
+
+  <section class="card"><h2>3. 系统语音</h2>
+    <button class="main" data-t="tts">说"一，吸"</button>
+    <button data-heard="tts" data-v="是">听到中文了</button><button data-heard="tts" data-v="否">没听到或不是中文</button>
+    <div class="r" id="r-tts">—</div></section>
+
+  <section class="card"><h2>4. 屏幕常亮</h2>
+    <p class="note">点了以后放着别碰，看 1–2 分钟屏幕会不会自己变暗、锁屏。</p>
+    <button class="main" data-t="wake">请求常亮</button>
+    <button data-heard="wake" data-v="是">屏幕一直亮着</button><button data-heard="wake" data-v="否">还是锁屏了</button>
+    <div class="r" id="r-wake">—</div></section>
+
+  <section class="card"><h2>5. 全屏</h2><button class="main" data-t="full">进入全屏</button><div class="r" id="r-full">—</div></section>
+
+  <section class="card"><h2>6. 复制文字</h2><button class="main" data-t="clip">复制一段测试文字</button><div class="r" id="r-clip">—</div></section>
+
+  <section class="card"><h2>7. 分享文件</h2>
+    <p class="note">练完以后用来把练习记录发回电脑。点了会弹出系统分享；可以直接取消。</p>
+    <button class="main" data-t="share">分享一个测试文件</button><div class="r" id="r-share">—</div></section>
+
+  <section class="card"><h2>8. 下载文件</h2>
+    <button class="main" data-t="dl">下载一个测试文件</button>
+    <button data-heard="dl" data-v="是">找到了下载的文件</button><button data-heard="dl" data-v="否">没找到</button>
+    <div class="r" id="r-dl">—</div></section>
+
+  <section class="card"><h2>9. 选择文件</h2>
+    <p class="note">用来导入课程。随便选一个文件，只看能不能选，不读内容。</p>
+    <input type="file" id="pick" /><div class="r" id="r-pick">—</div></section>
+
+  <section class="card"><h2>10. 切到后台再回来</h2>
+    <p class="note">先点"播放提示音"，再切到别的 App 或锁屏，过几秒回来。</p>
+    <div class="r" id="r-bg">还没切过</div></section>
+
+  <section class="card"><h2>11. 导出视频的能力</h2><div class="r" id="r-video">检查中…</div></section>
+
+  <section class="card"><h2>结果</h2>
+    <p class="note">复制下面的文字发给 agent（会作为对话发给模型服务处理；里面只有设备型号、系统版本和每一项的结果）。</p>
+    <button class="main" id="copy">复制结果</button><span class="r" id="r-copy"></span>
+    <textarea id="out" readonly></textarea></section>
+</main>
+<script>
+(() => {
+  document.getElementById("js").className = "ok";
+  document.getElementById("js").innerHTML = "<b>脚本在运行</b>";
+  const R = {};
+  const NAME = { sound: "声音", tts: "系统语音", wake: "屏幕常亮", full: "全屏", clip: "复制文字", share: "分享文件", dl: "下载文件", pick: "选择文件", bg: "切后台再回来", video: "导出视频的能力" };
+  const show = (k, text, cls) => {
+    R[NAME[k] || k] = text;
+    const el = document.getElementById("r-" + k);
+    if (el) { el.textContent = text; el.className = "r " + (cls || ""); }
+    render();
+  };
+  const render = () => {
+    const lines = ["养夏真机检查结果", "时间：" + new Date().toLocaleString("zh-CN", { hour12: false })];
+    for (const [k, v] of Object.entries(R)) lines.push(k + "：" + v);
+    document.getElementById("out").value = lines.join("\n");
+  };
+
+  // 1. 打开方式
+  const standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+  const env = [
+    "地址：" + location.protocol + (location.protocol === "file:" ? "（本地文件）" : "//" + location.host),
+    "安全上下文：" + (window.isSecureContext ? "是" : "否"),
+    "装到主屏幕打开：" + (standalone ? "是" : "否"),
+    "屏幕：" + innerWidth + "×" + innerHeight + "，像素比 " + devicePixelRatio,
+    "浏览器：" + navigator.userAgent,
+  ];
+  document.getElementById("env").innerHTML = env.map((s) => "<div>" + s.replace(/</g, "&lt;") + "</div>").join("");
+  R["打开方式"] = env.slice(0, 4).join("；");
+  R["浏览器"] = navigator.userAgent;
+
+  let ctx = null;
+  const beep = async () => {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return "没有 AudioContext";
+    ctx = ctx || new AC();
+    if (ctx.state === "suspended") await ctx.resume();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = 880; g.gain.value = 0.25;
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.4);
+    return "已播放（状态：" + ctx.state + "）";
+  };
+  const voicesZh = () => (window.speechSynthesis ? speechSynthesis.getVoices().filter((v) => /zh|cmn|chinese/i.test(v.lang) || /晓|云|婷|美佳|善怡|普通话|国语/.test(v.name)) : []);
+
+  const tests = {
+    sound: async () => show("sound", await beep(), "ok"),
+    tts: async () => {
+      if (!("speechSynthesis" in window)) return show("tts", "没有系统语音", "bad");
+      const zh = voicesZh();
+      const u = new SpeechSynthesisUtterance("一，吸");
+      u.lang = "zh-CN"; if (zh[0]) u.voice = zh[0];
+      u.onerror = (e) => show("tts", "出错：" + (e.error || "未知"), "bad");
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+      show("tts", "已请求朗读；中文发音人 " + zh.length + " 个" + (zh[0] ? "（用的是 " + zh[0].name + "）" : "，会用默认发音人"), zh.length ? "ok" : "warn");
+    },
+    wake: async () => {
+      if (!("wakeLock" in navigator)) return show("wake", "不支持屏幕常亮（没有 Wake Lock）", "bad");
+      try { const l = await navigator.wakeLock.request("screen"); show("wake", "已拿到常亮" + (l.released ? "（又被释放了）" : ""), "ok");
+        l.addEventListener("release", () => { R["屏幕常亮（释放）"] = "常亮被释放（切后台或系统收回）"; render(); });
+      } catch (e) { show("wake", "请求失败：" + e.name + " " + e.message, "bad"); }
+    },
+    full: async () => {
+      const el = document.documentElement;
+      const f = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (!f) return show("full", "不支持网页全屏（iPhone 的 Safari 只能把视频全屏）", "warn");
+      try { await f.call(el); show("full", "已进入全屏", "ok"); setTimeout(() => (document.exitFullscreen || document.webkitExitFullscreen || (() => {})).call(document), 1500); }
+      catch (e) { show("full", "失败：" + e.name + " " + e.message, "bad"); }
+    },
+    clip: async () => {
+      if (!navigator.clipboard) return show("clip", "没有剪贴板接口（不是安全上下文时常见）", "bad");
+      try { await navigator.clipboard.writeText("养夏测试"); show("clip", "已复制", "ok"); } catch (e) { show("clip", "失败：" + e.name, "bad"); }
+    },
+    share: async () => {
+      const file = new File([JSON.stringify({ test: "养夏" })], "养夏测试.json", { type: "application/json" });
+      if (!navigator.share) return show("share", "不支持系统分享", "bad");
+      const can = navigator.canShare ? navigator.canShare({ files: [file] }) : false;
+      if (!can) return show("share", "能分享文字，不能分享文件", "warn");
+      try { await navigator.share({ files: [file], title: "养夏测试" }); show("share", "分享成功", "ok"); }
+      catch (e) { show("share", e.name === "AbortError" ? "能分享文件（这次取消了）" : "失败：" + e.name, e.name === "AbortError" ? "ok" : "bad"); }
+    },
+    dl: async () => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([JSON.stringify({ test: "养夏" })], { type: "application/json" }));
+      a.download = "养夏测试.json"; document.body.appendChild(a); a.click(); a.remove();
+      show("dl", "已触发下载，去下载或文件里找一下", "warn");
+    },
+  };
+  document.querySelectorAll("button[data-t]").forEach((b) => b.addEventListener("click", () => tests[b.dataset.t]().catch((e) => show(b.dataset.t, "出错：" + e.message, "bad"))));
+  document.querySelectorAll("button[data-heard]").forEach((b) => b.addEventListener("click", () => { R[NAME[b.dataset.heard] + "（实际）"] = b.dataset.v; render(); b.parentElement.querySelectorAll("button[data-heard]").forEach((x) => (x.style.opacity = x === b ? "1" : ".5")); }));
+  document.getElementById("pick").addEventListener("change", (e) => { const f = e.target.files[0]; show("pick", f ? "能选文件（" + Math.round(f.size / 1024) + " KB）" : "没选", f ? "ok" : "warn"); });
+
+  let away = 0;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { away = Date.now(); return; }
+    const s = Math.round((Date.now() - away) / 1000);
+    show("bg", "离开 " + s + " 秒后回来；声音状态：" + (ctx ? ctx.state : "还没播过"), ctx && ctx.state !== "running" ? "warn" : "ok");
+  });
+
+  (async () => {
+    const out = [];
+    out.push("WebAssembly：" + (typeof WebAssembly === "object" ? "有" : "没有"));
+    if (typeof VideoEncoder === "undefined") out.push("VideoEncoder：没有（编排器导出视频要用它）");
+    else for (const [n, codec] of [["VP9", "vp09.00.10.08"], ["VP8", "vp8"], ["H.264", "avc1.42001f"]]) {
+      try { const r = await VideoEncoder.isConfigSupported({ codec, width: 1280, height: 720, bitrate: 5e6, framerate: 60 }); out.push(n + "：" + (r.supported ? "能编码" : "不能")); }
+      catch { out.push(n + "：不能"); }
+    }
+    out.push("AudioEncoder：" + (typeof AudioEncoder === "undefined" ? "没有" : "有"));
+    out.push("本机存储：" + (() => { try { localStorage.setItem("yangxia-check", "1"); const ok = localStorage.getItem("yangxia-check") === "1"; localStorage.removeItem("yangxia-check"); return ok ? "能用" : "不能"; } catch { return "不能"; } })());
+    show("video", out.join("；"));
+  })();
+
+  document.getElementById("copy").addEventListener("click", async () => {
+    const t = document.getElementById("out");
+    try { await navigator.clipboard.writeText(t.value); document.getElementById("r-copy").textContent = " 已复制"; }
+    catch { t.focus(); t.select(); document.getElementById("r-copy").textContent = " 自动复制不行，已全选，请手动复制"; }
+  });
+  render();
+})();
+</script>
+</body>
+</html>
