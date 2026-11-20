@@ -32,7 +32,7 @@
   <section class="card"><h2>1. 打开方式</h2><div class="r" id="env">—</div></section>
 
   <section class="card"><h2>2. 声音</h2>
-    <p class="note">iPhone 先确认侧面的静音键没开。</p>
+    <p class="note">先把<b>媒体音量</b>调大（按音量键时调的那个）；iPhone 确认侧面的静音键没开。</p>
     <button class="main" data-t="sound">播放提示音</button>
     <button data-heard="sound" data-v="是">听到了</button><button data-heard="sound" data-v="否">没听到</button>
     <div class="r" id="r-sound">—</div></section>
@@ -47,6 +47,12 @@
     <button class="main" data-t="wake">请求常亮</button>
     <button data-heard="wake" data-v="是">屏幕一直亮着</button><button data-heard="wake" data-v="否">还是锁屏了</button>
     <div class="r" id="r-wake">—</div></section>
+
+  <section class="card"><h2>4b. 屏幕常亮（备用办法）</h2>
+    <p class="note">上面"请求常亮"不行时用：页面里循环播放一段看不见的静音小视频，手机一般就不会自动锁屏。点了以后同样放着别碰，看 1–2 分钟。</p>
+    <button class="main" data-t="nosleep">开始备用常亮</button>
+    <button data-heard="nosleep" data-v="是">屏幕一直亮着</button><button data-heard="nosleep" data-v="否">还是锁屏了</button>
+    <div class="r" id="r-nosleep">—</div><video id="ns" muted playsinline loop style="width:2px;height:2px;opacity:.01"></video></section>
 
   <section class="card"><h2>5. 全屏</h2><button class="main" data-t="full">进入全屏</button><div class="r" id="r-full">—</div></section>
 
@@ -81,7 +87,7 @@
   document.getElementById("js").className = "ok";
   document.getElementById("js").innerHTML = "<b>脚本在运行</b>";
   const R = {};
-  const NAME = { sound: "声音", tts: "系统语音", wake: "屏幕常亮", full: "全屏", clip: "复制文字", share: "分享文件", dl: "下载文件", pick: "选择文件", bg: "切后台再回来", video: "导出视频的能力" };
+  const NAME = { sound: "声音", tts: "系统语音", wake: "屏幕常亮", nosleep: "备用常亮", full: "全屏", clip: "复制文字", share: "分享文件", dl: "下载文件", pick: "选择文件", bg: "切后台再回来", video: "导出视频的能力" };
   const show = (k, text, cls) => {
     R[NAME[k] || k] = text;
     const el = document.getElementById("r-" + k);
@@ -143,6 +149,18 @@
         l.addEventListener("release", () => { R["屏幕常亮（释放）"] = "常亮被释放（切后台或系统收回）"; render(); });
       } catch (e) { show("wake", "请求失败：" + e.name + " " + e.message, "bad"); }
     },
+    nosleep: async () => {
+      // 不用文件：画布生成的画面直接当视频源，静音、循环、内联播放
+      const v = document.getElementById("ns");
+      const c = document.createElement("canvas");
+      c.width = 16; c.height = 16;
+      const g = c.getContext("2d");
+      let n = 0;
+      setInterval(() => { g.fillStyle = n++ % 2 ? "#000" : "#010101"; g.fillRect(0, 0, 16, 16); }, 500);
+      if (!c.captureStream) return show("nosleep", "不支持把画面当视频（captureStream）", "bad");
+      v.srcObject = c.captureStream(2);
+      try { await v.play(); show("nosleep", "静音小视频在播放", "ok"); } catch (e) { show("nosleep", "播放失败：" + e.name, "bad"); }
+    },
     full: async () => {
       const el = document.documentElement;
       const f = el.requestFullscreen || el.webkitRequestFullscreen;
@@ -177,7 +195,9 @@
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) { away = Date.now(); return; }
     const s = Math.round((Date.now() - away) / 1000);
-    show("bg", "离开 " + s + " 秒后回来；声音状态：" + (ctx ? ctx.state : "还没播过"), ctx && ctx.state !== "running" ? "warn" : "ok");
+    const before = ctx ? ctx.state : "还没播过";
+    const after = () => show("bg", "离开 " + s + " 秒后回来；回来时声音状态：" + before + (ctx ? "，重新接上后：" + ctx.state : ""), ctx && ctx.state !== "running" ? "bad" : "ok");
+    if (ctx && ctx.state !== "running") ctx.resume().then(after, after); else after();
   });
 
   (async () => {
