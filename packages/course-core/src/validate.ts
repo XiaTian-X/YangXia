@@ -1,5 +1,6 @@
 // 课程格式的结构校验，和 contracts/course.schema.json 一一对应（报中文错误，不悄悄改值）。
 // 两边是否一致由 test/conformance.test.ts 用 contracts/fixtures/ 里的样例核对。
+import { SAFETY_SETTINGS, SETTING_CHECKS } from "./settings.ts";
 import type { Course, Issue } from "./types.ts";
 
 const AGES = ["a13", "a18", "a40", "a65"];
@@ -11,33 +12,17 @@ const isInt = (v: unknown, lo: number, hi: number) => Number.isInteger(v) && (v 
 const isHalf = (v: unknown, lo: number, hi: number) =>
   typeof v === "number" && v >= lo && v <= hi && Number.isInteger(v * 2);
 
-const isLead = (v: unknown) => v === "all" || isInt(v, 0, 60);
+const isLead = SETTING_CHECKS.breathLead;
 /** 和安全有关的播放设置：写错报错（呼吸提示关系到会不会憋气）。 */
 const SAFETY: Record<string, [(v: unknown) => boolean, string]> = {
   breath: [(v) => ["coach", "full-voice", "pluck", "off"].includes(v as string), "breath（旧写法）只能是 coach / full-voice / pluck / off"],
   breathLead: [isLead, 'breathLead 是每组领几次：0–60 的整数，或 "all"（全程）'],
-  breathAfter: [(v) => v === "quiet" || v === "pluck", 'breathAfter 只能是 "quiet"（安静）或 "pluck"（提示音）'],
+  breathAfter: [SETTING_CHECKS.breathAfter, 'breathAfter 只能是 "quiet"（安静）或 "pluck"（提示音）'],
 };
-/** 外观和声音的播放设置：写错只提醒，编排器回到默认值。 */
-const LOOKS: Record<string, (v: unknown) => boolean> = {
-  bpm: (v) => isInt(v, 40, 110),
-  sound: (v) => ["woodblock", "marimba", "perc"].includes(v as string),
-  preCountdown: (v) => typeof v === "boolean",
-  lastThreeBoost: (v) => typeof v === "boolean",
-  breathVolume: (v) => isInt(v, 0, 100),
-  countTiming: (v) => v === "on-rep" || v === "on-up",
-  voiceTimbre: (v) => ["female", "male", "warm"].includes(v as string),
-  voiceEngine: (v) => v === "tts" || v === "embedded",
-  voiceVolume: (v) => isInt(v, 0, 100),
-  voiceBake: (v) => typeof v === "boolean",
-  music: (v) => ["groove", "beat", "file", "none"].includes(v as string),
-  musicVolume: (v) => isInt(v, 0, 100),
-  duckDepth: (v) => isInt(v, 0, 100),
-  duckSubBeats: (v) => typeof v === "boolean",
-  background: (v) => ["dark", "green", "magenta", "black"].includes(v as string),
-  layout: (v) => v === "overlay" || v === "center",
-  motionFigure: (v) => typeof v === "boolean",
-};
+/** 外观和声音的播放设置：写错只提醒，编排器回到默认值（settings.ts 的 normalizeSettings 会丢掉它）。 */
+const LOOKS: Record<string, (v: unknown) => boolean> = Object.fromEntries(
+  Object.entries(SETTING_CHECKS).filter(([k]) => !(SAFETY_SETTINGS as readonly string[]).includes(k)),
+);
 
 /** 播放设置的取值：安全项写错返回错误，外观项写错返回提醒。 */
 export function settingsIssues(raw: Obj, path: string): Issue[] {
@@ -93,7 +78,7 @@ export function validateCourse(raw: unknown): { course: Course | null; issues: I
         if (!isObj(co.prefs)) err("coaching.prefs", "prefs 要是对象");
         else for (const [k, v] of Object.entries(co.prefs)) {
           // 档案里的播放偏好只能写这三项，写错一律报错（是 course export 照档案写的）
-          const ok = k === "breathLead" ? isLead(v) : k === "breathAfter" ? SAFETY.breathAfter[0](v) : k === "countTiming" ? LOOKS.countTiming(v) : null;
+          const ok = k === "breathLead" || k === "breathAfter" || k === "countTiming" ? SETTING_CHECKS[k](v) : null;
           if (ok === null) err(`coaching.prefs.${k}`, "prefs 只能写 breathLead、breathAfter、countTiming");
           else if (!ok) err(`coaching.prefs.${k}`, "取值不对");
         }

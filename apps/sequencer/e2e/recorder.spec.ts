@@ -36,7 +36,8 @@ test("录报数声：按句列这节课要说的话，点停结束录音", async
   await page.getByRole("button", { name: "录报数声" }).click();
   await expect(page.getByText("下面是这节课要说的话")).toBeVisible();
   for (const p of ["准备", "开始", "本组完成", "全部完成", "准备下一组", "休息 12 秒", "3"]) await expect(page.locator(`[data-phrase="${p}"]`), p).toBeVisible();
-  for (const p of ["第", "组", "下", "秒", "准备下一项", "3，本组完成"]) await expect(page.locator(`[data-phrase="${p}"]`), p).toHaveCount(0);
+  for (const p of ["第", "组", "下", "秒", "准备下一项", "3，本组完成", "1，吸"]) await expect(page.locator(`[data-phrase="${p}"]`), p).toHaveCount(0);
+  await expect(page.locator('[data-phrase="吸"]')).toBeVisible();   // "1，吸"这种拼句拆成数字和口令录
 
   const card = page.locator('[data-phrase="准备下一组"]');
   await card.getByRole("button", { name: "录" }).click();

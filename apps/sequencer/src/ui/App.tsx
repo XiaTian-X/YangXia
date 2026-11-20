@@ -1,6 +1,6 @@
 // 养夏 · 跟练编排器：导入课程 → 预览、跟练 → 导出 WAV / SRT / 视频 → 练完导出练习记录。
 import {
-  breathFloor, buildTimeline, courseClips, DEFAULT_SETTINGS, FEELS, itemSpec, normalizeSettings, setsDoneFromPlayed, settingsOf, validateCourse,
+  breathFloor, buildTimeline, courseClips, DEFAULT_SETTINGS, FEELS, itemSpec, mergeSettings, normalizeSettings, setsDoneFromPlayed, settingsOf, validateCourse,
   type Course, type Issue, type ItemNote, type MotionClip, type PlaybackSettings, type Timeline, type TimelineEvent,
 } from "@yangxia/course-core";
 import { notices } from "virtual:yangxia-figures";
@@ -37,7 +37,7 @@ export function App() {
   const [course, setCourse] = useState<Course | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [edited, setEdited] = useState(false);
-  // 没载入课程时：默认值加本机偏好
+  // 用户选的设置（没载入课程时：默认值加本机偏好）；实际怎么播还要套这节课的下限，见下面的 eff
   const [settings, setSettings] = useState<PlaybackSettings>(() => ({ ...DEFAULT_SETTINGS, ...loadPrefs() }));
   const [tab, setTab] = useState<Tab>("course");
   const [ttsVoice, setTtsVoice] = useState<string | null>(null);
@@ -71,15 +71,17 @@ export function App() {
   const startedAt = useRef(new Date());
   const abort = useRef<AbortController | null>(null);
 
-  const bank = useMemo(() => new VoiceBank(settings.voiceTimbre, settings.bpm), [settings.voiceTimbre, settings.bpm]);
+  // 实际生效的设置：套上这节课呼吸提示的下限（65 岁以上、高血压或没确认的）
+  const eff = useMemo(() => (course ? settingsOf(course, settings) : settings), [course, settings]);
+  const bank = useMemo(() => new VoiceBank(eff.voiceTimbre, eff.bpm), [eff.voiceTimbre, eff.bpm]);
   const timeline = useMemo(
-    () => (course ? buildTimeline(course, { settings, voiceDuration: bank.seconds }) : null),
-    [course, settings, bank, voiceVersion],
+    () => (course ? buildTimeline(course, { settings: eff, voiceDuration: bank.seconds }) : null),
+    [course, eff, bank, voiceVersion],
   );
-  const input = () => ({ timeline: timeline!, settings, bank, music: music?.buffer ?? null });
+  const input = () => ({ timeline: timeline!, settings: eff, bank, music: music?.buffer ?? null });
   const spoken = useMemo(() => timeline?.events.map((e) => e.voice) ?? [], [timeline]);   // 录报数声列这节课要说的话
   const figureState = useRef({ course, clips, on: true });
-  figureState.current = { course, clips, on: settings.motionFigure !== false };
+  figureState.current = { course, clips, on: eff.motionFigure !== false };
 
   // 动作示意：解开内嵌的动图，预载这节课用到的片段。失败只是不显示，不影响跟练和导出
   useEffect(() => {
@@ -113,9 +115,9 @@ export function App() {
   }, [timeline]);
 
   useEffect(() => {
-    hud.current.bgMode = settings.background;
-    hud.current.layoutMode = settings.layout;
-  }, [settings.background, settings.layout]);
+    hud.current.bgMode = eff.background;
+    hud.current.layoutMode = eff.layout;
+  }, [eff.background, eff.layout]);
 
   // e2e：按某一时刻重画一帧，和导出的视频对比
   useEffect(() => {
@@ -123,11 +125,11 @@ export function App() {
     (window as unknown as { __hudAt?: (t: number) => OffscreenCanvas }).__hudAt = (t) => {
       const c = new OffscreenCanvas(HUD_WIDTH, HUD_HEIGHT);
       const f = figureState.current;
-      drawHud(c.getContext("2d") as unknown as CanvasRenderingContext2D, { ...initialHud(), bgMode: "magenta", layoutMode: settings.layout }, HUD_WIDTH, HUD_HEIGHT,
+      drawHud(c.getContext("2d") as unknown as CanvasRenderingContext2D, { ...initialHud(), bgMode: "magenta", layoutMode: eff.layout }, HUD_WIDTH, HUD_HEIGHT,
         f.course && timeline ? hudFigure(f.course, timeline, f.clips, figures.current, t) : null);
       return c;
     };
-  }, [timeline, settings.layout]);
+  }, [timeline, eff.layout]);
 
   // 画面：每帧平滑一次再画
   useEffect(() => {
@@ -153,20 +155,21 @@ export function App() {
     return () => cancelAnimationFrame(raf);
   }, [timeline]);
 
-  const load = (raw: unknown, from: string) => {
+  /** 载入课程；载入成功返回 true。 */
+  const load = (raw: unknown, from: string): boolean => {
     if (player.current?.running) {
       setNotice("跟练中不能换课程：先停止跟练（练习记录按这次练的课程记）。");
-      return;
+      return false;
     }
     const { course: c, issues: is } = validateCourse(raw);
     setIssues(is);
     if (!c) {
       setNotice(`${from}不是合格的课程，见下面的错误。`);
-      return;
+      return false;
     }
     setCourse(c);
-    // 默认 ← 课程的 presentation ← 本机偏好 ← 档案里的播放偏好 ← 下限（档案优先于本机，方案第十节第 14 条）
-    setSettings(settingsOf(c, { ...loadPrefs(), ...(c.coaching?.prefs ?? {}) }));
+    // 默认 ← 课程的 presentation ← 本机偏好 ← 档案里的播放偏好（档案优先于本机，方案第十节第 14 条）；下限在 eff 里套
+    setSettings(mergeSettings(c, { ...loadPrefs(), ...normalizeSettings(c.coaching?.prefs) }));
     figureAnchor.current = { kind: "start" };
     setActiveStage(null);
     setEdited(false);
@@ -176,6 +179,7 @@ export function App() {
     h.tagText = c.name;
     h.repText = "READY";
     h.phaseText = READY_TEXT;
+    return true;
   };
 
   const readFile = async (f: File) => {
@@ -206,7 +210,7 @@ export function App() {
         curIdx.current = i;
         played.current.add(i);
         applyEvent(hud.current, ev);
-        hud.current.voiceText = settings.voiceBake && ev.voice ? ev.voice : "";
+        hud.current.voiceText = eff.voiceBake && ev.voice ? ev.voice : "";
         setActiveStage(ev.phaseGroup);
         setPlayingItem(ev.itemIndex);
       },
@@ -232,18 +236,18 @@ export function App() {
     setProgress(0);
     let done = `已导出 ${kind.toUpperCase()}`;
     // 导出用自己的动图播放器：中途换课程、改动作不影响正在导出的视频
-    const exportFigures = kind === "webm" && settings.motionFigure !== false ? new FigurePlayer() : null;
+    const exportFigures = kind === "webm" && eff.motionFigure !== false ? new FigurePlayer() : null;
     try {
       if (kind === "srt") download(exportSrt(timeline), exportName(course, "srt"));
       else if (kind === "wav") download(await exportWav(input()), exportName(course, "wav"));
       else {
         abort.current = new AbortController();
-        const bgMode = settings.background === "dark" ? "magenta" : settings.background;
+        const bgMode = eff.background === "dark" ? "magenta" : eff.background;
         // 导出前等动图加载完，视频里不会缺图；加载失败的动作只是不显示
         const failed = exportFigures ? await exportFigures.prepare(courseClips(course, clips), clips, abort.current.signal) : [];
         if (failed.length) done += `（有 ${failed.length} 段动作示意没加载成功，视频里不显示）`;
         else if (exportFigures && unpackIssue && hasFigure(course)) done += "（动作示意没加载成功，视频里不显示）";
-        const blob = await exportWebm(input(), { hud: { bgMode, layoutMode: settings.layout }, signal: abort.current.signal,
+        const blob = await exportWebm(input(), { hud: { bgMode, layoutMode: eff.layout }, signal: abort.current.signal,
           figure: exportFigures ? (t) => hudFigure(course, timeline, clips, exportFigures, t) : undefined,
           onProgress: (stage, pct) => setProgress(stage === "audio" ? 2 : pct) });
         download(blob, exportName(course, "webm"));
@@ -395,18 +399,22 @@ export function App() {
             </div>
           )}
           {(tab === "sound" || tab === "screen") && (
-            <Settings section={tab} settings={settings} ttsVoice={ttsVoice} onTtsVoice={setTtsVoice}
+            <Settings section={tab} settings={eff} ttsVoice={ttsVoice} onTtsVoice={setTtsVoice}
               floor={!!course && breathFloor(course) === "pluck"} fromProfile={!!course?.coaching?.prefs}
               onChange={(next) => {
-                // 手动改的记进本机偏好；不能低于这节课的下限
-                savePrefs(settings, next);
-                setSettings(course ? settingsOf(course, next) : next);
+                // 只记这次改了的项（和界面上显示的比），记进本机偏好；实际怎么播再套下限
+                const changed = (Object.keys(next) as (keyof PlaybackSettings)[]).filter((k) => next[k] !== eff[k]);
+                savePrefs(eff, next);
+                setSettings((cur) => ({ ...cur, ...Object.fromEntries(changed.map((k) => [k, next[k]])) }));
               }}
               musicName={music?.name ?? null} onMusicFile={(f) => void onMusicFile(f)} />
           )}
           {tab === "library" && (
             <Library course={course} settings={settings}
-              onLoad={(s: Scheme) => { load(s.course, `方案「${s.name}」`); setSettings(settingsOf(s.course, normalizeSettings(s.settings))); }}
+              onLoad={(s: Scheme) => {
+                // 载入成功才换设置；方案里存的整份设置之上，档案里的播放偏好仍然优先
+                if (load(s.course, `方案「${s.name}」`)) setSettings(mergeSettings(s.course, { ...normalizeSettings(s.settings), ...normalizeSettings(s.course.coaching?.prefs) }));
+              }}
               onExportCourse={() => course && download(new Blob([JSON.stringify({ ...course, presentation: { ...course.presentation, sequencer: settings } }, null, 2) + "\n"],
                 { type: "application/json" }), exportName(course, "json"))} />
           )}

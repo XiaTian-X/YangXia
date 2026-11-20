@@ -230,9 +230,10 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
             if (elapsed > 0) holdPoint++;
             const spoken = leadAll || (elapsed > 0 && holdPoint <= leadN);
             const word = dir === "exhale" ? "呼" : "吸";
+            const both = spoken && mainVoice ? compose(mainVoice, word, 1) : null;
             if (spoken && !mainVoice) breathVoice = word;
-            else if (spoken && mainVoice && compose(mainVoice, word, 1)) {
-              mainVoice = compose(mainVoice, word, 1);
+            else if (both) {
+              mainVoice = both;
               breathVoice = word;
             } else if (spoken || afterPluck) pluck = dir;
           }

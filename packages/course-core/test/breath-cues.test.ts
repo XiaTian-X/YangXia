@@ -175,3 +175,54 @@ describe("课程里设置的取值校验", () => {
     expect(issues({ coaching: { floor: "pluck", prefs: { breathLead: 0, breathAfter: "quiet", countTiming: "on-rep" } } }).filter((i) => i.level === "error")).toEqual([]);
   });
 });
+
+describe("审查后补的用例（8a）", () => {
+  /** 划船类：先发力 1 秒、顶点停 1 秒、下放 2 秒。 */
+  const row: CourseItem = { exercise: "row", name: "划船", mode: "reps", sets: 1, reps: 5, tempo: { start: "up", up: 1, top: 1, down: 2 }, rest: 0, quote: ["样例原文"] };
+  it("先发力的节奏开始时报：第一拍是发力，连着说\"一，呼\"；停顿拍不说口令、不响提示音", () => {
+    const evs = setBeats(run([row], { countTiming: "on-up", lastThreeBoost: false, breathLead: "all" }), 1);
+    expect(evs.filter((e) => e.dotIdx === 0).map((e) => e.voice)).toEqual(["1，呼", "2，呼", "3，呼", "4，呼", "5，呼"]);
+    const holds = evs.filter((e) => e.cueType === "hold");
+    expect(holds.length).toBe(5);
+    expect(holds.filter((e) => e.voice || e.breathPluck)).toEqual([]);
+  });
+  it("撑住类领 1 次只在第 2 秒，领 3 次是第 2、4、6 秒", () => {
+    const at = (lead: number) => {
+      const evs = run([plank], { breathLead: lead, breathAfter: "quiet" }).filter((e) => e.isTimedMode && e.tag.includes("第 1/"));
+      const t0 = evs[0].time;
+      return evs.filter((e) => e.voice === "呼" || e.voice === "吸").map((e) => Math.round(e.time - t0));
+    };
+    expect(at(1)).toEqual([2]);
+    expect(at(3)).toEqual([2, 4, 6]);
+  });
+  it("休息：全程 + 安静也说满整个休息", () => {
+    const n = (st: Partial<PlaybackSettings>) => run([squat], st).filter((e) => e.state === "rest" && /^(深吸气|慢呼气)$/.test(e.voice ?? "")).length;
+    expect(n({ breathLead: "all", breathAfter: "quiet" })).toBe(n({ breathLead: "all", breathAfter: "pluck" }));
+  });
+  it("拼不下（语音比拍子长）：只报数、响提示音；领完以后选了安静的什么都不响", () => {
+    const long = (text: string) => (/，/.test(text) ? 5 : 0.4);
+    const evs = setBeats(buildTimeline(course([squat]), { settings: { countTiming: "on-up", lastThreeBoost: false, breathLead: 2, breathAfter: "quiet" }, voiceDuration: long }).events, 1);
+    const first = evs.filter((e) => e.dotIdx === 0);
+    expect(first.map((e) => [e.voice, e.breathPluck?.direction ?? null])).toEqual([["1", "inhale"], ["2", "inhale"], ["3", null], ["4", null], ["5", null]]);
+  });
+  it("65 岁以上的课在时间轴上：选了安静，领完以后照样响提示音", () => {
+    const evs = buildTimeline(course([squat], { age: "a65" }), { settings: { breathLead: 2, breathAfter: "quiet" } }).events;
+    expect(setBeats(evs, 1).filter((e) => repOf(e) > 2 && e.breathPluck).length).toBeGreaterThan(0);
+  });
+  it("有下限时关掉语音报数：每个换气的拍都响提示音，提示音量不低于 15", () => {
+    const c = course([squat, plank], { coaching: { floor: "pluck" } });
+    const st = settingsOf(c, { voiceBake: false, breathLead: "all", breathAfter: "quiet", breathVolume: 5 } as never);
+    expect([st.breathLead, st.breathAfter]).toEqual([0, "pluck"]);
+    expect(applyFloor({ ...DEFAULT_SETTINGS, breathVolume: 5 }, "pluck").breathVolume).toBe(15);
+    const evs = buildTimeline(c, { settings: { voiceBake: false, breathLead: "all", breathAfter: "quiet" } }).events;
+    expect(breathVoices(evs)).toEqual([]);
+    expect(evs.filter((e) => e.state === "action" && e.breathPluck).length).toBeGreaterThan(20);
+  });
+  it("写错的设置回到默认值：课程、本机偏好、方案库读进来的都一样", () => {
+    const c = course([squat], { presentation: { sequencer: { bpm: 500, background: "pink", sound: "kazoo", voiceVolume: -5, breathVolume: 0, foo: 1 } as never } });
+    const st = settingsOf(c);
+    expect([st.bpm, st.background, st.sound, st.voiceVolume, st.breathVolume]).toEqual([60, "dark", "woodblock", 92, 65]);
+    expect(normalizeSettings({ bpm: 70, foo: 1, breathLead: "x" })).toEqual({ bpm: 70 });
+    expect(normalizeSettings("不是对象")).toEqual({});
+  });
+});

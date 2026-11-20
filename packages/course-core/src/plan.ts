@@ -3,6 +3,7 @@
 // - checkPlanCourse：用同一份档案重新导出一遍，和课程逐项比对（"和训练单 + 档案进度逐项核对"）。
 // 训练单和成品正文的一致性由模板仓库的 check.py 保证（表格独立推一遍比对、原句逐字核对、漏转核对）。
 import type { Manifest, ManifestExercise } from "./manifest.ts";
+import { breathFloor } from "./settings.ts";
 import type { Block, Coaching, Course, CourseItem, Issue, Tempo } from "./types.ts";
 
 export const PLANS_FORMAT = "yangxia.plans/1";
@@ -550,13 +551,21 @@ export function exportCourse(input: ExportInput): ExportResult {
     } as Course["source"],
     blocks,
   };
-  // 档案里本人的播放偏好（只记选择）和呼吸提示的下限（65 岁以上至少响提示音）；不写病情
+  // 呼吸提示的下限（方案第十节第 9 条）：65 岁以上；有高血压或没确认的（这份成品用得到"高血压"这个条件时）。
+  // 模板的呼吸提示规则（阶段 9 的 T6）发布前先按这一条；课程里只写下限，不写病情
+  const htn = rules.conditions["高血压"];
+  const floor = prod.age === "a65" || (htn?.products.includes(p.code) && input.profile.conditions?.["高血压"] !== false);
+  // 档案里本人的播放偏好（只记选择）；不低于下限
   const raw = input.profile.playback;
   const pb = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-  const prefs = Object.fromEntries(Object.entries(pb).filter(([k]) => ["breathLead", "breathAfter", "countTiming"].includes(k)));
+  const prefs = Object.fromEntries(Object.entries(pb).filter(([k]) => ["breathLead", "breathAfter", "countTiming"].includes(k))) as NonNullable<Coaching["prefs"]>;
+  if (floor && prefs.breathAfter === "quiet" && prefs.breathLead !== "all") {
+    prefs.breathAfter = "pluck";
+    out.issues.push({ level: "warning", path: "playback.breathAfter", message: "这节课领完以后至少要响提示音（用力时容易不自觉憋气）：档案写的\"安静\"按提示音导出，照实告诉使用者" });
+  }
   const coaching: Coaching = {
-    ...(prod.age === "a65" ? { floor: "pluck" as const } : {}),
-    ...(Object.keys(prefs).length ? { prefs: prefs as Coaching["prefs"] } : {}),
+    ...(floor ? { floor: "pluck" as const } : {}),
+    ...(Object.keys(prefs).length ? { prefs } : {}),
   };
   if (Object.keys(coaching).length) out.course.coaching = coaching;
   return out;
@@ -607,6 +616,12 @@ export function checkPlanCourse(course: Course, plans: PlansData, rules: RulesDa
   const want = exportCourse({ plans, rules, manifest, profile, week: course.source.week, day: course.source.day ?? "", picks: src.picks, half: src.half === true, addOns });
   for (const i of want.issues) issues.push({ ...i, path: `训练单 ${i.path}` });
   if (!want.course) return issues;
+  // 呼吸提示的下限少了、不对是错误（关系到会不会憋气）；档案里的播放偏好后来改了只提醒
+  const wf = want.course.coaching?.floor;
+  if (wf && course.coaching?.floor !== wf && breathFloor(course) !== wf) err("coaching.floor", "这节课领完以后至少要响提示音（coaching.floor），课程里没有：重新导出");
+  if (JSON.stringify(course.coaching?.prefs ?? {}) !== JSON.stringify(want.course.coaching?.prefs ?? {})) {
+    issues.push({ level: "warning", path: "coaching.prefs", message: "课程里的播放偏好和档案现在写的不一样：重新导出才按档案的设置播" });
+  }
   const a = course.blocks;
   const b = want.course.blocks;
   if (a.length !== b.length) {

@@ -19,6 +19,12 @@ interface Props {
 
 type K = keyof PlaybackSettings;
 
+/** "每组领几次"的选项；课程或档案写了别的次数（比如 4 次）也列出来，不让下拉框空着。 */
+function leadOptions(cur: PlaybackSettings["breathLead"]): [string, string][] {
+  const base: [string, string][] = [["0", "不领"], ["1", "1 次"], ["2", "2 次"], ["3", "3 次"], ["5", "5 次"], ["all", "全程（适合新手）"]];
+  return base.some(([v]) => v === String(cur)) ? base : [...base.slice(0, -1), [String(cur), `${cur} 次`], base[base.length - 1]];
+}
+
 export function Settings({ settings: s, onChange, ttsVoice, onTtsVoice, musicName, onMusicFile, section, floor, fromProfile }: Props) {
   const set = <T extends K>(k: T, v: PlaybackSettings[T]) => onChange({ ...s, [k]: v });
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -64,7 +70,7 @@ export function Settings({ settings: s, onChange, ttsVoice, onTtsVoice, musicNam
       <label class="field"><span>每组领几次"呼、吸"</span>
         <select value={String(s.breathLead)} data-setting="breathLead"
           onChange={(e) => set("breathLead", e.currentTarget.value === "all" ? "all" : Number(e.currentTarget.value))}>
-          {[["0", "不领"], ["1", "1 次"], ["2", "2 次"], ["3", "3 次"], ["5", "5 次"], ["all", "全程（适合新手）"]].map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+          {leadOptions(s.breathLead).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
         </select>
       </label>
       <label class="field"><span>领完以后</span>
@@ -73,7 +79,7 @@ export function Settings({ settings: s, onChange, ttsVoice, onTtsVoice, musicNam
           <option value="quiet" disabled={floor && s.breathLead !== "all"}>安静</option>
         </select>
       </label>
-      {floor && <p class="note" data-floor>这节课至少保留换气提示音：用力时容易不自觉憋气，提示音帮你记得换气。</p>}
+      {floor && <p class="note" data-floor>这节课至少保留换气提示音：用力时容易不自觉憋气，提示音帮你记得换气。{!s.voiceBake && "关掉语音报数时，每个换气的拍都响提示音。"}</p>}
       {range("breathVolume", "呼吸提示音量", 15, 100, 5)}
       {select("countTiming", "报数时机", [["on-up", "每次开始时报数"], ["on-rep", "每次做完时报数"]])}
       {fromProfile && <p class="note" data-from-profile>这节课按你档案里的设置播报；在这里改的只对这台设备上没写进课程的项长期有效。</p>}

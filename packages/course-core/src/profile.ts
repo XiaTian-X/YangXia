@@ -41,6 +41,12 @@ export function validateProfile(raw: unknown): Issue[] {
       else if (k === "countTiming") { if (v !== "on-rep" && v !== "on-up") err("playback.countTiming", 'countTiming 只能是 "on-rep" 或 "on-up"'); }
       else err(`playback.${k}`, "playback 只能写 breathLead、breathAfter、countTiming");
     }
+    // 65 岁以上、有高血压或没确认的：领完以后至少响提示音，档案写"安静"也按提示音导出
+    // （"高血压"这个条件只用在成人成品上，13–17 岁不算）
+    const floor = raw.age === "a65" || ((raw.age === "a18" || raw.age === "a40") && raw.conditions?.["高血压"] !== false);
+    if (floor && pb.breathAfter === "quiet" && pb.breathLead !== "all") {
+      out.push({ level: "warning", path: "playback.breathAfter", message: "65 岁以上、有高血压或没确认的人，领完以后至少要响提示音：这里写的\"安静\"会按提示音导出" });
+    }
   }
   const sc = raw.screening;
   if (!isObj(sc) || !Array.isArray(sc.answers) || typeof sc.doctorCleared !== "boolean") {

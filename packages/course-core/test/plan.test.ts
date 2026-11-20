@@ -262,4 +262,29 @@ describe("v4 阶段 8：课程导出写进档案里的播放偏好和呼吸提�
     const c = ex("65岁以上-椅子辅助版", 1, "A").course!;
     expect(c.coaching?.floor).toBe("pluck");
   });
+  it("成人有高血压或没确认的写下限，确认没有的不写", () => {
+    expect(ex("18-39岁-居家版", 1, "A", { conditions: { 高血压: true } }).course!.coaching?.floor).toBe("pluck");
+    expect(ex("18-39岁-居家版", 1, "A", { conditions: {} }).course!.coaching?.floor).toBe("pluck");
+    expect(ex("18-39岁-居家版", 1, "A", { conditions: { 高血压: false } }).course!.coaching?.floor).toBeUndefined();
+  });
+  it("有下限时档案写的\"安静\"按提示音导出，并提醒", () => {
+    const r = ex("65岁以上-椅子辅助版", 1, "A", { playback: { breathAfter: "quiet" } });
+    expect(r.course!.coaching).toEqual({ floor: "pluck", prefs: { breathAfter: "pluck" } });
+    expect(r.issues.some((i) => i.path === "playback.breathAfter" && i.level === "warning")).toBe(true);
+  });
+  it("课程检查：下限少了报错，播放偏好和档案不一样只提醒", () => {
+    const p = profile("65岁以上-椅子辅助版", 1, { playback: { countTiming: "on-rep" } });
+    const c = exportCourse({ plans, rules, manifest, profile: p, week: 1, day: "A" }).course!;
+    const noFloor = { ...clone(c), coaching: { prefs: c.coaching!.prefs } };
+    expect(checkPlanCourse(noFloor as Course, plans, rules, manifest, p).filter((i) => i.path === "coaching.floor").length).toBe(0);
+    const adult = profile("18-39岁-居家版", 1, { conditions: { 高血压: true } });
+    const ac = exportCourse({ plans, rules, manifest, profile: adult, week: 1, day: "A" }).course!;
+    const lost = clone(ac);
+    delete lost.coaching;
+    expect(checkPlanCourse(lost, plans, rules, manifest, adult).some((i) => i.path === "coaching.floor" && i.level === "error")).toBe(true);
+    const changed = { ...clone(ac), coaching: { ...ac.coaching, prefs: { countTiming: "on-rep" as const } } };
+    const issues = checkPlanCourse(changed, plans, rules, manifest, adult);
+    expect(issues.some((i) => i.path === "coaching.prefs" && i.level === "warning")).toBe(true);
+    expect(issues.filter((i) => i.path.startsWith("coaching") && i.level === "error")).toEqual([]);
+  });
 });
