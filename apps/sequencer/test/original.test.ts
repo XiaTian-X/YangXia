@@ -84,7 +84,8 @@ describe("样例课程的时间轴和原版一致", () => {
   for (const [id, queue] of Object.entries(SAMPLES)) {
     it(id, () => {
       const exp = base.timelines[id];
-      const tl = buildTimeline(toCourse(queue), { voiceDuration: bank.seconds });
+      // 原版的报法：做完时报数、领呼 2 次 + 提示音、报数那一拍不拼呼吸口令
+      const tl = buildTimeline(toCourse(queue), { voiceDuration: bank.seconds, legacy: true, settings: { countTiming: "on-rep", breathLead: 2, breathAfter: "pluck" } });
       const got = tl.events.map((e) => ({ t: +e.time.toFixed(6), cue: e.cueType, voice: e.voice, state: e.state, final: e.isSetFinalRep }));
       expect(got).toEqual(exp.events);
       expect(tl.totalDuration).toBeCloseTo(exp.totalDuration, 9);

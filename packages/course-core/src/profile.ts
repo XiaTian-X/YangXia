@@ -31,6 +31,17 @@ export function validateProfile(raw: unknown): Issue[] {
     err("household", `household 是家庭成员的年龄段列表，只能写 ${AGES.join("、")}`);
   }
   out.push(...validateSegments(raw), ...validateProgressShape(raw), ...validateAssessFields(raw));
+  // 播放偏好（v4 阶段 8）：本人不要呼吸提示、想在做完时报数这类选择，只记选择；course export 写进课程，不低于安全下限
+  const pb = raw.playback;
+  if (pb !== undefined) {
+    if (!isObj(pb)) err("playback", "playback 要是对象");
+    else for (const [k, v] of Object.entries(pb)) {
+      if (k === "breathLead") { if (!(v === "all" || (Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 60))) err("playback.breathLead", 'breathLead 是每组领几次：0–60 的整数，或 "all"'); }
+      else if (k === "breathAfter") { if (v !== "quiet" && v !== "pluck") err("playback.breathAfter", 'breathAfter 只能是 "quiet" 或 "pluck"'); }
+      else if (k === "countTiming") { if (v !== "on-rep" && v !== "on-up") err("playback.countTiming", 'countTiming 只能是 "on-rep" 或 "on-up"'); }
+      else err(`playback.${k}`, "playback 只能写 breathLead、breathAfter、countTiming");
+    }
+  }
   const sc = raw.screening;
   if (!isObj(sc) || !Array.isArray(sc.answers) || typeof sc.doctorCleared !== "boolean") {
     err("screening", "缺少安全筛查（answers、doctorCleared）");

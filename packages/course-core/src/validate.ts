@@ -11,6 +11,47 @@ const isInt = (v: unknown, lo: number, hi: number) => Number.isInteger(v) && (v 
 const isHalf = (v: unknown, lo: number, hi: number) =>
   typeof v === "number" && v >= lo && v <= hi && Number.isInteger(v * 2);
 
+const isLead = (v: unknown) => v === "all" || isInt(v, 0, 60);
+/** 和安全有关的播放设置：写错报错（呼吸提示关系到会不会憋气）。 */
+const SAFETY: Record<string, [(v: unknown) => boolean, string]> = {
+  breath: [(v) => ["coach", "full-voice", "pluck", "off"].includes(v as string), "breath（旧写法）只能是 coach / full-voice / pluck / off"],
+  breathLead: [isLead, 'breathLead 是每组领几次：0–60 的整数，或 "all"（全程）'],
+  breathAfter: [(v) => v === "quiet" || v === "pluck", 'breathAfter 只能是 "quiet"（安静）或 "pluck"（提示音）'],
+};
+/** 外观和声音的播放设置：写错只提醒，编排器回到默认值。 */
+const LOOKS: Record<string, (v: unknown) => boolean> = {
+  bpm: (v) => isInt(v, 40, 110),
+  sound: (v) => ["woodblock", "marimba", "perc"].includes(v as string),
+  preCountdown: (v) => typeof v === "boolean",
+  lastThreeBoost: (v) => typeof v === "boolean",
+  breathVolume: (v) => isInt(v, 0, 100),
+  countTiming: (v) => v === "on-rep" || v === "on-up",
+  voiceTimbre: (v) => ["female", "male", "warm"].includes(v as string),
+  voiceEngine: (v) => v === "tts" || v === "embedded",
+  voiceVolume: (v) => isInt(v, 0, 100),
+  voiceBake: (v) => typeof v === "boolean",
+  music: (v) => ["groove", "beat", "file", "none"].includes(v as string),
+  musicVolume: (v) => isInt(v, 0, 100),
+  duckDepth: (v) => isInt(v, 0, 100),
+  duckSubBeats: (v) => typeof v === "boolean",
+  background: (v) => ["dark", "green", "magenta", "black"].includes(v as string),
+  layout: (v) => v === "overlay" || v === "center",
+  motionFigure: (v) => typeof v === "boolean",
+};
+
+/** 播放设置的取值：安全项写错返回错误，外观项写错返回提醒。 */
+export function settingsIssues(raw: Obj, path: string): Issue[] {
+  const out: Issue[] = [];
+  for (const [k, v] of Object.entries(raw)) {
+    if (k in SAFETY) {
+      if (!SAFETY[k][0](v)) out.push({ level: "error", path: `${path}.${k}`, message: SAFETY[k][1] });
+    } else if (k in LOOKS) {
+      if (!LOOKS[k](v)) out.push({ level: "warning", path: `${path}.${k}`, message: "取值不对，编排器按默认值播" });
+    } else out.push({ level: "warning", path: `${path}.${k}`, message: "不认识的设置（编排器会忽略）" });
+  }
+  return out;
+}
+
 export function validateCourse(raw: unknown): { course: Course | null; issues: Issue[] } {
   const issues: Issue[] = [];
   const err = (path: string, message: string) => issues.push({ level: "error", path, message });
@@ -39,6 +80,26 @@ export function validateCourse(raw: unknown): { course: Course | null; issues: I
     if (src.picks !== undefined && !(isObj(src.picks) && Object.values(src.picks).every((v) => typeof v === "string"))) err("source.picks", "picks 是 {轮换组: 动作 ID}");
   }
   if (raw.presentation !== undefined && !isObj(raw.presentation)) err("presentation", "presentation 要是对象");
+  else if (isObj(raw.presentation) && raw.presentation.sequencer !== undefined) {
+    if (!isObj(raw.presentation.sequencer)) err("presentation.sequencer", "presentation.sequencer 要是对象");
+    else issues.push(...settingsIssues(raw.presentation.sequencer, "presentation.sequencer"));
+  }
+  const co = raw.coaching;
+  if (co !== undefined) {
+    if (!isObj(co)) err("coaching", "coaching 要是对象");
+    else {
+      if (co.floor !== undefined && co.floor !== "pluck") err("coaching.floor", 'floor 只能是 "pluck"（领完以后至少响提示音）');
+      if (co.prefs !== undefined) {
+        if (!isObj(co.prefs)) err("coaching.prefs", "prefs 要是对象");
+        else for (const [k, v] of Object.entries(co.prefs)) {
+          // 档案里的播放偏好只能写这三项，写错一律报错（是 course export 照档案写的）
+          const ok = k === "breathLead" ? isLead(v) : k === "breathAfter" ? SAFETY.breathAfter[0](v) : k === "countTiming" ? LOOKS.countTiming(v) : null;
+          if (ok === null) err(`coaching.prefs.${k}`, "prefs 只能写 breathLead、breathAfter、countTiming");
+          else if (!ok) err(`coaching.prefs.${k}`, "取值不对");
+        }
+      }
+    }
+  }
   if (!Array.isArray(raw.blocks) || raw.blocks.length < 1 || raw.blocks.length > 12) {
     err("blocks", "blocks 要有 1–12 段");
   } else {

@@ -68,4 +68,14 @@ describe("VoiceBank：自己录的报数声", () => {
     expect(bank.phrase("休息 60 秒")).toBe(mine);
     expect(bank.own("休息 30 秒")).toBeNull();
   });
+
+  it("“3，吸”用录过的数字和口令拼；口令没录就整句用合成音", () => {
+    const bank = fresh();
+    bank.custom.set("3", wave(300, 0.3));
+    expect(bank.own("3，吸")).toBeNull();
+    bank.custom.set("吸", wave(300, 0.4));
+    bank.clearPhraseCache();
+    expect(bank.own("3，吸")).not.toBeNull();
+    expect(same(bank.phrase("3，吸"), fresh().phrase("3，吸"))).toBe(false);
+  });
 });

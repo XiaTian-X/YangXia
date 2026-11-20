@@ -247,3 +247,19 @@ describe("按器材选一个：节奏和计量", () => {
     expect(r.course).toBeNull();
   });
 });
+
+describe("v4 阶段 8：课程导出写进档案里的播放偏好和呼吸提示的下限", () => {
+  it("档案写了播放偏好：导出的课程带 coaching.prefs，课程检查 0 错误", () => {
+    const p = profile("18-39岁-居家版", 1, { playback: { breathLead: 2, breathAfter: "quiet", countTiming: "on-rep" } });
+    const r = exportCourse({ plans, rules, manifest, profile: p, week: 1, day: "A" });
+    expect(r.course!.coaching).toEqual({ prefs: { breathLead: 2, breathAfter: "quiet", countTiming: "on-rep" } });
+    expect(errors(r.course!, p)).toEqual([]);
+  });
+  it("没写播放偏好的成人课不带 coaching", () => {
+    expect(ex("18-39岁-居家版", 1, "A").course!.coaching).toBeUndefined();
+  });
+  it("65 岁以上的课写下限：领完以后至少响提示音", () => {
+    const c = ex("65岁以上-椅子辅助版", 1, "A").course!;
+    expect(c.coaching?.floor).toBe("pluck");
+  });
+});

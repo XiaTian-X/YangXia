@@ -131,7 +131,83 @@
     },
     "presentation": {
       "type": "object",
-      "description": "编排器怎么播（音色、鼓点、画面），别的项目可以忽略"
+      "description": "编排器怎么播（音色、鼓点、画面），别的项目可以忽略。sequencer 里和安全有关的呼吸提示写错不合格；外观项写错只提醒，编排器回到默认值",
+      "properties": {
+        "sequencer": {
+          "type": "object",
+          "properties": {
+            "breath": {
+              "enum": [
+                "coach",
+                "full-voice",
+                "pluck",
+                "off"
+              ],
+              "description": "旧写法，读的时候对应到 breathLead + breathAfter"
+            },
+            "breathLead": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 60
+                },
+                {
+                  "const": "all"
+                }
+              ],
+              "description": "每组领几次\"呼、吸\"；all 是全程"
+            },
+            "breathAfter": {
+              "enum": [
+                "quiet",
+                "pluck"
+              ],
+              "description": "领完以后：安静，或者在换气的拍响提示音"
+            }
+          }
+        }
+      }
+    },
+    "coaching": {
+      "type": "object",
+      "description": "由 course export 写：档案里本人的播放偏好、呼吸提示的下限；不写病情",
+      "properties": {
+        "floor": {
+          "const": "pluck",
+          "description": "领完以后至少响提示音（全程也算满足）"
+        },
+        "prefs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "breathLead": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 60
+                },
+                {
+                  "const": "all"
+                }
+              ]
+            },
+            "breathAfter": {
+              "enum": [
+                "quiet",
+                "pluck"
+              ]
+            },
+            "countTiming": {
+              "enum": [
+                "on-rep",
+                "on-up"
+              ]
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {

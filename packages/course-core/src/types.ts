@@ -68,6 +68,17 @@ export interface Course {
   source: CourseSource;
   blocks: Block[];
   presentation?: { sequencer?: Partial<PlaybackSettings> } & Record<string, unknown>;
+  /** 由 course export 写：档案里本人的播放偏好、呼吸提示的下限。不写病情。阶段 9 培训期再加别的项。 */
+  coaching?: Coaching;
+}
+
+/** 呼吸提示的下限："pluck" = 领完以后至少响提示音（"全程"也算满足）。 */
+export type BreathFloor = "pluck";
+
+export interface Coaching {
+  floor?: BreathFloor;
+  /** 档案里本人的播放偏好（只记选择）；编排器里优先于本机偏好。 */
+  prefs?: Partial<Pick<PlaybackSettings, "breathLead" | "breathAfter" | "countTiming">>;
 }
 
 /** 编排器怎么播。默认值见 settings.ts 的 DEFAULT_SETTINGS（沿用原版编排器的默认值）。 */
@@ -76,8 +87,12 @@ export interface PlaybackSettings {
   sound: "woodblock" | "marimba" | "perc";
   preCountdown: boolean;
   lastThreeBoost: boolean;
-  breath: "coach" | "full-voice" | "pluck" | "off";
+  /** 每组领几次"呼、吸"：0、1、2……，"all" 是全程。撑住类按开始后的换气点数，组间休息见 timeline.ts。 */
+  breathLead: number | "all";
+  /** 领完以后：安静，或者在换气的拍响提示音。 */
+  breathAfter: "quiet" | "pluck";
   breathVolume: number;
+  /** on-up：每次开始时报数（第一拍）；on-rep：每次做完时报数（最后一拍）。 */
   countTiming: "on-rep" | "on-up";
   voiceTimbre: "female" | "male" | "warm";
   voiceEngine: "tts" | "embedded";

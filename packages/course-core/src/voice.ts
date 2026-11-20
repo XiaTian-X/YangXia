@@ -55,6 +55,11 @@ export function voiceTokens(text: string): string[] | null {
     const n = numberTokens(Number(m[1]));
     return n && [...n, "秒"];
   }
+  if ((m = text.match(/^(\d+)，(呼|吸)$/))) {
+    // 报数和呼吸口令落在同一拍（v4 阶段 8）
+    const n = numberTokens(Number(m[1]));
+    return n && [...n, m[2]];
+  }
   if ((m = text.match(/^(\d+)，(本组完成|全部完成)$/))) {
     const n = numberTokens(Number(m[1]));
     return n && [...n, m[2]];
@@ -97,7 +102,7 @@ export interface RecordUnits {
 const byNumber = (a: string, b: string) => Number(a.match(/\d+/)![0]) - Number(b.match(/\d+/)![0]) || a.localeCompare(b);
 
 /**
- * 自己录报数声要录哪些：按句录，不按字。"12，本组完成"这种拆成数字和口令分开录，录了就能拼起来。
+ * 自己录报数声要录哪些：按句录，不按字。"12，本组完成""3，吸"这种拆成数字和口令分开录，录了就能拼起来。
  * 不给课程（texts 为空）时列 1–10 和全部固定口令。说不出来的话（不在词表里）不列。
  */
 export function recordUnits(texts: Iterable<string | null | undefined>): RecordUnits {
@@ -108,7 +113,7 @@ export function recordUnits(texts: Iterable<string | null | undefined>): RecordU
   for (const text of texts) {
     if (!text || !canSpeak(text)) continue;
     any = true;
-    const m = text.match(/^(\d+)，(本组完成|全部完成)$/);
+    const m = text.match(/^(\d+)，(本组完成|全部完成|呼|吸)$/);
     if (m) {
       numbers.add(String(Number(m[1])));
       words.add(m[2]);

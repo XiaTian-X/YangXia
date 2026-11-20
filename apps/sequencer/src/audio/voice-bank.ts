@@ -36,12 +36,12 @@ export class VoiceBank {
 
   /**
    * 用自己的录音说这句话：整句录过；或者能全部用录过的部分拼出来（没单独录的数用录过的 1–10 拼，
-   * "12，本组完成"用"12"和"本组完成"拼）。拼不全返回 null，这句整句用合成音。
+   * "12，本组完成""3，吸"用数字和口令拼）。拼不全返回 null，这句整句用合成音。
    */
   own(text: string): Float32Array | null {
     if (!this.owned.has(text)) {
       let wave = this.custom.get(text) ?? null;
-      const m = text.match(/^(\d+)，(本组完成|全部完成)$/);
+      const m = text.match(/^(\d+)，(本组完成|全部完成|呼|吸)$/);
       if (!wave && m) {
         const n = this.ownNumber(Number(m[1]));
         const w = this.custom.get(m[2]);

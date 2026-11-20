@@ -1,6 +1,6 @@
 // 养夏 · 跟练编排器：导入课程 → 预览、跟练 → 导出 WAV / SRT / 视频 → 练完导出练习记录。
 import {
-  buildTimeline, courseClips, DEFAULT_SETTINGS, FEELS, itemSpec, setsDoneFromPlayed, settingsOf, validateCourse,
+  breathFloor, buildTimeline, courseClips, DEFAULT_SETTINGS, FEELS, itemSpec, normalizeSettings, setsDoneFromPlayed, settingsOf, validateCourse,
   type Course, type Issue, type ItemNote, type MotionClip, type PlaybackSettings, type Timeline, type TimelineEvent,
 } from "@yangxia/course-core";
 import { notices } from "virtual:yangxia-figures";
@@ -18,6 +18,7 @@ import { applyEvent, drawHud, HUD_HEIGHT, HUD_WIDTH, initialHud, stepHud } from 
 import { Editor } from "./Editor.tsx";
 import { Library, type Scheme } from "./Library.tsx";
 import { Recorder } from "./Recorder.tsx";
+import { loadPrefs, savePrefs } from "./prefs.ts";
 import { Settings } from "./Settings.tsx";
 
 type Tab = "course" | "sound" | "screen" | "library" | "voice";
@@ -36,7 +37,8 @@ export function App() {
   const [course, setCourse] = useState<Course | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [edited, setEdited] = useState(false);
-  const [settings, setSettings] = useState<PlaybackSettings>(DEFAULT_SETTINGS);
+  // 没载入课程时：默认值加本机偏好
+  const [settings, setSettings] = useState<PlaybackSettings>(() => ({ ...DEFAULT_SETTINGS, ...loadPrefs() }));
   const [tab, setTab] = useState<Tab>("course");
   const [ttsVoice, setTtsVoice] = useState<string | null>(null);
   const [music, setMusic] = useState<{ name: string; buffer: AudioBuffer } | null>(null);
@@ -163,7 +165,8 @@ export function App() {
       return;
     }
     setCourse(c);
-    setSettings(settingsOf(c));
+    // 默认 ← 课程的 presentation ← 本机偏好 ← 档案里的播放偏好 ← 下限（档案优先于本机，方案第十节第 14 条）
+    setSettings(settingsOf(c, { ...loadPrefs(), ...(c.coaching?.prefs ?? {}) }));
     figureAnchor.current = { kind: "start" };
     setActiveStage(null);
     setEdited(false);
@@ -392,12 +395,18 @@ export function App() {
             </div>
           )}
           {(tab === "sound" || tab === "screen") && (
-            <Settings section={tab} settings={settings} onChange={setSettings} ttsVoice={ttsVoice} onTtsVoice={setTtsVoice}
+            <Settings section={tab} settings={settings} ttsVoice={ttsVoice} onTtsVoice={setTtsVoice}
+              floor={!!course && breathFloor(course) === "pluck"} fromProfile={!!course?.coaching?.prefs}
+              onChange={(next) => {
+                // 手动改的记进本机偏好；不能低于这节课的下限
+                savePrefs(settings, next);
+                setSettings(course ? settingsOf(course, next) : next);
+              }}
               musicName={music?.name ?? null} onMusicFile={(f) => void onMusicFile(f)} />
           )}
           {tab === "library" && (
             <Library course={course} settings={settings}
-              onLoad={(s: Scheme) => { load(s.course, `方案「${s.name}」`); setSettings(s.settings); }}
+              onLoad={(s: Scheme) => { load(s.course, `方案「${s.name}」`); setSettings(settingsOf(s.course, normalizeSettings(s.settings))); }}
               onExportCourse={() => course && download(new Blob([JSON.stringify({ ...course, presentation: { ...course.presentation, sequencer: settings } }, null, 2) + "\n"],
                 { type: "application/json" }), exportName(course, "json"))} />
           )}

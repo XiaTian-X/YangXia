@@ -89,7 +89,8 @@ export class LivePlayer {
         while (this.ttsCursor < events.length && t >= events[this.ttsCursor].time - 0.12) {
           const ev = events[this.ttsCursor++];
           // 自己录过的句子放录音（下面和打点一起排），没录的才用系统语音
-          if (ev.voice && !this.input.bank.own(ev.voice)) speak(ev.voice, { rate: ev.bpm > 78 ? 1.42 : 1.28, volScale: ev.voiceVolScale || 1, settings, voice });
+          // 系统语音念"3，吸""3，全部完成"时逗号会停顿，下一拍可能把它切掉，所以去掉逗号
+          if (ev.voice && !this.input.bank.own(ev.voice)) speak(ev.voice.replace(/，/g, ""), { rate: ev.bpm > 78 ? 1.42 : 1.28, volScale: ev.voiceVolScale || 1, settings, voice });
         }
       }
       while (this.audioCursor < events.length && t >= events[this.audioCursor].time - 0.08) {

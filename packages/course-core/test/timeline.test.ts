@@ -32,13 +32,13 @@ const item = (o: Partial<CourseItem> = {}): CourseItem => ({ exercise: "squat", 
 
 describe("时间轴：计时规则照原版", () => {
   it("报数时刻（开头倒数 1.45 + 3×1.08 + 0.75 + 0.85 秒后起拍，每次 3 拍）", () => {
-    const tl = buildTimeline(course([item()]));
+    const tl = buildTimeline(course([item()]), { settings: { countTiming: "on-rep" } });
     const reps = tl.events.filter((e) => e.cueType === "rep").slice(0, 3).map((e) => +e.time.toFixed(2));
     expect(reps).toEqual([8.37, 11.37, 14.37]);
     expect(tl.events.find((e) => e.cueType === "rep")!.voice).toBe("最后三次");
   });
   it("最后一组后没有休息，最后一次报\"全部完成\"", () => {
-    const tl = buildTimeline(course([item()]));
+    const tl = buildTimeline(course([item()]), { settings: { countTiming: "on-rep" } });
     const last = tl.events.filter((e) => e.cueType === "rep").at(-1)!;
     expect(last.voice).toBe("3，全部完成");
     expect(tl.events.filter((e) => e.state === "rest").length).toBe(10);

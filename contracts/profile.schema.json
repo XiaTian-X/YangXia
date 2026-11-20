@@ -518,6 +518,16 @@
         "minimum": 1
       },
       "description": "65 岁以上建档时定的散步时长 {\"散步\": 分钟}（65 岁以上必填）"
+    },
+    "playback": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "breathLead": { "oneOf": [{ "type": "integer", "minimum": 0, "maximum": 60 }, { "const": "all" }], "description": "每组领几次\"呼、吸\"；all 是全程" },
+        "breathAfter": { "enum": ["quiet", "pluck"], "description": "领完以后：安静，或者响提示音" },
+        "countTiming": { "enum": ["on-rep", "on-up"], "description": "on-up 每次开始时报数，on-rep 每次做完时报数" }
+      },
+      "description": "播放偏好（v4 阶段 8）：本人说不要呼吸提示、想在做完时报数这类选择，只记选择，不记身体数据；course export 写进课程的 coaching.prefs，呼吸提示不低于安全下限"
     }
   }
 }

@@ -87,7 +87,7 @@ export function scheduleEventSounds(ctx: BaseAudioContext, dest: AudioNode, at: 
   opts: { voice: boolean; breathDest?: AudioNode; voiceDest?: AudioNode; breathGain?: number; voiceGain?: number }): void {
   const { settings, bank } = input;
   scheduleCueSound(ctx, dest, at, ev.cueType, settings.sound, ev.isLastThree, ev.isSetFinalRep);
-  if (ev.breathPluck && settings.breath !== "off") {
+  if (ev.breathPluck) {   // 响不响提示音由时间轴按呼吸提示的设置定
     scheduleBreathRhythmPluck(ctx, opts.breathDest ?? dest, at + 0.015, ev.breathPluck.direction,
       opts.breathGain ?? settings.breathVolume / 100, ev.breathPluck.isRestPhase);
   }

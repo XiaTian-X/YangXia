@@ -59,6 +59,8 @@ export interface TimelineOptions {
   settings?: Partial<PlaybackSettings>;
   /** 一句语音的真实时长（秒）；编排器传合成波形的长度，不传就估算。 */
   voiceDuration?: (text: string) => number;
+  /** 只给和原版比对的测试用：报数那一拍不拼呼吸口令（原版会把口令降成提示音）。 */
+  legacy?: boolean;
 }
 
 interface Segment {
@@ -112,6 +114,15 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
   const beatDur = 60 / bpm;
   const countdownStepDur = Math.max(beatDur, 1.08);
   const bVol = st.breathVolume / 100;
+  const leadAll = st.breathLead === "all";
+  const leadN = st.breathLead === "all" ? Infinity : st.breathLead;
+  const afterPluck = st.breathAfter === "pluck";
+  /** 报数和呼吸口令落在同一拍：拼成"十二，吸"；兼容开关、不是纯数字、这一拍放不下就不拼。 */
+  const compose = (main: string, word: string, dur: number): string | null => {
+    if (opts.legacy || !/^\d+$/.test(main)) return null;
+    const text = `${main}，${word}`;
+    return voiceDur(text) <= dur - 0.05 ? text : null;
+  };
   const unit = (seg: Segment) => (seg.circuit ? "轮" : "组");
 
   const events: TimelineEvent[] = [];
@@ -194,6 +205,7 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
       if (isTimed) {
         const halfSec = Math.floor(duration / 2);
         const timedStart = t;
+        let holdPoint = 0;
         for (let secLeft = duration; secLeft >= 1; secLeft--) {
           const elapsed = duration - secLeft;
           const isLastFive = secLeft <= 5;
@@ -213,10 +225,16 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
           const breathLabel = cycle < 2 ? "💨 呼气 2 秒" : "🌬️ 吸气 2 秒";
           let breathVoice: string | null = null;
           let pluck: "inhale" | "exhale" | null = null;
-          if (st.breath !== "off" && dir !== "none") {
-            const spoken = st.breath === "full-voice" || (st.breath === "coach" && elapsed > 0 && elapsed <= 5);
-            if (spoken && !mainVoice) breathVoice = dir === "exhale" ? "呼" : "吸";
-            else pluck = dir;
+          if (dir !== "none") {
+            // 开始后的第几个换气点（开头报秒数那一拍不算）：领 2 次正好是第 2、4 秒
+            if (elapsed > 0) holdPoint++;
+            const spoken = leadAll || (elapsed > 0 && holdPoint <= leadN);
+            const word = dir === "exhale" ? "呼" : "吸";
+            if (spoken && !mainVoice) breathVoice = word;
+            else if (spoken && mainVoice && compose(mainVoice, word, 1)) {
+              mainVoice = compose(mainVoice, word, 1);
+              breathVoice = word;
+            } else if (spoken || afterPluck) pluck = dir;
           }
           const voice = mainVoice ?? breathVoice;
           let srt: string;
@@ -283,10 +301,16 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
             }
             let breathVoice: string | null = null;
             let pluck: "inhale" | "exhale" | null = null;
-            if (st.breath !== "off" && beat.breath !== "none") {
-              const spoken = st.breath === "full-voice" || (st.breath === "coach" && r <= 2);
-              if (spoken && !mainVoice && beat.dur >= 0.72) breathVoice = beat.breath === "exhale" ? "呼" : "吸";
-              else pluck = beat.breath;
+            if (beat.breath !== "none") {
+              // 每组前 N 次在换气的拍说"呼、吸"；拍子太短、或者报数那一拍拼不下，就响提示音
+              const spoken = r <= leadN;
+              const word = beat.breath === "exhale" ? "呼" : "吸";
+              const both = spoken && mainVoice ? compose(mainVoice, word, beat.dur) : null;
+              if (spoken && !mainVoice && beat.dur >= 0.72) breathVoice = word;
+              else if (both) {
+                mainVoice = both;
+                breathVoice = word;
+              } else if (spoken || afterPluck) pluck = beat.breath;
             }
             const voice = mainVoice ?? breathVoice;
             let srt: string;
@@ -341,9 +365,12 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
           const pos = (elapsed - 2) % 4;
           const inhale = pos < 2;
           breathLabel = inhale ? "🌬️ 深吸气 2 秒" : "💨 慢呼气 2 秒";
-          if ((pos === 0 || pos === 2) && st.breath !== "off" && !mainVoice) {
+          // 休息时说不说先看"领几次"：0 次不说话；全程，或者领完以后响提示音的，说满整个休息；
+          // 领完以后安静的，只说开头一个呼吸循环
+          const spoken = st.breathLead !== 0 && (leadAll || afterPluck || elapsed < 6);
+          if ((pos === 0 || pos === 2) && !mainVoice && (spoken || afterPluck)) {
             pluck = { direction: inhale ? "inhale" : "exhale", isRestPhase: true };
-            if (st.breath === "coach" || st.breath === "full-voice") restVoice = inhale ? "深吸气" : "慢呼气";
+            if (spoken) restVoice = inhale ? "深吸气" : "慢呼气";
           }
         }
         const voice = mainVoice ?? restVoice;

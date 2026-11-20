@@ -3,7 +3,7 @@
 // - checkPlanCourse：用同一份档案重新导出一遍，和课程逐项比对（"和训练单 + 档案进度逐项核对"）。
 // 训练单和成品正文的一致性由模板仓库的 check.py 保证（表格独立推一遍比对、原句逐字核对、漏转核对）。
 import type { Manifest, ManifestExercise } from "./manifest.ts";
-import type { Block, Course, CourseItem, Issue, Tempo } from "./types.ts";
+import type { Block, Coaching, Course, CourseItem, Issue, Tempo } from "./types.ts";
 
 export const PLANS_FORMAT = "yangxia.plans/1";
 export const RULES_FORMAT = "yangxia.rules/1";
@@ -550,6 +550,15 @@ export function exportCourse(input: ExportInput): ExportResult {
     } as Course["source"],
     blocks,
   };
+  // 档案里本人的播放偏好（只记选择）和呼吸提示的下限（65 岁以上至少响提示音）；不写病情
+  const raw = input.profile.playback;
+  const pb = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const prefs = Object.fromEntries(Object.entries(pb).filter(([k]) => ["breathLead", "breathAfter", "countTiming"].includes(k)));
+  const coaching: Coaching = {
+    ...(prod.age === "a65" ? { floor: "pluck" as const } : {}),
+    ...(Object.keys(prefs).length ? { prefs: prefs as Coaching["prefs"] } : {}),
+  };
+  if (Object.keys(coaching).length) out.course.coaching = coaching;
   return out;
 }
 

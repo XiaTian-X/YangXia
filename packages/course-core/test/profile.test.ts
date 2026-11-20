@@ -19,6 +19,11 @@ describe("个人档案", () => {
     expect(profileSchema(P())).toBe(true);
     expect(errors(validateProfile(P()))).toEqual([]);
   });
+  it("播放偏好（v4 阶段 8）：只记选择，合格的 Schema 和 TS 都通过", () => {
+    const p = Object.assign(P(), { playback: { breathLead: "all", breathAfter: "quiet", countTiming: "on-rep" } });
+    expect(profileSchema(p)).toBe(true);
+    expect(errors(validateProfile(p))).toEqual([]);
+  });
   const bad: [string, (p: Record<string, any>) => void][] = [
     ["缺少筛查", (p) => delete p.screening],
     ["代号里有空格", (p) => (p.code = "张 三")],
@@ -26,6 +31,8 @@ describe("个人档案", () => {
     ["不认识的年龄段", (p) => (p.age = "a99")],
     ["答案不是是 / 否", (p) => (p.screening.answers[0].answer = "有")],
     ["起始期的段写到第 5 周", (p) => (p.segments[p.segments.length - 1].week = 5)],
+    ["播放偏好的取值不对", (p) => (p.playback = { breathAfter: "loud" })],
+    ["播放偏好写了不认识的项", (p) => (p.playback = { bpm: 60 })],
     ["稳定期的段写减量", (p) => Object.assign(p.segments[p.segments.length - 1], { phase: "稳定", type: "减量" })],
   ];
   for (const [name, f] of bad) {

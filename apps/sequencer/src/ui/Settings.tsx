@@ -11,11 +11,15 @@ interface Props {
   musicName: string | null;
   onMusicFile: (f: File | null) => void;
   section: "sound" | "screen";
+  /** 这节课呼吸提示的下限：领完以后至少响提示音（65 岁以上，或者课程写了） */
+  floor?: boolean;
+  /** 课程带了档案里的播放偏好 */
+  fromProfile?: boolean;
 }
 
 type K = keyof PlaybackSettings;
 
-export function Settings({ settings: s, onChange, ttsVoice, onTtsVoice, musicName, onMusicFile, section }: Props) {
+export function Settings({ settings: s, onChange, ttsVoice, onTtsVoice, musicName, onMusicFile, section, floor, fromProfile }: Props) {
   const set = <T extends K>(k: T, v: PlaybackSettings[T]) => onChange({ ...s, [k]: v });
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   useEffect(() => {
@@ -57,9 +61,22 @@ export function Settings({ settings: s, onChange, ttsVoice, onTtsVoice, musicNam
       {select("sound", "打点音色", [["woodblock", "木鱼 + 水晶铃"], ["marimba", "马林巴 + 钟琴"], ["perc", "木质边击 + 三角铁"]])}
       {check("preCountdown", "开头 3、2、1 倒数")}
       {check("lastThreeBoost", "最后三次加强提示")}
-      {select("breath", "呼吸提示", [["coach", "领呼：前 2 次带\"呼、吸\"口令，之后用换气提示音"], ["full-voice", "全程口令（适合新手）"], ["pluck", "只用换气提示音"], ["off", "关闭呼吸提示"]])}
+      <label class="field"><span>每组领几次"呼、吸"</span>
+        <select value={String(s.breathLead)} data-setting="breathLead"
+          onChange={(e) => set("breathLead", e.currentTarget.value === "all" ? "all" : Number(e.currentTarget.value))}>
+          {[["0", "不领"], ["1", "1 次"], ["2", "2 次"], ["3", "3 次"], ["5", "5 次"], ["all", "全程（适合新手）"]].map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+        </select>
+      </label>
+      <label class="field"><span>领完以后</span>
+        <select value={s.breathAfter} data-setting="breathAfter" onChange={(e) => set("breathAfter", e.currentTarget.value as PlaybackSettings["breathAfter"])}>
+          <option value="pluck">在换气的时候响提示音</option>
+          <option value="quiet" disabled={floor && s.breathLead !== "all"}>安静</option>
+        </select>
+      </label>
+      {floor && <p class="note" data-floor>这节课至少保留换气提示音：用力时容易不自觉憋气，提示音帮你记得换气。</p>}
       {range("breathVolume", "呼吸提示音量", 15, 100, 5)}
-      {select("countTiming", "报数时机", [["on-rep", "完成一次时报数"], ["on-up", "开始发力时报数"]])}
+      {select("countTiming", "报数时机", [["on-up", "每次开始时报数"], ["on-rep", "每次做完时报数"]])}
+      {fromProfile && <p class="note" data-from-profile>这节课按你档案里的设置播报；在这里改的只对这台设备上没写进课程的项长期有效。</p>}
       {select("voiceTimbre", "内置语音音色", [["female", "清亮女声"], ["male", "沉稳男声"], ["warm", "柔和女声"]])}
       {select("voiceEngine", "跟练时的语音", [["tts", "系统语音（更自然；导出时仍用内置语音）"], ["embedded", "只用内置语音"]])}
       {s.voiceEngine === "tts" && ttsAvailable() && (
