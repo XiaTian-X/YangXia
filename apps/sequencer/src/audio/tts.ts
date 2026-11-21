@@ -10,11 +10,33 @@ export function ttsAvailable(): boolean {
   return typeof window !== "undefined" && "speechSynthesis" in window && typeof window.SpeechSynthesisUtterance === "function";
 }
 
+/** 能念中文的发音人；一个都没有就是空的（不拿别的语言的发音人念中文）。 */
 export function chineseVoices(): SpeechSynthesisVoice[] {
   if (!ttsAvailable()) return [];
-  const voices = window.speechSynthesis.getVoices();
-  const zh = voices.filter((v) => /zh|cmn|chinese/i.test(v.lang) || /zh|chinese|晓|云|婷|美佳|善怡|普通话|国语|粤语/i.test(v.name));
-  return zh.length ? zh : voices;
+  return window.speechSynthesis.getVoices().filter((v) => /zh|cmn|chinese/i.test(v.lang) || /zh|chinese|晓|云|婷|美佳|善怡|普通话|国语|粤语/i.test(v.name));
+}
+
+/**
+ * 系统语音能不能念中文：yes 有中文发音人；unknown 发音人列表是空的（安卓 Edge 上常见，默认发音人一般能念中文，
+ * 照 zh-CN 念）；no 只有别的语言的发音人——这时跟练改用内置语音。
+ */
+export function ttsChinese(): "yes" | "unknown" | "no" {
+  if (!ttsAvailable()) return "no";
+  const all = window.speechSynthesis.getVoices();
+  return chineseVoices().length ? "yes" : all.length ? "no" : "unknown";
+}
+
+/** 在点按钮的那一刻念一句听不见的话：有的浏览器（iPhone）只在用户操作里放行系统语音。 */
+export function unlockTts(): void {
+  if (!ttsAvailable()) return;
+  try {
+    const u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0;
+    u.lang = "zh-CN";
+    window.speechSynthesis.speak(u);
+  } catch {
+    /* 忽略 */
+  }
 }
 
 export function pickVoice(uri: string | null): SpeechSynthesisVoice | null {

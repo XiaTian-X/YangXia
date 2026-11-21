@@ -3,7 +3,7 @@
 import { isPrimaryCue, isSubCue, type TimelineEvent } from "@yangxia/course-core";
 import { cloneBuffer, effectiveMusic, type RenderInput, scheduleEventSounds } from "./render.ts";
 import { createMasterChain, scheduleSingleBeatGroove } from "./sounds.ts";
-import { pickVoice, speak, stopSpeaking, ttsAvailable } from "./tts.ts";
+import { pickVoice, speak, stopSpeaking, ttsAvailable, ttsChinese } from "./tts.ts";
 
 export interface LiveCallbacks {
   onEvent: (ev: TimelineEvent, index: number) => void;
@@ -31,8 +31,29 @@ export class LivePlayer {
     this.ttsVoiceUri = ttsVoiceUri;
   }
 
+  private pausedFlag = false;
+
   get running(): boolean {
     return this.ctx !== null;
+  }
+
+  /** 暂停中：声音、课程时间、动图一起停（AudioContext 挂起，时间就不走）。 */
+  get paused(): boolean {
+    return this.ctx !== null && this.pausedFlag;
+  }
+
+  async pause(): Promise<void> {
+    if (!this.ctx || this.pausedFlag) return;
+    this.pausedFlag = true;
+    // 安卓上系统语音的 pause 不可靠：直接取消，继续时不补念
+    stopSpeaking();
+    await this.ctx.suspend().catch(() => undefined);
+  }
+
+  async resume(): Promise<void> {
+    if (!this.ctx || !this.pausedFlag) return;
+    await this.ctx.resume().catch(() => undefined);
+    this.pausedFlag = false;
   }
 
   /** 从开始到现在过了多少秒（课程时间）。 */
@@ -72,7 +93,8 @@ export class LivePlayer {
       src.connect(duckable);
       src.start(this.startOffset);
     }
-    const useTts = settings.voiceEngine === "tts" && ttsAvailable();
+    // 系统语音只有别的语言的发音人时改用内置语音，不拿别的语言念中文
+    const useTts = settings.voiceEngine === "tts" && ttsAvailable() && ttsChinese() !== "no";
     const voice = useTts ? pickVoice(this.ttsVoiceUri) : null;
     const events = timeline.events;
     let fadedOut = false;
@@ -143,6 +165,7 @@ export class LivePlayer {
   }
 
   async stop(completed = false): Promise<void> {
+    this.pausedFlag = false;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     if (!completed) stopSpeaking();
