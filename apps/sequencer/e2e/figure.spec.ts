@@ -1,12 +1,8 @@
-// 动作示意动图：导出的课程显示动图，手写课程、关掉设置、改过动作名不显示；全程不访问外部地址。
+// 动作示意动图：导出的课程显示动图（"更多 → 导出"的画面预览、跟练页），手写课程、关掉设置、改过动作名不显示；全程不访问外部地址。
 import { expect, test, type Page } from "@playwright/test";
 import { buildTimeline, type Course } from "@yangxia/course-core";
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const APP = pathToFileURL(join(here, "..", "dist-e2e", "养夏跟练编排器.html")).href;
+import { APP, endLive, loadCourse, openMore, openSettings, startLive } from "./ui.ts";
 
 const COURSE: Course = {
   schema: "yangxia.course/1", id: "c_figuretest", name: "动图测试", age: "a18",
@@ -18,11 +14,13 @@ const COURSE: Course = {
   presentation: { sequencer: { voiceEngine: "embedded", music: "none" } },
 };
 
+/** 导入课程，打开"更多 → 导出"（画面预览在那里）。 */
 async function load(page: Page, course: unknown) {
-  await page.setInputFiles('input[data-input="course"]', { name: "course.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(course)) });
+  await loadCourse(page, course);
+  await openMore(page, "export");
 }
 
-/** 图卡区域的统计：浅色底的像素占比，和用来比较两帧的指纹。 */
+/** 画面预览里图卡区域的统计：浅色底的像素占比，和用来比较两帧的指纹。 */
 const card = (page: Page) => page.evaluate(() => {
   const c = document.querySelector("canvas.hud") as HTMLCanvasElement;
   const { data } = c.getContext("2d")!.getImageData(626, 218, 588, 378);
@@ -35,6 +33,14 @@ const card = (page: Page) => page.evaluate(() => {
   return { light: light / (data.length / 4), hash };
 });
 const shown = async (page: Page) => (await card(page)).light > 0.5;
+/** 跟练页的示意画布的指纹。 */
+const liveHash = (page: Page) => page.evaluate(() => {
+  const c = document.querySelector("[data-live] .live-figure canvas") as HTMLCanvasElement;
+  const { data } = c.getContext("2d")!.getImageData(0, 0, c.width, c.height);
+  let hash = 0;
+  for (let i = 0; i < data.length; i += 16) hash = (Math.imul(hash, 31) + (data[i] >> 3)) | 0;
+  return hash;
+});
 
 test("动作示意：显示、不显示、动起来，不访问外部地址", async ({ page }) => {
   const errors: string[] = [];
@@ -44,12 +50,14 @@ test("动作示意：显示、不显示、动起来，不访问外部地址", as
   page.on("request", (r) => { if (!/^(file|data|blob):/.test(r.url())) external.push(r.url()); });
   await page.goto(APP);
 
-  // 导入课程后显示第一个动作的起始姿势
-  await load(page, COURSE);
+  // 导入课程后显示第一个动作的起始姿势；"今天"的动作列表也画出起始姿势的小图
+  await loadCourse(page, COURSE, "动图测试");
+  await expect(page.locator('[data-move="0"] .thumb canvas')).toBeVisible();
+  await openMore(page, "export");
   await expect.poll(() => shown(page), { timeout: 20_000 }).toBe(true);
   const ready = (await card(page)).hash;
 
-  // 路线图预览哪一段，图就显示哪个动作
+  // 点哪一段，画面预览就显示哪个动作
   await page.locator('[data-stage="ex-1-set-1"]').click();
   await expect.poll(async () => (await card(page)).hash).not.toBe(ready);
   await page.locator('[data-stage="ex-0-set-1"]').click();
@@ -60,43 +68,46 @@ test("动作示意：显示、不显示、动起来，不访问外部地址", as
   await expect.poll(async () => (await card(page)).hash).not.toBe(ready);
   const plank = (await card(page)).hash;
   const sets = page.getByLabel("组数");
+  await openMore(page, "editor");
   await sets.first().fill("2");           // 深蹲多一组，平板往后挪
+  await openMore(page, "export");
   await page.waitForTimeout(300);
   expect((await card(page)).hash, "改了前面的组数，图还是预览的平板").toBe(plank);
+  await openMore(page, "editor");
   await sets.nth(1).fill("2");
+  await openMore(page, "export");
   await page.locator('[data-stage="ex-1-set-2"]').click();
   await expect.poll(async () => (await card(page)).hash).toBe(plank);
+  await openMore(page, "editor");
   await sets.nth(1).fill("1");            // 预览的第 2 组没了
+  await openMore(page, "export");
   await expect.poll(async () => (await card(page)).hash).toBe(ready);
   await load(page, COURSE);
   await expect.poll(async () => (await card(page)).hash).toBe(ready);
 
   // 关掉设置就不显示，打开又回来
-  await page.getByRole("button", { name: "画面" }).click();
+  await openSettings(page);
   const box = page.locator('input[data-setting="motionFigure"]');
   await expect(box).toBeChecked();
   await box.uncheck();
+  await openMore(page, "export");
   await expect.poll(() => shown(page)).toBe(false);
+  await openSettings(page);
   await box.check();
+  await openMore(page, "export");
   await expect.poll(() => shown(page)).toBe(true);
-  await page.getByRole("button", { name: "课程" }).click();
 
-  // 跟练中关掉开头倒数：声音还按开始时的时间轴走，图也一样，还停在准备姿势
-  await page.getByRole("button", { name: "开始跟练" }).click();
-  await expect(page.getByText("跟练中", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "声音" }).click();
-  await page.getByLabel("开头 3、2、1 倒数").uncheck();
-  await page.waitForTimeout(400);
-  expect((await card(page)).hash).toBe(ready);
-  await page.getByRole("button", { name: "课程" }).click();
-
-  // 下放的过程中画面在变
+  // 跟练页：显示动作示意，下放的过程中画面在变
+  await startLive(page);
+  await expect(page.locator("[data-live] .live-figure")).toHaveAttribute("data-fig", "1", { timeout: 10_000 });
+  await expect(page.locator("[data-live] .live-figure .cap")).not.toBeEmpty();
   const seen = new Set<number>();
-  await expect.poll(async () => { seen.add((await card(page)).hash); return seen.size; }, { timeout: 25_000, intervals: [120] }).toBeGreaterThan(4);
-  await page.getByRole("button", { name: "停止" }).click();
+  await expect.poll(async () => { seen.add(await liveHash(page)); return seen.size; }, { timeout: 25_000, intervals: [120] }).toBeGreaterThan(4);
+  await endLive(page);
   await page.getByRole("button", { name: "不记录" }).click();
+  await openMore(page, "export");
   expect((await card(page)).hash, "停下以后图留在停下的那一刻").not.toBe(ready);
-  await load(page, COURSE);       // 恢复设置里的开头倒数
+  await load(page, COURSE);
   await expect.poll(async () => (await card(page)).hash).toBe(ready);
 
   // 导出：可以取消；导出的视频里图在动，并且和同一时刻重画的图卡一致
@@ -107,8 +118,7 @@ test("动作示意：显示、不显示、动起来，不访问外部地址", as
   const finished = page.waitForEvent("download", { timeout: 150_000 });
   await page.locator('[data-export="webm"]').click();
   await expect(page.locator(".progress")).toBeVisible();
-  await load(page, { ...COURSE, name: "中途换的课", source: { product: COURSE.source.product, week: 1 } });
-  await expect(page.getByText("已载入：中途换的课")).toBeVisible();
+  await loadCourse(page, { ...COURSE, name: "中途换的课", source: { product: COURSE.source.product, week: 1 } }, "中途换的课");
   const dl = await finished;
   const webm = readFileSync((await dl.path())!).toString("base64");
   await load(page, COURSE);
@@ -150,12 +160,14 @@ test("动作示意：显示、不显示、动起来，不访问外部地址", as
   expect(got.held).toBeLessThan(1);          // 平板撑住不动
 
   // 编辑器改了动作名：这个动作不再显示
+  await openMore(page, "editor");
   await page.locator(".item-head input[type=text]").first().fill("别的动作");
+  await openMore(page, "export");
   await expect.poll(() => shown(page)).toBe(false);
 
   // 手写课程（没有 source.plan）写了 figure 也不显示
-  await load(page, { ...COURSE, source: { product: COURSE.source.product, week: 1 } });
-  await expect(page.getByText("已载入：动图测试")).toBeVisible();
+  await loadCourse(page, { ...COURSE, source: { product: COURSE.source.product, week: 1 } }, "动图测试");
+  await openMore(page, "export");
   await page.waitForTimeout(300);
   expect(await shown(page)).toBe(false);
 
@@ -166,9 +178,10 @@ test("动作示意：显示、不显示、动起来，不访问外部地址", as
   await page.waitForTimeout(300);
   expect(await shown(page)).toBe(false);
 
-  // 第三方授权能打开
-  await page.locator("[data-notices] summary").click();
+  // 第三方授权（含数字字体）能打开
+  await openMore(page, "notices");
   await expect(page.locator("[data-notices] pre")).toContainText("Mozilla Public License");
+  await expect(page.locator("[data-notices] pre")).toContainText("SIL Open Font License");
 
   expect(external).toEqual([]);
   expect(errors).toEqual([]);
@@ -184,16 +197,17 @@ test("动图引擎加载失败：不显示图，跟练和导出照常；导入�
     WebAssembly.compile = fail as typeof WebAssembly.compile;
   });
   await page.goto(APP);
-  await load(page, COURSE);
+  await loadCourse(page, COURSE, "动图测试");
   await expect(page.locator("[data-figure-issue]")).toContainText("不显示动图", { timeout: 20_000 });
+  await openMore(page, "export");
   expect(await shown(page)).toBe(false);
-  await page.getByRole("button", { name: "开始跟练" }).click();
-  await expect(page.getByText("跟练中", { exact: true })).toBeVisible();
+  await startLive(page);
+  await expect(page.locator("[data-live] .live-figure")).toHaveAttribute("data-fig", "0");
   await page.waitForTimeout(500);
-  await page.getByRole("button", { name: "停止" }).click();
+  await endLive(page);
   await page.getByRole("button", { name: "不记录" }).click();
 
-  await page.getByRole("button", { name: "声音" }).click();
+  await openSettings(page);
   await page.locator('select[data-setting="music"]').selectOption("file");
   const rate = 44100;
   const wav = Buffer.alloc(44 + rate * 2);
@@ -202,6 +216,7 @@ test("动图引擎加载失败：不显示图，跟练和导出照常；导入�
   await page.locator('input[type=file][accept="audio/*"]').setInputFiles({ name: "音乐.wav", mimeType: "audio/wav", buffer: wav });
   await expect(page.getByText("音乐.wav")).toBeVisible();
 
+  await openMore(page, "export");
   const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 150_000 }), page.locator('[data-export="webm"]').click()]);
   expect(readFileSync((await dl.path())!).subarray(0, 4).toString("hex")).toBe("1a45dfa3");
   await expect(page.getByText(/已导出 WEBM（有 2 段动作示意没加载成功/)).toBeVisible();
@@ -218,10 +233,10 @@ test("动图数据解不开：载入课程后提示还在，导出写明视频�
   });
   await page.goto(APP);
   await expect(page.locator("[data-figure-issue]")).toContainText("动作示意加载失败");
-  await load(page, COURSE);
-  await expect(page.getByText("已载入：动图测试")).toBeVisible();
+  await loadCourse(page, COURSE, "动图测试");
   await page.waitForTimeout(500);
   await expect(page.locator("[data-figure-issue]")).toContainText("动作示意加载失败");
+  await openMore(page, "export");
   expect(await shown(page)).toBe(false);
   const [dl] = await Promise.all([page.waitForEvent("download", { timeout: 150_000 }), page.locator('[data-export="webm"]').click()]);
   expect(readFileSync((await dl.path())!).subarray(0, 4).toString("hex")).toBe("1a45dfa3");

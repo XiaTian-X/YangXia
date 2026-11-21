@@ -1,7 +1,10 @@
-// 声音和画面设置。选项和默认值沿用原版编排器（名字换成了描述性的说法）。
+// 设置：按设计稿分组。呼吸提示、报数各配一张小图，直接画出"一组里哪几次说口令""每次在哪一拍报数"。
+// 选项和默认值见 course-core 的 settings.ts；改了的项记在本机（App 里的 savePrefs），不低于这节课的下限。
 import type { PlaybackSettings } from "@yangxia/course-core";
+import type { JSX } from "preact";
 import { useEffect, useState } from "preact/hooks";
-import { chineseVoices, ttsAvailable } from "../audio/tts.ts";
+import { chineseVoices, ttsAvailable, ttsChinese } from "../audio/tts.ts";
+import { Lock } from "./icons.tsx";
 
 interface Props {
   settings: PlaybackSettings;
@@ -10,7 +13,6 @@ interface Props {
   onTtsVoice: (uri: string | null) => void;
   musicName: string | null;
   onMusicFile: (f: File | null) => void;
-  section: "sound" | "screen";
   /** 这节课呼吸提示的下限：领完以后至少响提示音（65 岁以上，或者课程写了） */
   floor?: boolean;
   /** 课程带了档案里的播放偏好 */
@@ -19,96 +21,146 @@ interface Props {
 
 type K = keyof PlaybackSettings;
 
-/** "每组领几次"的选项；课程或档案写了别的次数（比如 4 次）也列出来，不让下拉框空着。 */
+/** "每组领几次"的选项；课程或档案写了别的次数（比如 4 次）也列出来。 */
 function leadOptions(cur: PlaybackSettings["breathLead"]): [string, string][] {
-  const base: [string, string][] = [["0", "不领"], ["1", "1 次"], ["2", "2 次"], ["3", "3 次"], ["5", "5 次"], ["all", "全程（适合新手）"]];
-  return base.some(([v]) => v === String(cur)) ? base : [...base.slice(0, -1), [String(cur), `${cur} 次`], base[base.length - 1]];
+  const base: [string, string][] = [["0", "不领"], ["1", "1"], ["2", "2"], ["3", "3"], ["all", "全程"]];
+  return base.some(([v]) => v === String(cur)) ? base : [...base.slice(0, -1), [String(cur), String(cur)], base[base.length - 1]];
 }
 
-export function Settings({ settings: s, onChange, ttsVoice, onTtsVoice, musicName, onMusicFile, section, floor, fromProfile }: Props) {
+export function Settings({ settings: s, onChange, ttsVoice, onTtsVoice, musicName, onMusicFile, floor, fromProfile }: Props) {
   const set = <T extends K>(k: T, v: PlaybackSettings[T]) => onChange({ ...s, [k]: v });
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [zh, setZh] = useState(ttsChinese);
   useEffect(() => {
     if (!ttsAvailable()) return;
-    const load = () => setVoices(chineseVoices());
+    const load = () => { setVoices(chineseVoices()); setZh(ttsChinese()); };
     load();
     window.speechSynthesis.addEventListener("voiceschanged", load);
     return () => window.speechSynthesis.removeEventListener("voiceschanged", load);
   }, []);
 
-  const select = (k: K, label: string, options: [string, string][]) => (
-    <label class="field"><span>{label}</span>
-      <select value={String(s[k])} onChange={(e) => set(k, e.currentTarget.value as never)} data-setting={k}>
-        {options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-      </select>
-    </label>
+  /** 分段按钮：外层写设置项名，每个按钮写取值，aria-pressed 表示选中。 */
+  const seg = <T extends K>(k: T, options: [string, string, boolean?][], parse: (v: string) => PlaybackSettings[T], label: string) => (
+    <div class="seg" role="group" aria-label={label} data-setting={k}>
+      {options.map(([v, t, disabled]) => (
+        <button key={v} type="button" data-value={v} aria-pressed={String(s[k]) === v} disabled={disabled} onClick={() => set(k, parse(v))}>
+          {disabled && <Lock size={14} />}{t}
+        </button>
+      ))}
+    </div>
   );
+  const str = (v: string) => v as never;
   const range = (k: K, label: string, min: number, max: number, step: number, unit = "%") => (
-    <label class="field"><span>{label}<b>{String(s[k])}{unit}</b></span>
-      <input type="range" min={min} max={max} step={step} value={Number(s[k])} onInput={(e) => set(k, Number(e.currentTarget.value) as never)} />
+    <label class="field"><span>{label}<b class="num">{String(s[k])}{unit}</b></span>
+      <input type="range" min={min} max={max} step={step} value={Number(s[k])} data-setting={k} onInput={(e) => set(k, Number(e.currentTarget.value) as never)} />
     </label>
   );
-  const check = (k: K, label: string) => (
-    <label class="check"><input type="checkbox" checked={Boolean(s[k])} onChange={(e) => set(k, e.currentTarget.checked as never)} />{label}</label>
+  const check = (k: K, label: string, extra: JSX.HTMLAttributes<HTMLInputElement> = {}) => (
+    <label class="check">{label}<input type="checkbox" data-setting={k} checked={k === "motionFigure" ? s[k] !== false : Boolean(s[k])} onChange={(e) => set(k, e.currentTarget.checked as never)} {...extra} /></label>
   );
 
-  if (section === "screen") {
-    return (
-      <div>
-        {select("background", "画面背景", [["dark", "深色（直接看）"], ["green", "绿幕（剪辑时抠像）"], ["magenta", "品红幕（剪辑时抠像，保护绿色元素）"], ["black", "纯黑"]])}
-        {select("layout", "布局", [["overlay", "左下角卡片（叠在视频上）"], ["center", "居中大字"]])}
-        <label class="check"><input type="checkbox" data-setting="motionFigure" checked={s.motionFigure !== false} onChange={(e) => set("motionFigure", e.currentTarget.checked)} />显示动作示意（跟练和导出的视频都带）</label>
-        <p class="note">导出视频默认用当前背景；深色背景导出时自动换成品红幕，方便在剪辑软件里抠像。动作示意里有绿色时，绿幕抠像可能受影响，用品红幕更稳；卡片是不透明的，会盖住它后面的画面，不想要就关掉。</p>
-      </div>
-    );
-  }
+  // 一组 15 次里哪几次说口令：领的那几次说，之后按"领完以后"响提示音或安静
+  const lead = s.breathLead === "all" ? 15 : s.breathLead;
+  const quietLocked = floor && s.breathLead !== "all";
+  const bars = Array.from({ length: 15 }, (_, i) => (i < lead && s.voiceBake ? "voice" : s.breathAfter === "pluck" || i < lead ? "pluck" : "quiet"));
+
   return (
-    <div>
-      {select("sound", "打点音色", [["woodblock", "木鱼 + 水晶铃"], ["marimba", "马林巴 + 钟琴"], ["perc", "木质边击 + 三角铁"]])}
-      {check("preCountdown", "开头 3、2、1 倒数")}
-      {check("lastThreeBoost", "最后三次加强提示")}
-      <label class="field"><span>每组领几次"呼、吸"</span>
-        <select value={String(s.breathLead)} data-setting="breathLead" disabled={floor && !s.voiceBake}
-          onChange={(e) => set("breathLead", e.currentTarget.value === "all" ? "all" : Number(e.currentTarget.value))}>
-          {leadOptions(s.breathLead).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-        </select>
-      </label>
-      <label class="field"><span>领完以后</span>
-        <select value={s.breathAfter} data-setting="breathAfter" onChange={(e) => set("breathAfter", e.currentTarget.value as PlaybackSettings["breathAfter"])}>
-          <option value="pluck">在换气的时候响提示音</option>
-          <option value="quiet" disabled={floor && s.breathLead !== "all"}>安静</option>
-        </select>
-      </label>
-      {floor && <p class="note" data-floor>这节课至少保留换气提示音：用力时容易不自觉憋气，提示音帮你记得换气。{!s.voiceBake && "关掉语音报数时，每个换气的拍都响提示音。"}</p>}
-      {range("breathVolume", "呼吸提示音量", 15, 100, 5)}
-      {select("countTiming", "报数时机", [["on-up", "每次开始时报数"], ["on-rep", "每次做完时报数"]])}
-      {fromProfile && <p class="note" data-from-profile>这节课按你档案里的设置播报；在这里改的只对这台设备上没写进课程的项长期有效。</p>}
-      {select("voiceTimbre", "内置语音音色", [["female", "清亮女声"], ["male", "沉稳男声"], ["warm", "柔和女声"]])}
-      {select("voiceEngine", "跟练时的语音", [["tts", "系统语音（更自然；导出时仍用内置语音）"], ["embedded", "只用内置语音"]])}
-      {s.voiceEngine === "tts" && ttsAvailable() && (
-        <label class="field"><span>系统发音人</span>
-          <select value={ttsVoice ?? "auto"} onChange={(e) => onTtsVoice(e.currentTarget.value === "auto" ? null : e.currentTarget.value)}>
-            <option value="auto">自动挑选中文发音人</option>
-            {voices.map((v) => <option key={v.voiceURI || v.name} value={v.voiceURI || v.name}>{v.name}（{v.lang}）</option>)}
+    <div class="groups">
+      {fromProfile && <p class="issue warning" style={{ gridColumn: "1 / -1", background: "var(--accent-soft)", color: "#2D3B33" }} data-from-profile>这节课按你档案里的设置播报；在这里改的，记在这台设备上。</p>}
+
+      <section class="card group" aria-labelledby="g-breath">
+        <h2 class="h2" id="g-breath">呼吸提示</h2>
+        <div class="sub-label">每组领几次"呼、吸"</div>
+        {seg("breathLead", leadOptions(s.breathLead).map(([v, t]) => [v, t, floor && !s.voiceBake] as [string, string, boolean]), (v) => (v === "all" ? "all" : Number(v)) as never, "每组领几次")}
+        <div class="sub-label">领完以后</div>
+        {seg("breathAfter", [["pluck", "换气时响提示音"], ["quiet", "安静", quietLocked]], str, "领完以后")}
+        <div class="viz">
+          <div class="note">一组 15 次，会这样提示</div>
+          <div class="reps-viz" aria-label={`前 ${Math.min(lead, 15)} 次说口令，之后${s.breathAfter === "pluck" ? "响提示音" : "安静"}`}>
+            {bars.map((b, i) => <span key={i} class={b} />)}
+          </div>
+          <div class="legend">
+            <span><i style={{ background: "var(--accent)", height: 14 }} />说"呼、吸"</span>
+            <span><i style={{ background: "#B5AE9F", height: 6 }} />换气提示音</span>
+            <span><i style={{ background: "var(--line)", height: 4 }} />安静</span>
+          </div>
+        </div>
+        {floor && (
+          <p class="floor-note" data-floor><Lock size={16} /><span>这节课至少保留换气提示音：用力时容易不自觉憋气，提示音帮你记得换气。{!s.voiceBake && "关掉语音报数时，每个换气的拍都响提示音。"}</span></p>
+        )}
+        {range("breathVolume", "提示音音量", 15, 100, 5)}
+      </section>
+
+      <section class="card group" aria-labelledby="g-count">
+        <h2 class="h2" id="g-count">报数</h2>
+        {seg("countTiming", [["on-up", "每次开始时"], ["on-rep", "每次做完时"]], str, "什么时候报数")}
+        <div class="viz">
+          <div class="timing-viz" aria-hidden="true">
+            <div style={{ flex: 2, background: "var(--inhale-soft)", color: "var(--inhale-ink)", borderRadius: "8px 4px 4px 8px" }}>下放 2 秒 · 吸</div>
+            <div style={{ flex: 1, background: "var(--exhale-soft)", color: "var(--exhale-ink)", borderRadius: "4px 8px 8px 4px" }}>起 1 秒 · 呼</div>
+          </div>
+          <div class="note" style={{ color: "var(--ink)" }}>
+            {s.countTiming === "on-up" ? "一开始就报\"三，吸\"：这是第 3 次，跟着往下放" : "站起来时报\"三，呼\"：第 3 次快做完了"}
+          </div>
+        </div>
+        {check("preCountdown", "开头 3、2、1 倒数")}
+        {check("lastThreeBoost", "最后三次加强提示")}
+      </section>
+
+      <section class="card group" aria-labelledby="g-voice">
+        <h2 class="h2" id="g-voice">语音</h2>
+        {seg("voiceEngine", [["tts", "系统语音"], ["embedded", "内置语音"]], str, "跟练时的语音")}
+        {s.voiceEngine === "tts" && zh === "no" && (
+          <p class="floor-note" data-no-zh-voice><Lock size={16} /><span>{ttsAvailable() ? "这台设备的系统语音没有中文发音人" : "这个浏览器没有系统语音"}，跟练改用内置语音。</span></p>
+        )}
+        {s.voiceEngine === "tts" && zh !== "no" && (
+          <label class="field"><span>系统发音人</span>
+            <select value={ttsVoice ?? "auto"} onChange={(e) => onTtsVoice(e.currentTarget.value === "auto" ? null : e.currentTarget.value)}>
+              <option value="auto">自动挑选中文发音人</option>
+              {voices.map((v) => <option key={v.voiceURI || v.name} value={v.voiceURI || v.name}>{v.name}（{v.lang}）</option>)}
+            </select>
+          </label>
+        )}
+        <div class="sub-label">内置语音音色</div>
+        {seg("voiceTimbre", [["female", "清亮女声"], ["male", "沉稳男声"], ["warm", "柔和女声"]], str, "内置语音音色")}
+        {check("voiceBake", "语音报数（关掉就只有打点）")}
+        {range("voiceVolume", "语音音量", 20, 100, 2)}
+        <p class="note" style={{ margin: 0 }}>导出的音频和视频用内置语音；这台设备没有中文系统语音时，跟练也用内置语音。</p>
+      </section>
+
+      <section class="card group" aria-labelledby="g-video">
+        <h2 class="h2" id="g-video">视频导出</h2>
+        <div class="sub-label">背景</div>
+        {seg("background", [["magenta", "品红幕"], ["green", "绿幕"], ["dark", "深色"], ["black", "纯黑"]], str, "画面背景")}
+        <div class="sub-label">布局</div>
+        {seg("layout", [["overlay", "左下角卡片"], ["center", "居中大字"]], str, "布局")}
+        {check("motionFigure", "显示动作示意")}
+        <p class="note" style={{ margin: 0 }}>深色背景导出时自动换成品红幕，方便在剪辑软件里抠像；动作示意里有绿色时，用品红幕更稳。</p>
+      </section>
+
+      <section class="card group" aria-labelledby="g-sound" style={{ gridColumn: "1 / -1" }}>
+        <h2 class="h2" id="g-sound">声音和音乐</h2>
+        <div class="sub-label">打点音色</div>
+        {seg("sound", [["woodblock", "木鱼"], ["marimba", "马林巴"], ["perc", "木质边击"]], str, "打点音色")}
+        <label class="field"><span>背景音乐</span>
+          <select value={s.music} data-setting="music" onChange={(e) => set("music", e.currentTarget.value as PlaybackSettings["music"])}>
+            <option value="groove">干爽鼓点</option><option value="beat">极简稳拍</option><option value="file">导入的音乐</option><option value="none">关闭</option>
           </select>
         </label>
-      )}
-      {check("voiceBake", "语音报数（关掉就只有打点）")}
-      {range("voiceVolume", "语音音量", 20, 100, 2)}
-      {range("bpm", "背景鼓点速度", 40, 110, 2, " BPM")}
-      {select("music", "背景音乐", [["groove", "干爽鼓点"], ["beat", "极简稳拍"], ["file", "导入的音乐"], ["none", "关闭"]])}
-      {s.music === "file" && (
-        <div class="row" style={{ marginBottom: 10 }}>
-          <label class="btn small">选择 MP3 / WAV
-            <input type="file" accept="audio/*" style={{ display: "none" }} onChange={(e) => onMusicFile(e.currentTarget.files?.[0] ?? null)} />
-          </label>
-          <span class="note">{musicName ?? "还没导入，先用干爽鼓点"}</span>
-          {musicName && <button class="btn small" onClick={() => onMusicFile(null)}>清除</button>}
-        </div>
-      )}
-      {range("musicVolume", "背景音乐音量", 10, 85, 2)}
-      {range("duckDepth", "说话、打点时背景音乐压低", 0, 92, 2)}
-      {check("duckSubBeats", "下放、停顿的拍子也压低")}
+        {s.music === "file" && (
+          <div class="row">
+            <label class="btn small">选择 MP3 / WAV
+              <input type="file" accept="audio/*" style={{ display: "none" }} onChange={(e) => onMusicFile(e.currentTarget.files?.[0] ?? null)} />
+            </label>
+            <span class="note">{musicName ?? "还没导入，先用干爽鼓点"}</span>
+            {musicName && <button class="btn small" onClick={() => onMusicFile(null)}>清除</button>}
+          </div>
+        )}
+        {range("bpm", "背景鼓点速度", 40, 110, 2, " BPM")}
+        {range("musicVolume", "背景音乐音量", 10, 85, 2)}
+        {range("duckDepth", "说话、打点时背景音乐压低", 0, 92, 2)}
+        {check("duckSubBeats", "下放、停顿的拍子也压低")}
+      </section>
     </div>
   );
 }

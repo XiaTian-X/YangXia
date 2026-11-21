@@ -64,7 +64,8 @@ function figureAssets(mode: string): Plugin {
       const lottie = packageDir("@lottiefiles/dotlottie-web");
       const notices = [readFileSync(join(root, "third-party", "NOTICES.txt"), "utf8"),
         `dotLottie Web 许可全文\n\n${readFileSync(join(lottie, "LICENSE"), "utf8")}`,
-        `Mediabunny 许可全文（Mozilla Public License 2.0）\n\n${readFileSync(join(packageDir("mediabunny"), "LICENSE"), "utf8")}`].join("\n\n");
+        `Mediabunny 许可全文（Mozilla Public License 2.0）\n\n${readFileSync(join(packageDir("mediabunny"), "LICENSE"), "utf8")}`,
+        `Space Grotesk 字体许可全文（SIL Open Font License 1.1）\n\n${readFileSync(join(packageDir("@fontsource/space-grotesk"), "LICENSE"), "utf8")}`].join("\n\n");
       return `export const motionsGz=${JSON.stringify(motions)};export const wasmGz=${JSON.stringify(gz(readFileSync(join(lottie, "dist", "dotlottie-player.wasm"))))};export const notices=${JSON.stringify(notices)};`;
     },
   };

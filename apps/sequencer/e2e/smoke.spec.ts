@@ -1,15 +1,12 @@
-// 冒烟测试：打开 dist-e2e/养夏跟练编排器.html（npm run e2e 用离线样例的动图打包） → 导入短课程 → 跟练（跳过第一个动作）、练完、导出练习记录 → 导出 SRT / WAV / WebM，
+// 冒烟测试：打开 dist-e2e/养夏跟练编排器.html（npm run e2e 用离线样例的动图打包） → 导入短课程 → 跟练（暂停、切后台自动暂停、
+// 从"这节课"列表跳过第一个动作）、练完、保存练习记录 → 在"更多 → 导出"里导出 SRT / WAV / WebM，
 // 并和核心库在 Node 里算出的时间轴对数（SRT 最后一条时间码、WAV 时长）。
 import { buildSrt, buildTimeline, validateSession, type Course } from "@yangxia/course-core";
 import { expect, test, type Download, type Page } from "@playwright/test";
 import { ALL_FORMATS, BufferSource, Input } from "mediabunny";
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 import { VoiceBank } from "../src/audio/voice-bank.ts";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const APP = pathToFileURL(join(here, "..", "dist-e2e", "养夏跟练编排器.html")).href;
+import { APP, liveButton, loadCourse, openMore, openSettings, pressed, startLive } from "./ui.ts";
 
 const COURSE: Course = {
   schema: "yangxia.course/1", id: "c_smoketest1", name: "冒烟测试", age: "a18",
@@ -46,25 +43,49 @@ test("养夏跟练编排器：导入、跟练、导出", async ({ page }) => {
   });
   expect(visible).not.toMatch(/keep/i);
 
-  await page.setInputFiles('input[data-input="course"]', { name: "course.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(COURSE)) });
-  await expect(page.getByText("已载入：冒烟测试")).toBeVisible();
-  await expect(page.locator('select[data-setting="voiceEngine"]')).toHaveCount(0); // 设置在"声音"标签页里
-  await page.getByRole("button", { name: "声音" }).click();
-  await expect(page.locator('select[data-setting="voiceEngine"]')).toHaveValue("embedded");
-  await page.getByRole("button", { name: "课程" }).click();
+  await loadCourse(page, COURSE, "冒烟测试");
+  await openSettings(page);
+  await expect(pressed(page, "voiceEngine")).toHaveAttribute("data-value", "embedded");
 
-  // 跟练：一开始就从路线图跳到第二个动作（第一个动作整组跳过），练到结束 → 练习记录
-  await page.getByRole("button", { name: "开始跟练" }).click();
-  await expect(page.getByText("跟练中", { exact: true })).toBeVisible();
-  await expect(page.getByText("跟练中不能修改课程，先停止。")).toBeVisible();   // 跟练中锁住编辑，练习记录才对得上
-  await page.waitForTimeout(500);
-  await page.locator('[data-stage="ex-1-set-1"]').click();
-  await expect(page.getByText("练习记录", { exact: true })).toBeVisible({ timeout: 20_000 });
+  // 跟练：全屏页盖住整个页面，声明常驻
+  await startLive(page);
+  await expect(page.locator("[data-live]")).toContainText("未经专业审核");
+  const clock = () => page.locator("[data-live] .clock").textContent();
+  await page.waitForTimeout(1500);
+
+  // 暂停：课程时间不走；继续以后接着走
+  await liveButton(page, "[data-pause]").click();
+  await expect(liveButton(page, "[data-resume]")).toBeVisible();
+  await expect(page.locator("[data-live] .paused")).toBeVisible();
+  const frozen = await clock();
+  await page.waitForTimeout(1500);
+  expect(await clock()).toBe(frozen);
+  await liveButton(page, "[data-resume]").click();
+  await expect.poll(clock, { timeout: 5_000 }).not.toBe(frozen);
+
+  // 切到后台（锁屏、切应用）自动暂停
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+  });
+  await expect(liveButton(page, "[data-resume]")).toBeVisible();
+  // 空格继续（键盘）
+  await page.keyboard.press("Space");
+  await expect(liveButton(page, "[data-pause]")).toBeVisible();
+
+  // 从"这节课"列表直接跳到第二个动作（第一个动作整组跳过），练到结束 → 练完页
+  await page.locator('[data-live] [data-stage="ex-1-set-1"]').click();
+  await expect(page.locator("[data-done]")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "练完了" })).toBeVisible();
   // 每个动作的补充：找级的感受（照成品原话）、当场退回
-  await page.getByText("每个动作（可不填）").click();
-  await page.locator('[data-item="1"] select').selectOption("做到上限还很轻松");
+  await page.locator('[data-item="1"] .options button', { hasText: "做到上限还很轻松" }).click();
   await page.locator('[data-item="0"] input[type="checkbox"]').check();
-  const session = JSON.parse((await saved(page, () => page.getByRole("button", { name: "导出练习记录" }).click())).toString("utf8"));
+  // 有不适：马上提示
+  await page.locator('[data-symptom="dizzy"]').click();
+  await expect(page.getByRole("alert")).toContainText("尽快就医");
+  await page.locator('[data-symptom="dizzy"]').click();
+  const session = JSON.parse((await saved(page, () => page.locator("[data-save-record]").click())).toString("utf8"));
   expect(session.schema).toBe("yangxia.session/1");
   expect(session.feeling).toBe("正好");
   expect(session.items.map((i: any) => [i.exercise, i.setsPlanned, i.setsDone, i.skipped]))
@@ -74,7 +95,9 @@ test("养夏跟练编排器：导入、跟练、导出", async ({ page }) => {
   expect(session.items[0].feel).toBeUndefined();
   expect(validateSession(session)).toEqual([]);
 
+  await expect(page.locator("[data-done]")).toHaveCount(0);
   const tl = expected();
+  await openMore(page, "export");
 
   // SRT：条数和最后一条时间码与核心库一致
   const srt = (await saved(page, () => page.locator('[data-export="srt"]').click())).toString("utf8");

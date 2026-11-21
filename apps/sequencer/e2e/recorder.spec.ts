@@ -2,11 +2,7 @@
 // 用 Chromium 的假麦克风（一段提示音），只测流程，不测音质。
 import { expect, test } from "@playwright/test";
 import type { Course } from "@yangxia/course-core";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const APP = pathToFileURL(join(here, "..", "dist-e2e", "养夏跟练编排器.html")).href;
+import { APP, loadCourse, openMore } from "./ui.ts";
 
 test.use({
   launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] },
@@ -26,14 +22,12 @@ test("录报数声：按句列这节课要说的话，点停结束录音", async
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(APP);
-  await page.getByRole("button", { name: "录报数声" }).click();
+  await openMore(page, "voice");
   await expect(page.getByText("还没载入课程")).toBeVisible();
   await expect(page.locator('[data-phrase="准备下一组"]')).toBeVisible();
 
-  await page.getByRole("button", { name: "课程", exact: true }).click();
-  await page.setInputFiles('input[data-input="course"]', { name: "course.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(COURSE)) });
-  await expect(page.getByText("已载入：录音测试")).toBeVisible();
-  await page.getByRole("button", { name: "录报数声" }).click();
+  await loadCourse(page, COURSE, "录音测试");
+  await openMore(page, "voice");
   await expect(page.getByText("下面是这节课要说的话")).toBeVisible();
   for (const p of ["准备", "开始", "本组完成", "全部完成", "准备下一组", "休息 12 秒", "3"]) await expect(page.locator(`[data-phrase="${p}"]`), p).toBeVisible();
   for (const p of ["第", "组", "下", "秒", "准备下一项", "3，本组完成", "1，吸"]) await expect(page.locator(`[data-phrase="${p}"]`), p).toHaveCount(0);
