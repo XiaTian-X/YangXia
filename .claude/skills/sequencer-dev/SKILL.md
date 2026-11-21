@@ -14,7 +14,7 @@ npm run e2e
 ```
 
 - `npm test`：单元测试。包括和原版比对：内置语音逐采样、语音长度、4 个样例课程的时间轴。
-- `npm run e2e`：用离线样例的动图打包到 `dist-e2e/`，再用 Playwright 跑一遍导入、跟练、导出 WAV / SRT / WebM，以及动作示意的显示、节拍和视频读回。
+- `npm run e2e`：用离线样例的动图打包到 `dist-e2e/`，再用 Playwright 跑一遍导入、跟练（暂停、跳段）、练完、导出 WAV / SRT / WebM，动作示意的显示、节拍和视频读回，以及五种尺寸的排版（`layout.spec.ts`）。按界面操作的共用步骤在 `e2e/ui.ts`。
 
 三条都过了才算改完。每轮结束时的 hook 会自动跑单元测试。
 
@@ -33,3 +33,4 @@ npm run e2e
 - **依赖**：选发布超过两周的稳定版本，写死版本号，`package-lock.json` 一起提交。
 - **构建产物**（`apps/sequencer/dist/`、`dist-e2e/`）和导出的媒体不提交。
 - 新功能、去掉的功能，记进 `docs/编排器功能清单.md`。
+- **界面**（v4 阶段 8b）：照设计画布 <https://claude.ai/artifact/RmVjkphomSGpQ3xd7qAMSE> 还原，颜色、字号都是 `src/styles.css` 开头的变量；改界面先出设计稿再实施。页面在 `src/ui/`（`App.tsx` 接线，`Today`、`LiveView`、`DoneView`、`Settings`、`MoreView`），跟练页显示什么由纯函数 `src/live/view.ts` 算（有单元测试），不在组件里拼。跟练页和导出的视频画面（`src/hud/draw.ts`）分开，视频画面不随界面改。五种尺寸（390×844、844×390、360×800、820×1180、1440×900）都要过 `layout.spec.ts`。
