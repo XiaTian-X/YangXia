@@ -26,6 +26,14 @@ test("报数默认开始时报；呼吸提示的设置记在本机；65 岁以�
   await expect.poll(() => value(page, "countTiming")).toBe("on-up");
   await expect.poll(() => value(page, "breathLead")).toBe("2");
   await expect.poll(() => value(page, "breathAfter")).toBe("pluck");
+  // "视频导出""声音和音乐"平时收着，标题行写着现在的选择
+  await expect(page.locator('[data-fold="video"]')).not.toHaveAttribute("open", "");
+  await expect(page.locator('[data-fold="video"] summary')).toContainText("深色 · 左下角卡片");
+  await expect(page.locator('[data-fold="sound"] summary')).toContainText("木鱼 · 背景音乐关闭");
+  await page.locator('[data-fold="video"] summary').click();
+  await option(page, "layout", "center").click();
+  await expect(page.locator('[data-fold="video"] summary')).toContainText("深色 · 居中大字");
+  await option(page, "layout", "overlay").click();
   // 示意图：一组 15 次，前 2 次说口令，之后响提示音
   await expect(page.locator(".reps-viz .voice")).toHaveCount(2);
   await expect(page.locator(".reps-viz .pluck")).toHaveCount(13);

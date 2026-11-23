@@ -45,7 +45,7 @@ function Ring({ f }: { f: LiveFrame }) {
       </svg>
       <div class="val">
         {f.over && <div class="over">{f.over}</div>}
-        <div class="big" data-count>{f.big}</div>
+        <div class={`big ${/^\d+$/.test(f.big) ? "" : "word"}`} data-count>{f.big}</div>
         {f.small && <div class="small">{f.small}</div>}
       </div>
     </div>

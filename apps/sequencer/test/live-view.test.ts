@@ -129,6 +129,8 @@ describe("跟练页显示：领呼、每侧、循环、休息末尾、计时做�
     expect(f.small).not.toContain("/");
     const timedRight = find((e) => e.isTimedMode === true && e.itemIndex === 1 && /右侧/.test(e.tag) && !/✓/.test(e.display));
     expect(frameAt(timedRight).sub).toContain("右侧");
+    const timedDone = find((e) => e.isTimedMode === true && e.itemIndex === 1 && /✓/.test(e.display));
+    expect(frameAt(timedDone).sub).toContain("两侧做完");
   });
 
   it("计时做完那一拍环是满的；计时口令照时间轴说，不写撑住", () => {
@@ -152,6 +154,22 @@ describe("跟练页显示：领呼、每侧、循环、休息末尾、计时做�
     expect(f.title).toBe("侧撑");
     expect(f.mode).toBe("prep");
     expect(f.next).toContain("侧撑");
+  });
+
+  it("手写的循环课程轮中间换动作：不说这一轮做完了", () => {
+    const hand = validateCourse({
+      schema: "yangxia.course/1", id: "c_liveview03", name: "手写循环", age: "a18", source: { product: "18-39岁-居家版", week: 1 },
+      blocks: [{ kind: "circuit", rounds: 2, items: [
+        { exercise: "squat", name: "深蹲", mode: "reps", reps: 2, tempo: { start: "down", down: 2, up: 1 }, rest: 10, quote: ["样例原文"] },
+        { exercise: "plank", name: "平板", mode: "timed", duration: 5, rest: 10, quote: ["样例原文"] },
+      ] }],
+    }).course!;
+    const t3 = buildTimeline(hand, { voiceDuration: () => 0.5 });
+    const st = t3.stages.find((x) => x.isRest && x.id.startsWith("ex-0-rest"))!;
+    const f = liveFrame(hand, t3, st.firstEventIdx, t3.events[st.firstEventIdx].time);
+    expect(st.label).toBe("换项休");
+    expect(f.sub).toContain("这一轮的深蹲做完了");
+    expect(f.sub).not.toMatch(/第 1 轮做完了/);
   });
 
   it("空时间轴不报错", () => {

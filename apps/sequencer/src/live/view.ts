@@ -137,7 +137,10 @@ export function liveFrame(course: Course, tl: Timeline, idx: number, t: number):
     const all = restSeconds(tl, stageIndex) ?? Math.max(1, Math.round(end - start));
     const sec = /^(\d+)s$/.exec(ev.display);
     frame.title = tl.stages[stageIndex].label === "换项休" ? "换项休息" : `${unit}间休息`;
-    frame.sub = `${head} · 第 ${info.set} ${unit}做完了`;
+    // 循环里一轮中间换动作：这一轮还没做完，只是这个动作做完了
+    frame.sub = unit === "轮" && tl.stages[stageIndex].label === "换项休"
+      ? `${head} · 这一轮的${items[info.itemIndex]?.name ?? "动作"}做完了`
+      : `${head} · 第 ${info.set} ${unit}做完了`;
     frame.phase = stripLead(ev.breathText);
     if (sec) {
       const left = Math.max(0, Number(sec[1]) - Math.max(0, t - ev.time));
@@ -167,7 +170,9 @@ export function liveFrame(course: Course, tl: Timeline, idx: number, t: number):
   } else if (ev.isTimedMode) {
     const done = /✓/.test(ev.display);
     const left = Number(/\d+/.exec(ev.display)?.[0] ?? 0);
-    frame.sub = `${head} · 第 ${info.set} / ${total} ${unit}${side ? ` · ${side}` : ""}`;
+    // 每侧的计时动作做完那一拍，时间轴标签里没有左右侧：两侧都做完了
+    const sideText = side ? ` · ${side}` : done && item?.perSide ? " · 两侧做完" : "";
+    frame.sub = `${head} · 第 ${info.set} / ${total} ${unit}${sideText}`;
     frame.big = String(left);
     frame.small = "秒";
     // 环按做了多少走；做完那一拍是满的

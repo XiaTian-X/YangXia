@@ -124,6 +124,7 @@ for (const size of SIZES) {
     await inView(page, page.locator("[data-live] [data-end], [data-live] .end-btn").filter({ visible: true }).first(), "结束");
     await expect(page.locator("[data-live] .disc").filter({ visible: true }).first()).toHaveText("未经专业审核，不是医学建议，不能替代医生的判断。疼、头晕、胸闷马上停下。");
     await liveLayout(page, "练");
+    await minFont(page, "[data-live] .disc", 16);
     // 休息：倒数按课程写的秒数
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowRight");

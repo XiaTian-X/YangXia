@@ -122,12 +122,6 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .today { grid-template-columns: minmax(300px, 340px) minmax(0, 1fr); gap: 28px; align-items: start; }
   .h1 { font-size: 40px; }
 }
-.banner { background: var(--accent-soft); border-radius: 22px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.banner .pill { background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
-.learn { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.learn > div { background: var(--surface); border-radius: 14px; padding: 10px 8px; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
-.learn b { font-size: 14px; }
-.learn span { font-size: 12px; color: var(--ink-2); }
 .compbar { display: flex; gap: 3px; height: 12px; }
 .compbar > div { border-radius: 6px; min-width: 4px; }
 .compbar .act { background: var(--accent); }
@@ -273,6 +267,7 @@ html.living, html.living body { overscroll-behavior: none; overflow: hidden; }
 .ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .ring .val { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .ring .big { font-family: var(--num); font-weight: 700; font-size: 44cqw; line-height: 1; letter-spacing: -.03em; }
+.ring .big.word { font-size: 22cqw; letter-spacing: 0; }   /* "右侧"这类字：放在内圈里 */
 .ring .small { font-family: var(--num); font-size: max(12px, 8.4cqw); color: var(--ink-2); margin-top: 2px; }
 .ring .over { font-size: max(12px, 6.4cqw); color: var(--ink-2); }
 .phase { display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); max-width: 100%; }
@@ -311,11 +306,17 @@ html.living, html.living body { overscroll-behavior: none; overflow: hidden; }
   .live-next { padding: 8px 12px; }
 }
 
+/* 很矮的竖屏（iPhone SE 带工具栏）：先缩示意图，把地方留给环 */
+@media (orientation: portrait) and (max-height: 600px) {
+  .live-figure { height: clamp(64px, 14vh, 120px); }
+}
+
 /* 平板竖屏：同手机的一栏，放大 */
 @media (orientation: portrait) and (min-width: 600px) and (min-height: 900px) {
   .live { padding: 28px 40px 32px; gap: 18px; }
   .live-head .title { font-size: 26px; }
   .live-figure { height: min(26vh, 340px); border-radius: 28px; }
+  .live[data-mode="rest"] .live-figure { height: min(18vh, 220px); }
   .ring { --ring-max: 360px; }
   .phase b { font-size: 28px; }
   .live-next { font-size: 17px; padding: 14px 18px; }
@@ -345,7 +346,7 @@ html.living, html.living body { overscroll-behavior: none; overflow: hidden; }
   .live-side .controls { grid-template-columns: 1fr 1fr; gap: 8px; }
   .live-side .controls .pause { grid-column: 1 / -1; order: -1; height: 56px; }
   .live-side .controls button { height: 48px; flex-direction: row; font-size: 14px; }
-  .live-side .disc { font-size: 14px; line-height: 1.45; }
+  .live-side .disc { font-size: 16px; line-height: 1.45; }
   /* 没有示意图：次数和口令左右排 */
   .live[data-figure="0"] { grid-template-columns: minmax(0, 1fr) 210px; grid-template-areas: "head head" "center side"; }
   .live[data-figure="0"] .live-center { flex-direction: row; gap: 18px; }
@@ -355,6 +356,12 @@ html.living, html.living body { overscroll-behavior: none; overflow: hidden; }
   .live[data-figure="0"] .live-center .phase { border-radius: 18px; }
   .live[data-figure="0"] .live-center .breath-pills { justify-content: flex-start; }
   .live[data-figure="0"] .next-inline { display: block; font-size: 15px; }
+}
+
+/* 很矮的横屏：下一组的浮层只占一行，不盖住示意图 */
+@media (orientation: landscape) and (max-height: 360px) {
+  .fig-next { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 4px 8px; }
+  .fig-next br, .fig-next .detail { display: none; }
 }
 
 /* 电脑（和大的横屏平板）：示意、次数、整节课的段落三栏 */
