@@ -4,7 +4,7 @@ import type { PlaybackSettings } from "@yangxia/course-core";
 import type { JSX } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { chineseVoices, ttsAvailable, ttsChinese } from "../audio/tts.ts";
-import { Lock } from "./icons.tsx";
+import { Chevron, Lock } from "./icons.tsx";
 
 interface Props {
   settings: PlaybackSettings;
@@ -20,6 +20,9 @@ interface Props {
 }
 
 type K = keyof PlaybackSettings;
+const BG: Record<PlaybackSettings["background"], string> = { magenta: "品红幕", green: "绿幕", dark: "深色", black: "纯黑" };
+const SOUND: Record<PlaybackSettings["sound"], string> = { woodblock: "木鱼", marimba: "马林巴", perc: "木质边击" };
+const MUSIC: Record<PlaybackSettings["music"], string> = { groove: "干爽鼓点", beat: "极简稳拍", file: "导入的音乐", none: "背景音乐关闭" };
 
 /** "每组领几次"的选项；课程或档案写了别的次数（比如 4 次）也列出来。 */
 function leadOptions(cur: PlaybackSettings["breathLead"]): [string, string][] {
@@ -100,7 +103,9 @@ export function Settings({ settings: s, onChange, ttsVoice, onTtsVoice, musicNam
             <div style={{ flex: 1, background: "var(--exhale-soft)", color: "var(--exhale-ink)", borderRadius: "4px 8px 8px 4px" }}>起 1 秒 · 呼</div>
           </div>
           <div class="note" style={{ color: "var(--ink)" }}>
-            {s.countTiming === "on-up" ? "一开始就报\"三，吸\"：这是第 3 次，跟着往下放" : "站起来时报\"三，呼\"：第 3 次快做完了"}
+            {s.countTiming === "on-up"
+              ? `一开始就报"${lead >= 3 ? "三，吸" : "三"}"：这是第 3 次，跟着往下放`
+              : `站起来时报"${lead >= 3 ? "三，呼" : "三"}"：第 3 次快做完了`}
           </div>
         </div>
         {check("preCountdown", "开头 3、2、1 倒数")}
@@ -128,18 +133,18 @@ export function Settings({ settings: s, onChange, ttsVoice, onTtsVoice, musicNam
         <p class="note" style={{ margin: 0 }}>导出的音频和视频用内置语音；这台设备没有中文系统语音时，跟练也用内置语音。</p>
       </section>
 
-      <section class="card group" aria-labelledby="g-video">
-        <h2 class="h2" id="g-video">视频导出</h2>
+      <details class="card group fold" data-fold="video">
+        <summary><h2 class="h2" id="g-video">视频导出<span class="now">　{BG[s.background]} · {s.layout === "center" ? "居中大字" : "左下角卡片"}</span></h2><span class="chev"><Chevron size={18} /></span></summary>
         <div class="sub-label">背景</div>
         {seg("background", [["magenta", "品红幕"], ["green", "绿幕"], ["dark", "深色"], ["black", "纯黑"]], str, "画面背景")}
         <div class="sub-label">布局</div>
         {seg("layout", [["overlay", "左下角卡片"], ["center", "居中大字"]], str, "布局")}
         {check("motionFigure", "显示动作示意")}
         <p class="note" style={{ margin: 0 }}>深色背景导出时自动换成品红幕，方便在剪辑软件里抠像；动作示意里有绿色时，用品红幕更稳。</p>
-      </section>
+      </details>
 
-      <section class="card group" aria-labelledby="g-sound" style={{ gridColumn: "1 / -1" }}>
-        <h2 class="h2" id="g-sound">声音和音乐</h2>
+      <details class="card group fold" data-fold="sound">
+        <summary><h2 class="h2" id="g-sound">声音和音乐<span class="now">　{SOUND[s.sound]} · {MUSIC[s.music]}</span></h2><span class="chev"><Chevron size={18} /></span></summary>
         <div class="sub-label">打点音色</div>
         {seg("sound", [["woodblock", "木鱼"], ["marimba", "马林巴"], ["perc", "木质边击"]], str, "打点音色")}
         <label class="field"><span>背景音乐</span>
@@ -160,7 +165,7 @@ export function Settings({ settings: s, onChange, ttsVoice, onTtsVoice, musicNam
         {range("musicVolume", "背景音乐音量", 10, 85, 2)}
         {range("duckDepth", "说话、打点时背景音乐压低", 0, 92, 2)}
         {check("duckSubBeats", "下放、停顿的拍子也压低")}
-      </section>
+      </details>
     </div>
   );
 }

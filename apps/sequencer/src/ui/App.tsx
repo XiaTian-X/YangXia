@@ -20,7 +20,7 @@ import { FigurePlayer } from "../figure/player.ts";
 import { applyEvent, drawHud, HUD_HEIGHT, HUD_WIDTH, initialHud, stepHud } from "../hud/draw.ts";
 import { KeepAwake } from "../live/keepAwake.ts";
 import { liveFrame } from "../live/view.ts";
-import { DoneView, type Session } from "./DoneView.tsx";
+import { DoneView, emptyDoneForm, type DoneForm, type Session } from "./DoneView.tsx";
 import { Editor } from "./Editor.tsx";
 import { Dots, Gear, Leaf } from "./icons.tsx";
 import { Library, type Scheme } from "./Library.tsx";
@@ -58,6 +58,8 @@ export function App() {
   const [notice, setNotice] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
+  const [doneForm, setDoneForm] = useState<DoneForm>(emptyDoneForm);
+  const [pauseWhy, setPauseWhy] = useState("");   // 自动暂停的原因（切到后台），显示在跟练页上
   const [clips, setClips] = useState<Record<string, MotionClip>>({});
   const [figuresReady, setFiguresReady] = useState(0);
   // 动图数据解不开（整份没有）和个别片段预载失败分开记：载入新课程只会刷新后一种
@@ -247,7 +249,8 @@ export function App() {
   };
 
   const start = async () => {
-    if (!timeline || !course || busy) return;
+    // 跟练中不能再开一次（会把这次结束掉、记录作废）
+    if (!timeline || !course || busy || player.current?.running) return;
     // 在点按钮的这一刻解锁系统语音、屏幕常亮（有的浏览器只在用户操作里放行）
     unlockTts();
     void keepAwake.current.start();
@@ -264,6 +267,7 @@ export function App() {
     setLiveIdx(0);
     setLiveT(0);
     setPaused(false);
+    setPauseWhy("");
     const p = new LivePlayer(input(), {
       onEvent: (ev: TimelineEvent, i: number) => {
         curIdx.current = i;
@@ -279,8 +283,10 @@ export function App() {
         figureAnchor.current = completed ? { kind: "end" } : anchorAt(tl, figureTime.current);
         setPlaying(false);
         setPaused(false);
+        setPauseWhy("");
         void keepAwake.current.stop();
         exitFullscreen();
+        setDoneForm(emptyDoneForm());
         setSession({ ...snapshot, startedAt: startedAt.current, endedAt: new Date(), completed, setsDone: setsDoneFromPlayed(tl.events, played.current) });
         setView("today");
         hud.current.repText = completed ? "完成" : "已停止";
@@ -297,24 +303,34 @@ export function App() {
     if (!p?.running || p.paused) return;
     await p.pause();
     setPaused(true);
-    if (why) setNotice(why);
+    setPauseWhy(why);
   };
   const resume = async () => {
     const p = player.current;
     if (!p?.running || !p.paused) return;
     await p.resume();
     setPaused(false);
+    setPauseWhy("");
     void keepAwake.current.start();
   };
 
   // 切到后台（锁屏、切应用）自动暂停：回来以后点"继续"接着练
   useEffect(() => {
     const onVis = () => {
-      if (document.visibilityState === "hidden") void pause("切到后台时自动暂停了，点\"继续\"接着练。");
+      if (document.visibilityState === "hidden") void pause("切到后台时自动暂停了");
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
+
+  // 跟练中：页面不跟着手指下拉刷新（安卓上一划就会重载，这次跟练和记录都没了）；关页面、刷新先问一句
+  useEffect(() => {
+    document.documentElement.classList.toggle("living", playing);
+    if (!playing) return;
+    const ask = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", ask);
+    return () => window.removeEventListener("beforeunload", ask);
+  }, [playing]);
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) {
@@ -399,6 +415,8 @@ export function App() {
       const k = keys.current;
       if (e.code === "Space") {
         if (!k.playing && !k.canStart) return;
+        // 没在跟练时，焦点在按钮、动作卡、链接上按空格是点它们自己，不是开始跟练
+        if (!k.playing && el && el !== document.body && el.closest("button, a, summary, label, [role=button], [tabindex]")) return;
         e.preventDefault();
         // 焦点在按钮上时松开空格会再点一次那个按钮：先把焦点拿开
         if (el?.tagName === "BUTTON") el.blur();
@@ -514,7 +532,7 @@ export function App() {
   return (
     <div class="app" onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)}
       onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer?.files[0]; if (f) void readFile(f); }}>
-      <nav class="nav" aria-label="主导航">
+      <nav class="nav" aria-label="主导航" inert={playing}>
         <div class="brand"><Leaf size={22} color="var(--accent)" /><span>养夏 · 跟练</span></div>
         {navItems.map(([v, t, Icon]) => (
           <button key={v} class={`nav-btn ${view === v ? "on" : ""}`} aria-current={view === v ? "page" : undefined} data-nav={v} onClick={() => go(v)}>
@@ -523,9 +541,9 @@ export function App() {
         ))}
       </nav>
 
-      <main>
+      <main inert={playing}>
         {view === "today" && (session
-          ? <DoneView session={session} onNotice={setNotice} onDone={() => setSession(null)} />
+          ? <DoneView session={session} form={doneForm} onForm={setDoneForm} onNotice={setNotice} onDone={() => setSession(null)} />
           : <Today course={course} timeline={timeline} clips={clips} figures={figures.current} figuresReady={figuresReady}
               issues={issues} notice={notice} figureIssue={figureIssue} edited={edited} dragOver={dragOver} busy={!!busy}
               onStart={() => void start()} onExport={() => openMore("export")} onReadFile={(f) => void readFile(f)}
@@ -551,7 +569,7 @@ export function App() {
         <LiveView course={run.course} timeline={run.timeline} frame={frame} elapsed={liveT} paused={paused}
           figureRef={liveCanvas} figureWrapRef={liveFigureWrap} captionRef={liveCaption}
           onPause={() => void pause()} onResume={() => void resume()} onPrev={() => jumpRel(-1)} onNext={() => jumpRel(1)}
-          onEnd={() => void stop()} onJump={jumpTo} onFullscreen={fullscreenOk() ? toggleFullscreen : null}
+          onEnd={() => void stop()} onJump={jumpTo} pauseWhy={pauseWhy} onFullscreen={fullscreenOk() ? toggleFullscreen : null}
           hasFigure={eff.motionFigure !== false && hasFigure(run.course) && !unpackIssue} />
       )}
     </div>

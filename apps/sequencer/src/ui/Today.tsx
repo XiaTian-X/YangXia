@@ -2,7 +2,7 @@
 import { itemSpec, usableClip, type Course, type CourseItem, type Issue, type MotionClip, type Timeline } from "@yangxia/course-core";
 import { useEffect, useRef } from "preact/hooks";
 import type { FigurePlayer } from "../figure/player.ts";
-import { Bolt, Chevron, Clock, Download, File, Info, ListCheck, Play, Wind } from "./icons.tsx";
+import { Chevron, Clock, Download, File, Info, Play } from "./icons.tsx";
 
 interface Props {
   course: Course | null;
@@ -26,9 +26,9 @@ interface Props {
 
 const minutes = (s: number) => Math.max(1, Math.round(s / 60));
 
-/** 动作的节奏标签：下放吸气、发力呼气（成品的通用规矩），停顿另标。 */
+/** 动作的节奏标签：下放吸气、发力呼气（成品的通用规矩），停顿另标；计时动作照时间轴的口令"呼 2 秒、吸 2 秒"。 */
 function tempoTags(it: CourseItem): { text: string; cls: string }[] {
-  if (it.mode === "timed" || !it.tempo) return [{ text: "撑住 · 自然呼吸", cls: "" }];
+  if (it.mode === "timed" || !it.tempo) return [{ text: "呼 2 秒", cls: "exhale" }, { text: "吸 2 秒", cls: "inhale" }];
   const t = it.tempo;
   const down = { text: `下 ${t.down} 秒 · 吸`, cls: "inhale" };
   const up = { text: `起 ${t.up} 秒 · 呼`, cls: "exhale" };
@@ -90,7 +90,6 @@ export function Today(p: Props) {
 
   const src = course.source;
   const items = course.blocks.flatMap((b) => b.items.map((it) => ({ it, total: b.kind === "circuit" ? b.rounds : it.sets ?? 1, circuit: b.kind === "circuit" })));
-  const training = (course.coaching as { training?: boolean } | undefined)?.training === true;
   const part = (src as { part?: { n: number; of: number } }).part;
   const phase = src.phase === "稳定" ? "稳定期" : "起始期";
   const title = src.day ? `第 ${src.week} 周 · ${src.day} 日` : course.name;
@@ -117,17 +116,6 @@ export function Today(p: Props) {
             </div>
           </section>
 
-          {training && (
-            <section class="banner" data-training>
-              <div class="row"><span class="pill">培训期</span><b style={{ fontSize: 16 }}>这一周边学边练</b></div>
-              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "#2D3B33" }}>每个动作开始前先讲要领，呼吸全程带口令。周末做一次掌握自查，没掌握就再练一周。</p>
-              <div class="learn">
-                <div><Wind size={22} color="var(--inhale)" /><b>呼吸</b><span>发力呼气</span></div>
-                <div><ListCheck size={22} color="var(--accent)" /><b>要领</b><span>做法和要点</span></div>
-                <div><Bolt size={22} color="var(--exhale)" /><b>发力</b><span>哪里用力</span></div>
-              </div>
-            </section>
-          )}
 
           <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <div class="eyebrow">这节课怎么走</div>
@@ -152,7 +140,7 @@ export function Today(p: Props) {
           {p.issues.filter((i) => i.level === "warning").map((i, k) => <p key={k} class="issue warning">{i.path || "课程"}：{i.message}</p>)}
           <p class="disclaimer"><Info size={16} color="var(--warn)" /><span>计划未经专业审核，不是医学建议，不能替代医生的判断。练的时候疼、头晕、胸闷，马上停下。</span></p>
           <div class="row">
-            <label class="btn small">换一节课
+            <label class="btn">换一节课
               <input type="file" accept=".json,application/json" style={{ display: "none" }} data-input="course"
                 onChange={(e) => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ""; if (f) p.onReadFile(f); }} />
             </label>

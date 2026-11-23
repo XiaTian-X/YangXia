@@ -87,12 +87,14 @@ test("动作示意：显示、不显示、动起来，不访问外部地址", as
 
   // 关掉设置就不显示，打开又回来
   await openSettings(page);
+  await page.locator('[data-fold="video"] summary').click();   // "视频导出"平时收着
   const box = page.locator('input[data-setting="motionFigure"]');
   await expect(box).toBeChecked();
   await box.uncheck();
   await openMore(page, "export");
   await expect.poll(() => shown(page)).toBe(false);
   await openSettings(page);
+  await page.locator('[data-fold="video"] summary').click();
   await box.check();
   await openMore(page, "export");
   await expect.poll(() => shown(page)).toBe(true);
@@ -208,6 +210,7 @@ test("动图引擎加载失败：不显示图，跟练和导出照常；导入�
   await page.getByRole("button", { name: "不记录" }).click();
 
   await openSettings(page);
+  await page.locator('[data-fold="sound"] summary').click();   // "声音和音乐"平时收着
   await page.locator('select[data-setting="music"]').selectOption("file");
   const rate = 44100;
   const wav = Buffer.alloc(44 + rate * 2);

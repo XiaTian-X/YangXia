@@ -1,7 +1,7 @@
 // 跟练页每一刻显示什么（live/view.ts 的纯函数）：按次、计时、休息、准备几种状态，接下来、分段进度。
 import { buildTimeline, validateCourse, type Course } from "@yangxia/course-core";
 import { describe, expect, it } from "vitest";
-import { breathOf, liveFrame, parseStage, segTitle } from "../src/live/view.ts";
+import { breathOf, liveFrame, parseStage, segTitle, unitsOf } from "../src/live/view.ts";
 
 const COURSE = {
   schema: "yangxia.course/1", id: "c_liveview01", name: "跟练页", age: "a18",
@@ -28,6 +28,12 @@ describe("跟练页显示", () => {
     expect(breathOf("🌬️ 继续吸气")).toBe("inhale");
     expect(breathOf("💨 发力呼气")).toBe("exhale");
     expect(breathOf("🌬️ 均匀呼吸")).toBeNull();
+    // 领呼："领呼"本身带"呼"，按引号里的字算
+    expect(breathOf('🗣️ 领呼"吸"')).toBe("inhale");
+    expect(breathOf('🗣️ 领呼"呼"')).toBe("exhale");
+    expect(breathOf("🌬️ 自然呼吸，别把气停住")).toBeNull();
+    expect(breathOf("💨 呼气 2 秒")).toBe("exhale");
+    expect(breathOf("🌬️ 吸气 2 秒")).toBe("inhale");
   });
 
   it("按次：大字是第几次，环按次数走，接下来是休息", () => {
@@ -74,6 +80,82 @@ describe("跟练页显示", () => {
 
   it("整节课列表的名字", () => {
     expect(segTitle(course, tl, "ex-0-set-2")).toBe("徒手深蹲 · 第 2 组");
-    expect(segTitle(course, tl, "ex-0-rest-1")).toBe("休息");
+    expect(segTitle(course, tl, "ex-0-rest-1")).toBe("组间休息");
+  });
+});
+
+describe("跟练页显示：领呼、每侧、循环、休息末尾、计时做完", () => {
+  const MORE = validateCourse({
+    schema: "yangxia.course/1", id: "c_liveview02", name: "跟练页二", age: "a18",
+    source: { product: "18-39岁-居家版", week: 1 },
+    blocks: [
+      { kind: "sets", items: [
+        { exercise: "split-squat", name: "原地分腿蹲", mode: "reps", sets: 1, reps: 2, perSide: true, tempo: { start: "down", down: 2, up: 1 }, rest: 10, quote: ["样例原文"] },
+        { exercise: "side-plank", name: "侧撑", mode: "timed", sets: 1, duration: 5, perSide: true, rest: 10, quote: ["样例原文"] },
+      ] },
+      { kind: "circuit", rounds: 2, restBetweenRounds: 20, items: [
+        { exercise: "squat", name: "深蹲", mode: "reps", reps: 2, tempo: { start: "up", up: 1, down: 2 }, rest: 0, quote: ["样例原文"] },
+        { exercise: "plank", name: "平板", mode: "timed", duration: 5, rest: 0, quote: ["样例原文"] },
+      ] },
+    ],
+  });
+  const c = MORE.course!;
+  const t2 = buildTimeline(c, { voiceDuration: () => 0.5 });
+  const find = (pred: (e: (typeof t2.events)[number]) => boolean) => {
+    const i = t2.events.findIndex(pred);
+    expect(i).toBeGreaterThanOrEqual(0);
+    return i;
+  };
+  const frameAt = (i: number) => liveFrame(c, t2, i, t2.events[i].time);
+
+  it("课程合格", () => expect(MORE.issues.filter((x) => x.level === "error")).toEqual([]));
+
+  it("领呼的那几次：口令写吸气、环心按吸气变色", () => {
+    const i = find((e) => e.breathText === '🗣️ 领呼"吸"' && !e.isTimedMode && e.state === "action");
+    const f = frameAt(i);
+    expect(f.breath).toBe("inhale");
+    expect(f.phase).toContain("吸气");
+  });
+
+  it("每侧：写出左侧、右侧；中间换边不显示 0 / 0", () => {
+    const l = find((e) => e.phaseGroup === "ex-0-set-1" && /左侧/.test(e.tag) && e.state === "action");
+    expect(frameAt(l).sub).toContain("左侧");
+    const r = find((e) => e.phaseGroup === "ex-0-set-1" && /· 右侧/.test(e.tag));
+    expect(frameAt(r).sub).toContain("右侧");
+    const sw = find((e) => e.display === "右侧" && e.itemIndex === 1);
+    const f = frameAt(sw);
+    expect(f.big).toBe("右侧");
+    expect(f.over).toBe("换边");
+    expect(f.small).not.toContain("/");
+    const timedRight = find((e) => e.isTimedMode === true && e.itemIndex === 1 && /右侧/.test(e.tag) && !/✓/.test(e.display));
+    expect(frameAt(timedRight).sub).toContain("右侧");
+  });
+
+  it("计时做完那一拍环是满的；计时口令照时间轴说，不写撑住", () => {
+    const d = find((e) => e.isTimedMode === true && /✓/.test(e.display));
+    expect(frameAt(d).ring).toBe(1);
+    const h = find((e) => e.isTimedMode === true && /还剩/.test(e.label));
+    expect(frameAt(h).phase).not.toContain("撑住");
+    expect(frameAt(h).phase).toMatch(/[呼吸]气/);
+  });
+
+  it("循环里的动作按轮数，列表和休息也写轮", () => {
+    expect(unitsOf(c)).toEqual(["组", "组", "轮", "轮"]);
+    const i = find((e) => e.phaseGroup === "ex-2-set-1" && e.state === "action");
+    expect(frameAt(i).sub).toContain("第 1 / 2 轮");
+    expect(segTitle(c, t2, "ex-2-set-2")).toBe("深蹲 · 第 2 轮");
+  });
+
+  it("换项休末尾的准备：标题已经是下一个动作", () => {
+    const i = find((e) => e.phaseGroup === "ex-0-rest-1" && e.state === "prep");
+    const f = frameAt(i);
+    expect(f.title).toBe("侧撑");
+    expect(f.mode).toBe("prep");
+    expect(f.next).toContain("侧撑");
+  });
+
+  it("空时间轴不报错", () => {
+    const f = liveFrame(c, { events: [], stages: [], totalDuration: 0, motion: [] }, 0, 0);
+    expect(f.segs).toEqual([]);
   });
 });

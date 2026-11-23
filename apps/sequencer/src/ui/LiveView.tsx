@@ -2,7 +2,7 @@
 // 手机竖屏一栏；手机横屏三栏（示意、次数、按钮）；电脑上多一栏"整节课"（点一段就跳过去）。布局由 styles.css 切换。
 import type { Course, Timeline } from "@yangxia/course-core";
 import type { Ref } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { fmtClock, segTitle, type LiveFrame } from "../live/view.ts";
 import { Expand, Next, Pause, Play, Prev } from "./icons.tsx";
 
@@ -23,6 +23,8 @@ interface Props {
   onEnd: () => void;
   onJump: (stageId: string) => void;
   onFullscreen: (() => void) | null;
+  /** 自动暂停的原因（切到后台），暂停标记上写明 */
+  pauseWhy: string;
   /** 这节课有没有动作示意（没有就不留示意那一栏） */
   hasFigure: boolean;
 }
@@ -50,6 +52,8 @@ function Ring({ f }: { f: LiveFrame }) {
   );
 }
 
+const DISCLAIMER = "未经专业审核，不是医学建议，不能替代医生的判断。疼、头晕、胸闷马上停下。";
+
 export function LiveView(p: Props) {
   const f = p.frame;
   const rest = f.mode === "rest";
@@ -64,6 +68,23 @@ export function LiveView(p: Props) {
   };
   useEffect(() => () => { if (armTimer.current) clearTimeout(armTimer.current); }, []);
   const root = useRef<HTMLElement>(null);
+  // 环的大小 = 中间一格的高度减去口令那一块的实际高度（口令折行时环跟着变小），由样式里的 --info-h 用
+  const center = useRef<HTMLDivElement>(null);
+  const info = useRef<HTMLDivElement>(null);
+  const measure = () => {
+    const c = center.current;
+    const i = info.current;
+    if (c && i) c.style.setProperty("--info-h", `${Math.ceil(i.getBoundingClientRect().height)}px`);
+  };
+  // 口令换了（每次重画）当场量；窗口变了（转屏）由 ResizeObserver 量
+  useLayoutEffect(measure);
+  useEffect(() => {
+    const i = info.current;
+    if (!i || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(i);
+    return () => ro.disconnect();
+  }, []);
   // 打开时把焦点放到看得见的"暂停"上（读屏、键盘从这里开始；横屏时按钮在右栏）
   useEffect(() => {
     const btn = [...(root.current?.querySelectorAll<HTMLButtonElement>("button.pause") ?? [])].find((b) => b.offsetParent !== null);
@@ -81,12 +102,12 @@ export function LiveView(p: Props) {
   );
   const foot = (
     <div class="live-foot">
-      <span class="disc">未经专业审核，不是医学建议。疼、头晕、胸闷马上停下。</span>
-      <span class="tools">
-        {p.onFullscreen && <button class="tool" onClick={p.onFullscreen} aria-label="全屏"><Expand size={18} /></button>}
-        <button class="end" data-end onClick={end}>{arm ? "再点一次结束" : "结束"}</button>
-      </span>
+      <span class="disc">{DISCLAIMER}</span>
     </div>
+  );
+  const nowSeg = f.segs.findIndex((s) => s.now);
+  const nextCard = rest && f.nextItem && (
+    <><b>{f.nextItem.name}</b> · {f.nextItem.set}<br /><span class="detail">{f.nextItem.detail}</span></>
   );
 
   return (
@@ -97,13 +118,17 @@ export function LiveView(p: Props) {
             <div class="sub">{f.sub}</div>
             <div class="title">{f.title}</div>
           </div>
-          <div class="clock-wrap">
-            {p.paused && <span class="paused" role="status">已暂停</span>}
-            <div class="clock num">{fmtClock(p.elapsed)} <small>/ {fmtClock(p.timeline.totalDuration)}</small></div>
+          <div class="head-tools">
+            {p.paused && <span class="paused" role="status">{p.pauseWhy ? "切到后台，已暂停" : "已暂停"}</span>}
+            {p.onFullscreen && <button class="tool" onClick={p.onFullscreen} aria-label="全屏"><Expand size={20} /></button>}
+            <button class="end" data-end onClick={end}>{arm ? "再点一次结束" : "结束"}</button>
           </div>
         </div>
-        <div class="segs" aria-label={`这节课第 ${f.segs.findIndex((s) => s.now) + 1} 段，共 ${f.segs.length} 段`}>
-          {f.segs.map((s) => <div key={s.id} class={s.rest ? "rest" : ""} style={{ flex: s.rest ? 0.5 : 1 }}><i style={{ width: `${Math.round(s.fill * 100)}%` }} /></div>)}
+        <div class="segs-row">
+          <div class="segs" role="img" aria-label={nowSeg < 0 ? `准备中，这节课共 ${f.segs.length} 段` : `这节课第 ${nowSeg + 1} 段，共 ${f.segs.length} 段`}>
+            {f.segs.map((s) => <div key={s.id} class={s.rest ? "rest" : ""} style={{ flex: s.rest ? 0.5 : 1 }}><i style={{ width: `${Math.round(s.fill * 100)}%` }} /></div>)}
+          </div>
+          <div class="clock num">{fmtClock(p.elapsed)} <small>/ {fmtClock(p.timeline.totalDuration)}</small></div>
         </div>
       </header>
 
@@ -111,11 +136,12 @@ export function LiveView(p: Props) {
         <canvas ref={p.figureRef} width={840} height={540} aria-label="动作示意" />
         <div class="none">{rest ? "休息一下，下一组准备好再开始" : f.title}</div>
         <span class="cap" ref={p.captionRef} />
+        {nextCard && <div class="fig-next"><span>下一组</span> {nextCard}</div>}
       </div>
 
-      <div class="live-center">
+      <div class="live-center" ref={center}>
         <Ring f={f} />
-        <div class="info" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+        <div class="info" ref={info}>
           {rest ? (
             <>
               <div class="cue">跟着慢慢呼吸</div>
@@ -123,6 +149,7 @@ export function LiveView(p: Props) {
                 <span class={`in ${f.breath === "inhale" ? "on" : ""}`}><i style={{ background: "var(--inhale)" }} />深吸气 2 秒</span>
                 <span class={`ex ${f.breath === "exhale" ? "on" : ""}`}><i style={{ background: "var(--exhale)" }} />慢呼气 2 秒</span>
               </div>
+              {nextCard && <div class="next-inline"><span>下一组</span> {nextCard}</div>}
             </>
           ) : (
             f.phase && (
@@ -136,10 +163,10 @@ export function LiveView(p: Props) {
         </div>
       </div>
 
-      {rest && f.nextItem ? (
+      {nextCard ? (
         <div class="live-next card-next">
           <span>下一组</span>
-          <span style={{ textAlign: "right" }}><b>{f.nextItem.name}</b> · {f.nextItem.set}<br /><span class="note" style={{ color: "var(--ink-2)" }}>{f.nextItem.detail}</span></span>
+          <span style={{ textAlign: "right" }}>{nextCard}</span>
         </div>
       ) : (
         <div class="live-next"><span>接下来</span><span>{f.next}</span></div>
@@ -161,7 +188,7 @@ export function LiveView(p: Props) {
       </aside>
       <div class="live-end">
         {p.onFullscreen && <button class="tool" onClick={p.onFullscreen}>全屏</button>}
-        <button class="end-btn" onClick={end}>{arm ? "再点一次结束" : "结束这节课"}</button>
+        <button class="end-btn" data-end onClick={end}>{arm ? "再点一次结束" : "结束这节课"}</button>
       </div>
     </section>
   );

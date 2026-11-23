@@ -15,8 +15,13 @@ export function parseStage(id: string): StageInfo | null {
   return m ? { kind: m[2] as StageInfo["kind"], itemIndex: Number(m[1]), set: m[3] ? Number(m[3]) : 0 } : null;
 }
 
-/** 呼吸提示文字里是吸还是呼；"均匀呼吸""自然呼吸""别把气停住"这类不分。 */
+/**
+ * 呼吸提示文字里是吸还是呼。领呼写成 `🗣️ 领呼"吸"`，按引号里的字算（"领呼"本身带"呼"）；
+ * "均匀呼吸""自然呼吸""别把气停住"这类不分。
+ */
 export function breathOf(text: string): Breath {
+  const lead = /领呼"(吸|呼)"/.exec(text);
+  if (lead) return lead[1] === "吸" ? "inhale" : "exhale";
   if (/均匀|自然|别把气停住/.test(text)) return null;
   const inhale = text.includes("吸");
   const exhale = text.includes("呼");
@@ -64,6 +69,11 @@ export interface LiveFrame {
 }
 
 const stripLead = (s: string) => s.replace(/^[^\p{L}\p{N}]+/u, "").trim();
+/** 这一拍的呼吸口令写成给人看的话：领呼"吸"写成"吸气"。 */
+const breathPhrase = (text: string) => {
+  const lead = /领呼"(吸|呼)"/.exec(text);
+  return lead ? (lead[1] === "吸" ? "吸气" : "呼气") : stripLead(text);
+};
 
 function tempoSeconds(item: CourseItem | undefined, label: string): string {
   const tp = item?.tempo;
@@ -100,27 +110,33 @@ function restSeconds(tl: Timeline, stageIndex: number): number | null {
 
 export function liveFrame(course: Course, tl: Timeline, idx: number, t: number): LiveFrame {
   const items = courseItems(course);
+  if (!tl.events.length || !tl.stages.length) return emptyFrame();
   const ev: TimelineEvent = tl.events[Math.max(0, Math.min(idx, tl.events.length - 1))];
   const stageIndex = Math.max(0, tl.stages.findIndex((s) => s.id === ev.phaseGroup));
   const info = parseStage(tl.stages[stageIndex]?.id ?? "") ?? { kind: "set", itemIndex: ev.itemIndex, set: 1 };
-  const item = items[ev.itemIndex];
-  const unit = /第 \d+\/\d+ 轮/.test(ev.tag) ? "轮" : "组";
+  // 休息段末尾的"开始""马上开始 X"已经是下一段的准备：标题、单位按下一段的动作算
+  const nextOfStage = tl.stages[stageIndex + 1] ? parseStage(tl.stages[stageIndex + 1].id) : null;
+  const itemIndex = ev.state === "prep" && info.kind === "rest" && nextOfStage ? nextOfStage.itemIndex : info.itemIndex;
+  const item = items[itemIndex];
+  const units = unitsOf(course);
+  const unit = units[info.itemIndex] ?? "组";
   const total = setTotalOf(tl, info.itemIndex) || 1;
-  const head = `${info.itemIndex + 1} / ${items.length}`;
+  const head = `${itemIndex + 1} / ${items.length}`;
+  const side = /· (左侧|右侧)/.exec(ev.tag)?.[1];
   const [start, end] = stageSpan(tl, stageIndex);
   const breath = breathOf(ev.breathText);
   const breathWord = breath === "inhale" ? "吸气" : breath === "exhale" ? "呼气" : "";
 
   const frame: LiveFrame = {
     mode: ev.state, title: item?.name ?? "", sub: "", big: "", small: "", over: "", ring: 0, breath, phase: "", phaseSec: "",
-    next: "", nextItem: null, itemIndex: info.itemIndex, stageIndex, segs: [],
+    next: "", nextItem: null, itemIndex, stageIndex, segs: [],
   };
 
   if (ev.state === "rest") {
     // 休息按时间轴每秒的显示倒数（"90s"），和报数、视频一致；休息末尾的"准备第 2 组 3、2、1"单独显示
     const all = restSeconds(tl, stageIndex) ?? Math.max(1, Math.round(end - start));
     const sec = /^(\d+)s$/.exec(ev.display);
-    frame.title = tl.stages[stageIndex].label === "换项休" ? "换项休息" : `组间休息`;
+    frame.title = tl.stages[stageIndex].label === "换项休" ? "换项休息" : `${unit}间休息`;
     frame.sub = `${head} · 第 ${info.set} ${unit}做完了`;
     frame.phase = stripLead(ev.breathText);
     if (sec) {
@@ -136,21 +152,32 @@ export function liveFrame(course: Course, tl: Timeline, idx: number, t: number):
     }
   } else if (ev.state === "prep") {
     frame.sub = `${head} · 准备`;
+    frame.title = item?.name ?? "";
     frame.big = /^\d+$/.test(ev.display) ? ev.display : "";
     frame.over = frame.big ? "" : "准备";
     frame.phase = stripLead(ev.label);
-  } else if (ev.isTimedMode) {
-    const left = Number(/\d+/.exec(ev.display)?.[0] ?? 0);
+  } else if (/^(左侧|右侧)$/.test(ev.display)) {
+    // 每侧动作中间换边（不休息）
     frame.sub = `${head} · 第 ${info.set} / ${total} ${unit}`;
+    frame.over = "换边";
+    frame.big = ev.display;
+    frame.small = "不休息";
+    frame.ring = 0;
+    frame.phase = stripLead(ev.label);
+  } else if (ev.isTimedMode) {
+    const done = /✓/.test(ev.display);
+    const left = Number(/\d+/.exec(ev.display)?.[0] ?? 0);
+    frame.sub = `${head} · 第 ${info.set} / ${total} ${unit}${side ? ` · ${side}` : ""}`;
     frame.big = String(left);
     frame.small = "秒";
-    frame.ring = Math.min(1, Math.max(0, 1 - (ev.timedProgressRatio ?? 1)));
-    frame.phase = breathWord ? `撑住 · ${breathWord}` : "撑住";
+    // 环按做了多少走；做完那一拍是满的
+    frame.ring = done ? 1 : Math.min(1, Math.max(0, 1 - (ev.timedProgressRatio ?? 1)));
+    frame.phase = done ? stripLead(ev.label) : breathPhrase(ev.breathText);
   } else {
     const m = /(\d+) \/ (\d+)/.exec(ev.display);
     const r = m ? Number(m[1]) : 0;
     const n = m ? Number(m[2]) : item?.reps ?? 0;
-    frame.sub = `${head} · 第 ${info.set} / ${total} ${unit}`;
+    frame.sub = `${head} · 第 ${info.set} / ${total} ${unit}${side ? ` · ${side}` : ""}`;
     frame.big = String(r);
     frame.small = `/ ${n}`;
     frame.ring = n ? Math.min(1, r / n) : 0;
@@ -164,7 +191,10 @@ export function liveFrame(course: Course, tl: Timeline, idx: number, t: number):
   const after = tl.stages[stageIndex + 2];
   const nInfo = nextStage ? parseStage(nextStage.id) : null;
   const describe = (s: StageInfo) => (s.itemIndex === info.itemIndex ? `第 ${s.set} ${unit}` : `下一个：${items[s.itemIndex]?.name ?? ""}`);
-  if (!nextStage || !nInfo) frame.next = "最后一段，做完就练完了";
+  // 准备段（含休息末尾的准备）：接下来就是这一段要做的那一组
+  if (ev.state === "prep" && nextOfStage && nextOfStage.kind === "set" && info.kind !== "set") {
+    frame.next = `${items[nextOfStage.itemIndex]?.name ?? ""} · 第 ${nextOfStage.set} ${units[nextOfStage.itemIndex] ?? "组"}`;
+  } else if (!nextStage || !nInfo) frame.next = "最后一段，做完就练完了";
   else if (nInfo.kind === "rest") {
     const [a, b] = stageSpan(tl, stageIndex + 1);
     const aInfo = after ? parseStage(after.id) : null;
@@ -172,7 +202,7 @@ export function liveFrame(course: Course, tl: Timeline, idx: number, t: number):
   } else frame.next = describe(nInfo);
   if (ev.state === "rest" && nInfo && nInfo.kind !== "rest") {
     const ni = items[nInfo.itemIndex];
-    if (ni) frame.nextItem = { name: ni.name, detail: tempoText(ni), set: `第 ${nInfo.set} / ${setTotalOf(tl, nInfo.itemIndex) || 1} ${unit}`, itemIndex: nInfo.itemIndex };
+    if (ni) frame.nextItem = { name: ni.name, detail: tempoText(ni), set: `第 ${nInfo.set} / ${setTotalOf(tl, nInfo.itemIndex) || 1} ${units[nInfo.itemIndex] ?? "组"}`, itemIndex: nInfo.itemIndex };
   }
 
   // 顶部的分段进度和"整节课"列表：准备段不单列
@@ -186,14 +216,23 @@ export function liveFrame(course: Course, tl: Timeline, idx: number, t: number):
   return frame;
 }
 
-/** "整节课"列表里一段的名字：动作名 · 第几组，或者休息。 */
+/** 每个动作按"组"还是"轮"数：循环（circuit）里的动作是轮。下标和 courseItems 一致。 */
+export function unitsOf(course: Course): ("组" | "轮")[] {
+  return course.blocks.flatMap((b) => b.items.map(() => (b.kind === "circuit" ? "轮" : "组") as "组" | "轮"));
+}
+
+function emptyFrame(): LiveFrame {
+  return { mode: "prep", title: "", sub: "", big: "", small: "", over: "", ring: 0, breath: null, phase: "", phaseSec: "", next: "", nextItem: null, itemIndex: 0, stageIndex: 0, segs: [] };
+}
+
+/** "整节课"列表里一段的名字：动作名 · 第几组（循环里是第几轮），或者休息。 */
 export function segTitle(course: Course, tl: Timeline, id: string): string {
   const p = parseStage(id);
   const items = courseItems(course);
   if (!p) return id;
-  if (p.kind === "rest") return tl.stages.find((s) => s.id === id)?.label === "换项休" ? "换项休息" : "休息";
+  if (p.kind === "rest") return tl.stages.find((s) => s.id === id)?.label === "换项休" ? "换项休息" : `${unitsOf(course)[p.itemIndex] ?? "组"}间休息`;
   const it = items[p.itemIndex];
-  return it ? `${it.name} · 第 ${p.set} 组` : id;
+  return it ? `${it.name} · 第 ${p.set} ${unitsOf(course)[p.itemIndex] ?? "组"}` : id;
 }
 
 export const fmtClock = (s: number) => `${String(Math.floor(Math.max(0, s) / 60)).padStart(2, "0")}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, "0")}`;

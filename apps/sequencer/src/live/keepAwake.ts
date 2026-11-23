@@ -8,21 +8,27 @@ export class KeepAwake {
   private video: HTMLVideoElement | null = null;
   private tick: ReturnType<typeof setInterval> | null = null;
   private active = false;
+  /** 每次 start / stop 加 1：常亮请求回来时已经停了（或者又开了一次），就把它放掉 */
+  private gen = 0;
   private readonly onVisible = () => {
-    // 切到后台时系统会收回常亮，回来再要一次
-    if (this.active && document.visibilityState === "visible" && this.mode === "lock" && !this.lock) void this.requestLock();
+    if (!this.active || document.visibilityState !== "visible") return;
+    // 切到后台时系统会收回常亮、暂停视频，回来再要一次
+    if (this.mode === "lock" && !this.lock) void this.requestLock(this.gen);
+    if (this.mode === "video") void this.video?.play().catch(() => undefined);
   };
 
   async start(): Promise<void> {
     if (this.active) return;
     this.active = true;
+    const gen = ++this.gen;
     document.addEventListener("visibilitychange", this.onVisible);
-    if (await this.requestLock()) return;
-    this.startVideo();
+    if (await this.requestLock(gen)) return;
+    if (gen === this.gen && this.active) this.startVideo();
   }
 
   async stop(): Promise<void> {
     this.active = false;
+    this.gen++;
     document.removeEventListener("visibilitychange", this.onVisible);
     const lock = this.lock;
     this.lock = null;
@@ -34,11 +40,16 @@ export class KeepAwake {
     this.mode = "none";
   }
 
-  private async requestLock(): Promise<boolean> {
+  private async requestLock(gen: number): Promise<boolean> {
     const wl = (navigator as unknown as { wakeLock?: { request: (t: "screen") => Promise<Sentinel> } }).wakeLock;
     if (!wl) return false;
     try {
       const lock = await wl.request("screen");
+      if (gen !== this.gen || !this.active) {
+        // 请求还没回来时已经停了：拿到就放掉
+        await lock.release().catch(() => undefined);
+        return true;
+      }
       this.lock = lock;
       this.mode = "lock";
       lock.addEventListener("release", () => { if (this.lock === lock) this.lock = null; });

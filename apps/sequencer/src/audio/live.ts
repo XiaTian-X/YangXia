@@ -100,7 +100,8 @@ export class LivePlayer {
     let fadedOut = false;
 
     this.timer = setInterval(() => {
-      if (!this.ctx) return;
+      // 暂停中什么都不排、不念（AudioContext 挂起要一会儿才生效；暂停中跳段也不能把下一句念出来）
+      if (!this.ctx || this.pausedFlag) return;
       const now = this.ctx.currentTime;
       const t = this.elapsed();
       if (!fadedOut && t >= timeline.totalDuration - 0.6) {
@@ -160,7 +161,8 @@ export class LivePlayer {
       n?.gain.cancelScheduledValues(now);
       n?.gain.setTargetAtTime(1.0, now, 0.02);
     }
-    this.warp = events[idx].time - (now - this.startOffset) - 0.05;
+    // 播放中提前 0.05 秒，让这一段第一拍照常排上；暂停中正好停在这一段开头，动图也显示这一段
+    this.warp = events[idx].time - (now - this.startOffset) - (this.pausedFlag ? 0 : 0.05);
     this.audioCursor = this.uiCursor = this.ttsCursor = idx;
   }
 

@@ -49,7 +49,7 @@ test("养夏跟练编排器：导入、跟练、导出", async ({ page }) => {
 
   // 跟练：全屏页盖住整个页面，声明常驻
   await startLive(page);
-  await expect(page.locator("[data-live]")).toContainText("未经专业审核");
+  await expect(page.locator("[data-live]")).toContainText("未经专业审核，不是医学建议，不能替代医生的判断。疼、头晕、胸闷马上停下。");
   const clock = () => page.locator("[data-live] .clock").textContent();
   await page.waitForTimeout(1500);
 

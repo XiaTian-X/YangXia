@@ -1,7 +1,8 @@
 // 练完（或中途结束）：这次练了多久、几组，填整体感受、每个动作的感受、有没有不适，存成练习记录文件交给 agent。
 // 记录只存成使用者自己的文件；能分享的设备（手机）可以直接分享回电脑，不能就下载。
 import { FEELS, type Course, type ItemNote } from "@yangxia/course-core";
-import { useState } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
+import { unitsOf } from "../live/view.ts";
 import { download, sessionRecord, type Feeling } from "../export/exporters.ts";
 import { Check, Share, Warn } from "./icons.tsx";
 
@@ -16,8 +17,19 @@ export const recordName = (s: Session) => `养夏_练习记录_${localDate(s.sta
 
 const SYMPTOMS = [["pain", "关节疼"], ["dizzy", "头晕、眼前发黑"], ["chest", "胸痛、胸闷、心慌"]] as const;
 
+/** 练完页填的内容。放在 App 里：去"设置"看一眼再回来，填的不丢。 */
+export interface DoneForm {
+  feeling: Feeling;
+  symptoms: { pain: boolean; dizzy: boolean; chest: boolean };
+  note: string;
+  perItem: Record<number, ItemNote>;
+}
+export const emptyDoneForm = (): DoneForm => ({ feeling: "正好", symptoms: { pain: false, dizzy: false, chest: false }, note: "", perItem: {} });
+
 interface Props {
   session: Session;
+  form: DoneForm;
+  onForm: (f: DoneForm) => void;
   onDone: () => void;
   onNotice: (s: string) => void;
 }
@@ -38,17 +50,23 @@ async function shareOrDownload(blob: Blob, name: string): Promise<"shared" | "do
   return "downloaded";
 }
 
-export function DoneView({ session, onDone, onNotice }: Props) {
-  const [feeling, setFeeling] = useState<Feeling>("正好");
-  const [symptoms, setSymptoms] = useState({ pain: false, dizzy: false, chest: false });
-  const [note, setNote] = useState("");
-  const [perItem, setPerItem] = useState<Record<number, ItemNote>>({});
+export function DoneView({ session, form, onForm, onDone, onNotice }: Props) {
+  const { feeling, symptoms, note, perItem } = form;
+  const setFeeling = (f: Feeling) => onForm({ ...form, feeling: f });
+  const setSymptoms = (x: DoneForm["symptoms"]) => onForm({ ...form, symptoms: x });
+  const setNote = (x: string) => onForm({ ...form, note: x });
+  const setPerItem = (x: Record<number, ItemNote>) => onForm({ ...form, perItem: x });
   const anySymptom = symptoms.pain || symptoms.dizzy || symptoms.chest;
+  const units = unitsOf(session.course);
+  // 跟练页关掉以后焦点落到标题上（读屏从这里接着读）
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, [session]);
   // 动作顺序和时间轴的 itemIndex 一致：按 blocks、items 的先后展开
   const rows = session.course.blocks.flatMap((b) => b.items.map((it) => ({ it, planned: b.kind === "circuit" ? b.rounds : it.sets ?? 1 })));
   const gym = /健身房/.test(session.course.source.product);
   const set = (i: number, patch: Partial<ItemNote>) => setPerItem({ ...perItem, [i]: { ...perItem[i], ...patch } });
   const secs = Math.max(0, Math.round((session.endedAt.getTime() - session.startedAt.getTime()) / 1000));
+  const allCircuit = units.length > 0 && units.every((u) => u === "轮");
   const setsDone = rows.reduce((n, r, i) => n + Math.min(r.planned, session.setsDone[i] ?? 0), 0);
   const setsPlanned = rows.reduce((n, r) => n + r.planned, 0);
   const src = session.course.source;
@@ -61,12 +79,12 @@ export function DoneView({ session, onDone, onNotice }: Props) {
           <Check size={28} color="var(--accent)" />
         </div>
         <div>
-          <h1 class="h1" style={{ fontSize: 30 }}>{session.completed ? "练完了" : "这次先练到这里"}</h1>
+          <h1 class="h1" style={{ fontSize: 30, outline: "none" }} ref={heading} tabIndex={-1}>{session.completed ? "练完了" : "这次先练到这里"}</h1>
           <div class="eyebrow" style={{ fontSize: 14, marginTop: 2 }}>{src.day ? `第 ${src.week} 周 · ${src.day} 日` : session.course.name}</div>
         </div>
         <div class="stats">
           <div><b>{`${String(Math.floor(secs / 60)).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`}</b><span>用时</span></div>
-          <div><b>{setsDone}<small style={{ fontSize: 14, color: "var(--ink-2)" }}> / {setsPlanned}</small></b><span>组</span></div>
+          <div><b>{setsDone}<small style={{ fontSize: 14, color: "var(--ink-2)" }}> / {setsPlanned}</small></b><span>{allCircuit ? "轮" : "组"}</span></div>
           <div><b>{rows.length}</b><span>个动作</span></div>
         </div>
       </section>
@@ -101,7 +119,7 @@ export function DoneView({ session, onDone, onNotice }: Props) {
           <div class="card" key={i} data-item={i} style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12, borderRadius: 18 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
               <b style={{ fontSize: 16 }}>{it.name}</b>
-              <span class="note num">{Math.min(rows[i].planned, session.setsDone[i] ?? 0)} / {rows[i].planned} 组</span>
+              <span class="note num">{Math.min(rows[i].planned, session.setsDone[i] ?? 0)} / {rows[i].planned} {units[i] ?? "组"}</span>
             </div>
             <div class="options" role="group" aria-label={`${it.name} 的感受`}>
               {FEELS.map((f) => {
@@ -116,7 +134,7 @@ export function DoneView({ session, onDone, onNotice }: Props) {
                     onInput={(e) => set(i, { spare: e.currentTarget.value === "" ? undefined : Math.max(0, Math.min(30, Math.round(Number(e.currentTarget.value)))) })} />
                 </label>
               )}
-              <label class="check" style={{ justifyContent: "flex-start", minHeight: 40 }}>
+              <label class="check" style={{ justifyContent: "flex-start", minHeight: 44 }}>
                 <input type="checkbox" aria-label={`${it.name} 当场退回`} checked={!!perItem[i]?.reverted} onChange={(e) => set(i, { reverted: e.currentTarget.checked })} />当场退回
               </label>
             </div>
@@ -139,8 +157,8 @@ export function DoneView({ session, onDone, onNotice }: Props) {
           }}><Share size={22} /></button>
         </div>
         <div class="row" style={{ justifyContent: "space-between", width: "100%", flexWrap: "nowrap" }}>
-          <span class="note" style={{ fontSize: 12 }}>记录只存成你自己的文件，周复盘时交给 agent。</span>
-          <button class="btn small" style={{ border: 0, background: "none", color: "var(--accent)" }} onClick={onDone}>不记录</button>
+          <span class="note">记录只存成你自己的文件，周复盘时交给 agent。</span>
+          <button class="btn" style={{ border: 0, background: "none", color: "var(--accent)", flex: "none" }} onClick={onDone}>不记录</button>
         </div>
       </div>
     </div>
