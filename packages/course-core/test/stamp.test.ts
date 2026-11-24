@@ -25,8 +25,7 @@ function repo(name: string): string {
   writeFileSync(join(d, ".gitignore"), "*.log\n");
   const git = (...a: string[]) => execFileSync("git", a, { cwd: d, stdio: "ignore" });
   git("init", "-q");
-  git("add", "-A");
-  git("-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-qm", "init");
+  git("add", "-A");   // 只暂存不提交（--cached 看得到暂存的文件），不受本机的提交签名、全局钩子影响
   return d;
 }
 

@@ -290,13 +290,30 @@ describe.skipIf(!hasMotions)("profile import", () => {
     expect(r.stdout).toMatch(/旧记录里的疼痛不能改成没有/);
     expect(r.status).toBe(1);
     const e = s.imp(s.file("c", s.rec({ symptoms: { pain: true, dizzy: false, chest: false } })), "--replace");
-    expect(e.stdout).toMatch(/手改过的课不能改成没有/);
+    expect(e.stdout).toMatch(/手改过的课.*不能改成没改过/);
+    // 新记录换报了头晕、不疼：整份拒收，也提醒把头晕写进复盘
+    const swap = s.imp(s.file("e", s.rec({ symptoms: { pain: false, dizzy: true, chest: false }, edited: true })), "--replace");
+    expect(swap.stdout).toMatch(/不能改成没有/);
+    expect(swap.stdout).toMatch(/这份记录没导入：周复盘时把不适照实写进/);
     const saved = JSON.parse(readFileSync(join(s.d, "打卡", f), "utf8"));
     expect(saved.symptoms.pain).toBe(true);
     expect(saved.edited).toBe(true);
     // 往上加不适照常可以
     const up = s.imp(s.file("d", s.rec({ symptoms: { pain: true, dizzy: true, chest: false }, edited: true })), "--replace");
     expect(up.stdout).toMatch(/原地覆盖/);
+  });
+
+  it("旧记录的不适写法不对（\"是\"）：--replace 也不能借替换抹掉", async () => {
+    const s = await setup("truthy");
+    s.imp(s.file("a", s.rec()));
+    const [f] = s.checkins();
+    const p = join(s.d, "打卡", f);
+    const old = JSON.parse(readFileSync(p, "utf8"));
+    old.symptoms.pain = "是";
+    writeFileSync(p, JSON.stringify(old));
+    const r = s.imp(s.file("b", s.rec()), "--replace");
+    expect(r.stdout).toMatch(/疼痛不能改成没有/);
+    expect(JSON.parse(readFileSync(p, "utf8")).symptoms.pain).toBe("是");
   });
 
   it("档案里的旧记录格式不对：不重复导入，提示先改好", async () => {

@@ -13,7 +13,7 @@
 //   npm run profile -- check <档案目录>                            检查档案（和模板核对）、练习记录、课程，以及写给这个人的复盘和菜单
 //   npm run profile -- import <档案目录> <记录.json>… [--dry-run] [--replace]   按格式校验练习记录，写进 打卡/（不让 agent 手抄）
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, relative, sep } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { checkCourse } from "./check.ts";
 import { failedRedlineCases } from "./redlines.ts";
 import { buildSrt } from "./srt.ts";
@@ -348,7 +348,9 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
     console.log(`已导出：${out}`);
     const pkg = custom ? (/\.json$/i.test(custom) ? custom.replace(/\.json$/i, ".html") : `${custom}.html`)
       : join(dir, "课程", `${safeCode(String(profile.code ?? basename(dir)))}-${stem}.html`);
-    await writePackage(t, r.course, pkg, rest.includes("--no-package"));
+    // --out 指到编排器打包目录本身：课程包会覆盖打包好的编排器，不出
+    if (resolve(pkg) === resolve(sequencerPath())) console.log(`没出课程包：${pkg} 就是打包好的编排器，换一个 --out 路径`);
+    else await writePackage(t, r.course, pkg, rest.includes("--no-package"));
     console.log(DECLARATION.replace(/^> /, "声明："));
   }
   return print([...r.issues, ...issues]);
@@ -743,7 +745,7 @@ async function importCmd(dir: string, args: string[]): Promise<number> {
       continue;
     }
     const { rec, dropped } = normalizeSession(raw);
-    if (dropped.length) console.log(`丢掉了格式里没有的字段：${dropped.join("、")}`);
+    if (dropped.length) console.log(`丢掉了格式里没有的字段：${dropped.join("、").replace(CONTROL, "")}`);
     const same = known.find((k) => k.raw?.course?.id === raw.course.id && Date.parse(k.raw?.startedAt) === Date.parse(raw.startedAt));
     let target: string;
     if (same) {
@@ -761,9 +763,13 @@ async function importCmd(dir: string, args: string[]): Promise<number> {
       }
       // 记下的不适、手改过的课不能改成没有（"有不适就停止加量"不能靠改记录绕过去）
       const oldSym = same.raw?.symptoms ?? {};
-      const lost = Object.keys(SYMPTOM_NAMES).filter((k) => oldSym[k] === true && (rec.symptoms as Record<string, boolean>)[k] !== true);
-      if (lost.length || (same.raw?.edited === true && rec.edited !== true)) {
-        reject(`${lost.length ? `旧记录里的${lost.map((k) => SYMPTOM_NAMES[k]).join("、")}` : "手改过的课"}不能改成没有：使用者说当时点错了，照实写进周复盘，不改记录`);
+      // 旧记录一侧按真值算（和档案检查判断"有不适"、进度依据判断 edited 一样），写法不对的旧记录也不能借替换抹掉
+      const lost = Object.keys(SYMPTOM_NAMES).filter((k) => !!oldSym[k] && (rec.symptoms as Record<string, boolean>)[k] !== true);
+      if (lost.length || (!!same.raw?.edited && rec.edited !== true)) {
+        reject(lost.length
+          ? `旧记录里的${lost.map((k) => SYMPTOM_NAMES[k]).join("、")}不能改成没有：使用者说当时点错了，照实写进周复盘，不改记录`
+          : "手改过的课（edited，编排器自动记的）不能改成没改过：照实写进周复盘，不改记录");
+        hurtNote();
         continue;
       }
       target = join(dir, ...same.name.split("/"));
@@ -791,7 +797,7 @@ async function importCmd(dir: string, args: string[]): Promise<number> {
     console.log("\n导入完了。原文件还在下载目录、手机、聊天记录里，可以删（个人数据只放在 profiles/）。");
     console.log("档案检查（导入不回滚；复盘过的那一周来了新记录，那一周的复盘数据要照实改）：");
     // 档案检查的问题照常列出来；退出码只看这次导入有没有拒收，所以有错误时再醒目地说一句
-    if (await profileCheck(dir)) console.log("【注意】档案检查有错误：照上面改（多半是那一周的复盘数据：训练次数、有没有不适）。");
+    if (await profileCheck(dir)) console.log("【注意】档案检查有错误：照上面改（多半是那一周的复盘数据——训练次数、有没有不适——和周次推进）。");
   }
   if (rejected) console.log(`\n有 ${rejected} 份记录没导入。`);
   return rejected ? 1 : 0;

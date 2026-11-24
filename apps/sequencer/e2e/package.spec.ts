@@ -47,7 +47,7 @@ test("打包标记和 course export 用同一个算法：源码哈希、动图�
     sourceHash: () => string | null; motionsHash: (t: string) => string;
   };
   const info = packageInfo(plain.toString("utf8")).info!;
-  expect(info.source).toBe(stamp.sourceHash());
+  expect(info.source, "源码在 build:e2e 之后改过：先 npm run build:e2e（npm run e2e 会先打包）").toBe(stamp.sourceHash());
   const motions = readFileSync(new URL("../../../contracts/fixtures/data/motions.json", import.meta.url), "utf8");
   expect(info.motionsHash).toBe(stamp.motionsHash(motions));
   expect(info.motions).toBe((JSON.parse(motions) as { version: string }).version);

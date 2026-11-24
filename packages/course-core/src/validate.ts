@@ -46,7 +46,10 @@ export function sourceIssues(src: unknown, path: string): Issue[] {
   if (src.half !== undefined && src.half !== true) err("half", "half 只能是 true（半量课：中断、生病回来的第一次）");
   if (src.picks !== undefined && !(isObj(src.picks) && Object.values(src.picks).every((v) => typeof v === "string"))) err("picks", "picks 是 {轮换组: 动作 ID}");
   for (const k of Object.keys(src)) {
-    if (!(SOURCE_KEYS as readonly string[]).includes(k)) err(k, `source 里不认识的项「${k}」（只能有 ${SOURCE_KEYS.join("、")}）`);
+    if (!(SOURCE_KEYS as readonly string[]).includes(k)) {
+      const name = k.replace(/[\u0000-\u001f\u007f-\u009f]/g, "");   // 项名原样打到终端前去掉控制字符
+      err(name, `source 里不认识的项「${name}」（只能有 ${SOURCE_KEYS.join("、")}）`);
+    }
   }
   return out;
 }
