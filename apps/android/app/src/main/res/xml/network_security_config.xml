@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 架构 6.2 三层组合网络安全第一层：
+     Android 9+ 系统 network_security_config 不支持私网 CIDR，
+     故此处开启基础通道，将所有明文 HTTP 精准裁决权统一交给 OkHttp SafePrivateNetDns + SafePrivateNetInterceptor，
+     确保 http:// 严禁访问任何公网 IP 且拦截重定向与 DNS Rebinding。 -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

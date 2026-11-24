@@ -1,0 +1,228 @@
+{
+  "schema": "yangxia.android-audio/1",
+  "sampleRate": 22050,
+  "channels": 1,
+  "bitDepth": 16,
+  "totalSamples": 314016,
+  "totalDurationSec": 14.24,
+  "cueCount": 16,
+  "voiceCount": 27,
+  "pcmSha256": "6b9abea5deca1a92b53531ce28dea98f47094e6635b34950c1763854349554da",
+  "entries": {
+    "cue_intro": {
+      "offsetSamples": 0,
+      "lengthSamples": 4689,
+      "category": "cue"
+    },
+    "cue_count_321": {
+      "offsetSamples": 4689,
+      "lengthSamples": 1940,
+      "category": "cue"
+    },
+    "cue_count_go": {
+      "offsetSamples": 6629,
+      "lengthSamples": 5040,
+      "category": "cue"
+    },
+    "cue_up_bell": {
+      "offsetSamples": 11669,
+      "lengthSamples": 1627,
+      "category": "cue"
+    },
+    "cue_up_marimba": {
+      "offsetSamples": 13296,
+      "lengthSamples": 1630,
+      "category": "cue"
+    },
+    "cue_up_perc": {
+      "offsetSamples": 14926,
+      "lengthSamples": 1624,
+      "category": "cue"
+    },
+    "cue_hold": {
+      "offsetSamples": 16550,
+      "lengthSamples": 1138,
+      "category": "cue"
+    },
+    "cue_sub": {
+      "offsetSamples": 17688,
+      "lengthSamples": 1130,
+      "category": "cue"
+    },
+    "cue_rep": {
+      "offsetSamples": 18818,
+      "lengthSamples": 4215,
+      "category": "cue"
+    },
+    "cue_rep_last3": {
+      "offsetSamples": 23033,
+      "lengthSamples": 4212,
+      "category": "cue"
+    },
+    "cue_rep_final": {
+      "offsetSamples": 27245,
+      "lengthSamples": 12706,
+      "category": "cue"
+    },
+    "cue_rest_tick": {
+      "offsetSamples": 39951,
+      "lengthSamples": 920,
+      "category": "cue"
+    },
+    "breath_action_inhale": {
+      "offsetSamples": 40871,
+      "lengthSamples": 2503,
+      "category": "cue"
+    },
+    "breath_action_exhale": {
+      "offsetSamples": 43374,
+      "lengthSamples": 1447,
+      "category": "cue"
+    },
+    "breath_rest_inhale": {
+      "offsetSamples": 44821,
+      "lengthSamples": 4886,
+      "category": "cue"
+    },
+    "breath_rest_exhale": {
+      "offsetSamples": 49707,
+      "lengthSamples": 4884,
+      "category": "cue"
+    },
+    "tok:0": {
+      "offsetSamples": 54591,
+      "lengthSamples": 5785,
+      "category": "voice"
+    },
+    "tok:1": {
+      "offsetSamples": 60376,
+      "lengthSamples": 6434,
+      "category": "voice"
+    },
+    "tok:2": {
+      "offsetSamples": 66810,
+      "lengthSamples": 7001,
+      "category": "voice"
+    },
+    "tok:3": {
+      "offsetSamples": 73811,
+      "lengthSamples": 7107,
+      "category": "voice"
+    },
+    "tok:4": {
+      "offsetSamples": 80918,
+      "lengthSamples": 6747,
+      "category": "voice"
+    },
+    "tok:5": {
+      "offsetSamples": 87665,
+      "lengthSamples": 6893,
+      "category": "voice"
+    },
+    "tok:6": {
+      "offsetSamples": 94558,
+      "lengthSamples": 7010,
+      "category": "voice"
+    },
+    "tok:7": {
+      "offsetSamples": 101568,
+      "lengthSamples": 6876,
+      "category": "voice"
+    },
+    "tok:8": {
+      "offsetSamples": 108444,
+      "lengthSamples": 6662,
+      "category": "voice"
+    },
+    "tok:9": {
+      "offsetSamples": 115106,
+      "lengthSamples": 7130,
+      "category": "voice"
+    },
+    "tok:10": {
+      "offsetSamples": 122236,
+      "lengthSamples": 6664,
+      "category": "voice"
+    },
+    "tok:10_short": {
+      "offsetSamples": 128900,
+      "lengthSamples": 4079,
+      "category": "voice"
+    },
+    "tok:百": {
+      "offsetSamples": 132979,
+      "lengthSamples": 5816,
+      "category": "voice"
+    },
+    "tok:呼": {
+      "offsetSamples": 138795,
+      "lengthSamples": 6653,
+      "category": "voice"
+    },
+    "tok:吸": {
+      "offsetSamples": 145448,
+      "lengthSamples": 6667,
+      "category": "voice"
+    },
+    "tok:深吸气": {
+      "offsetSamples": 152115,
+      "lengthSamples": 16911,
+      "category": "voice"
+    },
+    "tok:慢呼气": {
+      "offsetSamples": 169026,
+      "lengthSamples": 16910,
+      "category": "voice"
+    },
+    "tok:下一项": {
+      "offsetSamples": 185936,
+      "lengthSamples": 16219,
+      "category": "voice"
+    },
+    "tok:组": {
+      "offsetSamples": 202155,
+      "lengthSamples": 5601,
+      "category": "voice"
+    },
+    "tok:秒": {
+      "offsetSamples": 207756,
+      "lengthSamples": 6080,
+      "category": "voice"
+    },
+    "tok:下": {
+      "offsetSamples": 213836,
+      "lengthSamples": 5491,
+      "category": "voice"
+    },
+    "tok:开始": {
+      "offsetSamples": 219327,
+      "lengthSamples": 11188,
+      "category": "voice"
+    },
+    "tok:最后三次": {
+      "offsetSamples": 230515,
+      "lengthSamples": 21610,
+      "category": "voice"
+    },
+    "tok:本组完成": {
+      "offsetSamples": 252125,
+      "lengthSamples": 20354,
+      "category": "voice"
+    },
+    "tok:全部完成": {
+      "offsetSamples": 272479,
+      "lengthSamples": 20356,
+      "category": "voice"
+    },
+    "tok:休息": {
+      "offsetSamples": 292835,
+      "lengthSamples": 10404,
+      "category": "voice"
+    },
+    "tok:准备": {
+      "offsetSamples": 303239,
+      "lengthSamples": 10777,
+      "category": "voice"
+    }
+  }
+}
