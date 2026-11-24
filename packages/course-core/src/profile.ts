@@ -5,6 +5,7 @@ import { FEELS, validateProgressShape, validateSegments } from "./progress.ts";
 import type { RedlineRules } from "./redlines.ts";
 import { redlineHits } from "./redlines.ts";
 import type { Issue } from "./types.ts";
+import { sourceIssues } from "./validate.ts";
 
 export const PROFILE_FORMAT = "yangxia.profile/1";
 export const SESSION_FORMAT = "yangxia.session/1";
@@ -75,7 +76,18 @@ export function validateSession(raw: unknown): Issue[] {
   if (!isObj(raw)) return [{ level: "error", path: "", message: "练习记录要是 JSON 对象" }];
   if (raw.schema !== SESSION_FORMAT) err("schema", `格式标识要写 "${SESSION_FORMAT}"`);
   if (!isObj(raw.course) || typeof raw.course.id !== "string" || typeof raw.course.name !== "string") err("course", "缺少课程 id 和 name");
+  else {
+    if (!/^c_[a-z0-9]{6,40}$/.test(raw.course.id)) err("course.id", "课程 id 要以 c_ 开头，后面 6–40 个小写字母或数字");
+    if (raw.course.name.length < 1 || raw.course.name.length > 60) err("course.name", "课程名要 1–60 个字");
+    // 半量周、轮换计数、周次都读 source：和课程格式一样逐项查，不许多余的项
+    out.push(...sourceIssues(raw.course.source, "course.source"));
+  }
   if (typeof raw.startedAt !== "string" || Number.isNaN(Date.parse(raw.startedAt))) err("startedAt", "startedAt 要是时间");
+  if (raw.endedAt !== undefined) {
+    if (typeof raw.endedAt !== "string" || Number.isNaN(Date.parse(raw.endedAt))) err("endedAt", "endedAt 要是时间");
+    else if (typeof raw.startedAt === "string" && Date.parse(raw.endedAt) < Date.parse(raw.startedAt)) err("endedAt", "endedAt 不能早于 startedAt");
+  }
+  if (raw.note !== undefined && (typeof raw.note !== "string" || [...raw.note].length > 500)) err("note", "备注是不超过 500 个字的文字");
   if (!Array.isArray(raw.items)) err("items", "缺少 items");
   else raw.items.forEach((it: unknown, i: number) => {
     if (!isObj(it) || typeof it.exercise !== "string" || !Number.isInteger(it.setsPlanned) || !Number.isInteger(it.setsDone)) {
@@ -86,6 +98,7 @@ export function validateSession(raw: unknown): Issue[] {
       if (it.feel !== undefined && !(FEELS as readonly string[]).includes(it.feel)) err(`items[${i}].feel`, `感受只能是：${FEELS.join(" / ")}`);
       if (it.spare !== undefined && !(Number.isInteger(it.spare) && it.spare >= 0 && it.spare <= 30)) err(`items[${i}].spare`, "还能做几下：0–30 的整数");
       if (it.reverted !== undefined && typeof it.reverted !== "boolean") err(`items[${i}].reverted`, "reverted（升级做不到当场退回）只能是 true / false");
+      if (it.skipped !== undefined && it.skipped !== (it.setsDone === 0)) err(`items[${i}].skipped`, "skipped 要等于\"一组都没做\"（setsDone 是 0）");
     }
   });
   if (!["轻松", "正好", "吃力"].includes(raw.feeling)) err("feeling", "feeling 只能是 轻松 / 正好 / 吃力");

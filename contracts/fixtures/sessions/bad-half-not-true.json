@@ -1,0 +1,47 @@
+{
+  "schema": "yangxia.session/1",
+  "course": {
+    "id": "c_fixture01a",
+    "name": "18-39 居家 · 第 1 周 · A 日（节选）",
+    "source": {
+      "product": "18-39岁-居家版",
+      "week": 1,
+      "day": "A",
+      "half": "yes"
+    }
+  },
+  "startedAt": "2026-11-09T19:10:00.000Z",
+  "endedAt": "2026-11-09T19:28:00.000Z",
+  "items": [
+    {
+      "exercise": "squat",
+      "setsPlanned": 2,
+      "setsDone": 2,
+      "skipped": false
+    },
+    {
+      "exercise": "split-squat",
+      "setsPlanned": 2,
+      "setsDone": 2,
+      "skipped": false
+    },
+    {
+      "exercise": "glute-bridge",
+      "setsPlanned": 2,
+      "setsDone": 2,
+      "skipped": false
+    },
+    {
+      "exercise": "wall-sit",
+      "setsPlanned": 2,
+      "setsDone": 1,
+      "skipped": false
+    }
+  ],
+  "feeling": "正好",
+  "symptoms": {
+    "pain": false,
+    "dizzy": false,
+    "chest": false
+  }
+}

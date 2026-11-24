@@ -63,7 +63,8 @@ export function buildSession(course: Course, input: SessionInput): Record<string
       ...(extra.reverted ? { reverted: true } : {}),
     };
   }));
-  const note = input.note?.trim().slice(0, 500);
+  // 按码点截 500 个字（和格式的 maxLength 一样数法，表情不会被截成半个）
+  const note = input.note === undefined ? undefined : [...input.note.trim()].slice(0, 500).join("");
   return {
     schema: SESSION_FORMAT,
     course: { id: course.id, name: course.name, source: course.source },

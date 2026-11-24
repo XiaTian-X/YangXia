@@ -20,17 +20,22 @@
       "type": "object",
       "required": [
         "id",
-        "name"
+        "name",
+        "source"
       ],
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^c_[a-z0-9]{6,40}$"
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
         },
         "source": {
-          "type": "object"
+          "$ref": "#/$defs/source",
+          "description": "课程的出处，和课程格式（course.schema.json）的 source 定义一字不差（测试核对），不许多余的项；导入命令按它重算课程 id、核对档案里有这一段这一周"
         }
       }
     },
@@ -123,7 +128,98 @@
     },
     "note": {
       "type": "string",
-      "maxLength": 500
+      "maxLength": 500,
+      "description": "备注，不超过 500 个字（按码点数）；不写病名、用药、血压体重数字"
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": [
+        "product",
+        "week"
+      ],
+      "properties": {
+        "product": {
+          "type": "string",
+          "minLength": 1,
+          "description": "成品名，如 18-39岁-居家版"
+        },
+        "templates": {
+          "type": "string",
+          "description": "模板版本，如 v3.0"
+        },
+        "week": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12,
+          "description": "第几周：起始期 1–4，稳定期 1–12"
+        },
+        "day": {
+          "type": "string",
+          "maxLength": 20,
+          "description": "训练日，如 A、B、C、D"
+        },
+        "plan": {
+          "const": "yangxia.plans/1",
+          "description": "由 course export 从训练单导出；课程检查按训练单和档案进度逐项核对"
+        },
+        "segment": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99,
+          "description": "第几段"
+        },
+        "type": {
+          "enum": [
+            "标准",
+            "减量"
+          ],
+          "description": "段型"
+        },
+        "phase": {
+          "enum": [
+            "起始",
+            "稳定"
+          ],
+          "description": "阶段：起始期（4 周一段）、稳定期（12 周一个周期）"
+        },
+        "picks": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "轮换组这一次做哪一个：{组名: 动作 ID}"
+        },
+        "half": {
+          "const": true,
+          "description": "半量课：中断、生病回来的第一次，每个动作组数、循环轮数减半向上取整（设计值 HALF），不当加量依据"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "not": {
+              "properties": {
+                "phase": {
+                  "const": "稳定"
+                }
+              },
+              "required": [
+                "phase"
+              ]
+            }
+          },
+          "then": {
+            "properties": {
+              "week": {
+                "maximum": 4
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
     }
   }
 }

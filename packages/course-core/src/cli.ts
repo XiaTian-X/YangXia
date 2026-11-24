@@ -11,27 +11,29 @@
 //   npm run course -- assess <档案目录> <入门|段末|周期末|触发> [记录.json]  评估：列出要问、要测的项；给了记录就重算结论、核对
 //   npm run course -- plan <档案目录>                               生成现在这一周的个人计划单（计划/第N段-第N周.md）
 //   npm run profile -- check <档案目录>                            检查档案（和模板核对）、练习记录、课程，以及写给这个人的复盘和菜单
-import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+//   npm run profile -- import <档案目录> <记录.json>… [--dry-run] [--replace]   按格式校验练习记录，写进 打卡/（不让 agent 手抄）
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, sep } from "node:path";
 import { checkCourse } from "./check.ts";
 import { failedRedlineCases } from "./redlines.ts";
 import { buildSrt } from "./srt.ts";
 import { buildTimeline, itemSpec } from "./timeline.ts";
-import { validateCourse } from "./validate.ts";
+import { SOURCE_KEYS, validateCourse } from "./validate.ts";
 import { bedtimeFor, checkProfileWithTemplates } from "./intake.ts";
 import { checkProgress, checkProgressLog, localDate, progressOn, REVIEW_FORMAT, type SessionFile, validateReview } from "./progress.ts";
-import { loadTemplates, requirePlans, type Templates } from "./node.ts";
-import { currentSegment, exportCourse, stableParam } from "./plan.ts";
+import { loadTemplates, requirePlans, sequencerPath, sequencerStamp, type Templates } from "./node.ts";
+import { PACKAGE_FORMAT, packageInfo, packCourse, unpackCourse } from "./package.ts";
+import { courseIdFor, currentSegment, exportCourse, stableParam } from "./plan.ts";
 import { fallRiskRules } from "./fallrisk.ts";
 import { cycleGoals, goalCardioHint, goalIssues, severeObese } from "./goals.ts";
 import { activeAddOns, addOnIssues } from "./senior.ts";
 import { ASSESS_FORMAT, type AssessFile, ageAt, assessRules, cardioMode, cycleEnd, balanceHold, checkAssessments, checkRecord, doctorNeed, gap, param, productInfo, recordConclusion, segmentEnd, validateAssessment } from "./assess.ts";
 import { checkDeclaration, checkNotes, DECLARATION, PROFILE_FORMAT, SESSION_FORMAT, validateProfile, validateSession } from "./profile.ts";
 import { buildSheet, checkSheet, sheetFile } from "./sheet.ts";
-import type { Issue } from "./types.ts";
+import type { Course, Issue } from "./types.ts";
 
 const USAGE = `用法：
-  npm run course -- export <档案目录> <第几周> <哪天> [--out <文件>] [--pick 组=动作] [--half]
+  npm run course -- export <档案目录> <第几周> <哪天> [--out <文件>] [--pick 组=动作] [--half] [--no-package]
   npm run course -- assess <档案目录> <入门|段末|周期末|触发> [记录.json] [--product <成品名>]
   npm run course -- plan <档案目录>
   npm run course -- check <课程.json> --profile <档案.json>
@@ -42,7 +44,8 @@ const USAGE = `用法：
   npm run course -- intake [年龄段]
   npm run course -- bedtime <阶段> <起床时间>
   npm run course -- moves <成品名>
-  npm run profile -- check <档案目录>`;
+  npm run profile -- check <档案目录>
+  npm run profile -- import <档案目录> <记录.json>… [--dry-run] [--replace]`;
 
 async function intake(age?: string): Promise<number> {
   const { manifest, rules } = await loadTemplates();
@@ -138,6 +141,7 @@ function scanDir(dir: string, t: Templates, profile: Record<string, any>) {
   const courses: { name: string; raw: Record<string, any>; archived: boolean }[] = [];
   const assessments: AssessFile[] = [];
   const sheets: { name: string; text: string }[] = [];
+  const packages: PackageFile[] = [];
   const segN = currentSegment(profile)?.n ?? 1;
   for (const f of walk(dir)) {
     const name = relative(dir, f);
@@ -191,11 +195,65 @@ function scanDir(dir: string, t: Templates, profile: Record<string, any>) {
       // 计划、菜单、复盘都是生成的计划：开头要有声明（历史/ 里以前的不查）
       if (!archived && /^(计划|菜单|复盘)[\\/]/.test(name)) issues.push(...checkDeclaration(name, text));
       if (!archived && /^计划[\\/]/.test(name)) sheets.push({ name, text });
+    } else if (f.endsWith(".html")) {
+      // 课程包（v4 阶段 8c）：课程/ 和 历史/第N段/课程/ 下的才认；带课程包标记的放错地方报错
+      const inCourses = /^(?:历史[\\/]第\d+段[\\/])?课程[\\/][^\\/]+$/.test(name);
+      const html = readFileSync(f, "utf8");
+      if (inCourses) packages.push({ name, archived, html });
+      else if (packageInfo(html).info || /id="yangxia-course"/.test(html)) issues.push({ level: "error", path: name, message: "课程包放在 课程/ 下" });
+      else issues.push({ level: "warning", path: name, message: "不认识的文件：复盘、菜单写成 .md，课程、练习记录是 .json，课程包放在 课程/；别的文件不检查" });
     } else if (!name.split(sep).some((s) => s.startsWith("."))) {
       issues.push({ level: "warning", path: name, message: "不认识的文件：复盘、菜单写成 .md，课程、练习记录是 .json；别的文件不检查" });
     }
   }
-  return { issues, sessions, reviews, reviewData, courses, assessments, sheets };
+  return { issues, sessions, reviews, reviewData, courses, assessments, sheets, packages };
+}
+
+interface PackageFile { name: string; archived: boolean; html: string }
+
+/** 按 JSON 内容比（键的顺序、缩进不算）。 */
+function sameJson(a: unknown, b: unknown): boolean {
+  const norm = (v: unknown): unknown => Array.isArray(v) ? v.map(norm)
+    : v && typeof v === "object" ? Object.fromEntries(Object.keys(v as object).sort().map((k) => [k, norm((v as Record<string, unknown>)[k])])) : v;
+  return JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+}
+
+/**
+ * 课程包（v4 阶段 8c 方案 2.3）：嵌的课程要和对应的课程 JSON 完全一样（课程检查只认 JSON，课程包躲不过检查），
+ * 动图版本要等于课程的模板版本；以前几周的课程包提醒可以删。
+ * 对应的 JSON：先找同名的，再按名字后半段（第N段-第N周-X日[-半量]）认，档案目录改过名也对得上。
+ */
+function packageIssues(profile: Record<string, any>, scan: ReturnType<typeof scanDir>): Issue[] {
+  const out: Issue[] = [];
+  const seg = currentSegment(profile);
+  const byName = new Map(scan.courses.map((c) => [c.name, c]));
+  for (const p of scan.packages) {
+    const err = (message: string) => out.push({ level: "error", path: p.name, message });
+    const info = packageInfo(p.html);
+    const u = unpackCourse(p.html);
+    if (!info.info || u.error || u.empty) {
+      err(`不是养夏课程包（或者是旧版编排器）：删掉，或者重新导出${u.error ? `（${u.error}）` : info.error ? `（${info.error}）` : ""}`);
+      continue;
+    }
+    const dirPart = p.name.slice(0, p.name.length - basename(p.name).length);
+    const same = `${p.name.slice(0, -".html".length)}.json`;
+    const tail = /^(?:.+-)?(第\d+段-第\d+周-.+日(?:-半量)?)\.html$/.exec(basename(p.name))?.[1];
+    const json = byName.get(same) ?? (tail ? byName.get(`${dirPart}${tail}.json`) : undefined);
+    if (!json) {
+      err("没有对应的课程 JSON（课程检查只认 JSON）：删掉课程包，或者重新导出");
+      continue;
+    }
+    if (!sameJson(u.course, json.raw)) {
+      err(`课程包和课程 JSON（${json.name}）对不上：重新导出`);
+      continue;
+    }
+    const src = (u.course as { source?: Record<string, any> }).source ?? {};
+    if (info.info.motions !== src.templates) err(`课程包里的动作示意是模板 ${info.info.motions} 的，课程是 ${src.templates ?? "（没写）"} 的：重新打包编排器、重新导出`);
+    if (!p.archived && seg && (src.segment !== seg.n || src.week !== seg.week)) {
+      out.push({ level: "warning", path: p.name, message: "以前几周的课程包：复盘完可以删（课程 JSON 留着）" });
+    }
+  }
+  return out;
 }
 
 /** 周次推进和个人进度（不复盘不进下一周、进度只能按规则改）：导出、检查课程之前都要过。 */
@@ -276,14 +334,64 @@ async function exportCmd(dir: string, weekArg: string, day: string, rest: string
   if (errors.length || !r.course) return print(r.issues);
   const issues = checkCourse(r.course, { manifest: t.manifest, readProduct: t.readProduct, profile, plans, rules, addOns });
   const oi = rest.indexOf("--out");
-  const out = oi >= 0 && rest[oi + 1] ? rest[oi + 1] : join(dir, "课程", `第${seg.n}段-第${r.course.source.week}周-${day}日.json`);
+  const custom = oi >= 0 && rest[oi + 1] ? rest[oi + 1] : null;
+  // 半量课和全量课 id 不同，文件名也分开（以前写同一个名字会互相覆盖）
+  const stem = `第${seg.n}段-第${r.course.source.week}周-${day}日${r.course.source.half ? "-半量" : ""}`;
+  const out = custom ?? join(dir, "课程", `${stem}.json`);
   if (!issues.some((i) => i.level === "error")) {
     mkdirSync(dirname(out), { recursive: true });
     writeFileSync(out, JSON.stringify(r.course, null, 2) + "\n");
     console.log(`已导出：${out}`);
+    const pkg = custom ? (/\.json$/i.test(custom) ? custom.replace(/\.json$/i, ".html") : `${custom}.html`)
+      : join(dir, "课程", `${safeCode(String(profile.code ?? basename(dir)))}-${stem}.html`);
+    await writePackage(t, r.course, pkg, rest.includes("--no-package"));
     console.log(DECLARATION.replace(/^> /, "声明："));
   }
   return print([...r.issues, ...issues]);
+}
+
+/** 代号放进课程包的文件名：部分手机文件系统不能用的字符换成 _。 */
+const safeCode = (code: string) => code.replace(/[:*?"<>|\\/]/g, "_");
+
+/**
+ * 课程包（v4 阶段 8c 方案 2.2）：用打包好的编排器嵌这节课。编排器没打包、代码改过没重新打包、动图和模板对不上时
+ * 不出课程包，只留 JSON，并删掉同名的旧课程包（它和新课程对不上，不能留着被发出去）。不影响命令成功与否。
+ */
+async function writePackage(t: Templates, course: Course, path: string, skip: boolean): Promise<void> {
+  const dropOld = (why: string) => {
+    if (existsSync(path)) {
+      unlinkSync(path);
+      console.log(`旧课程包已删：${path}（它和新课程对不上）`);
+    }
+    console.log(`没出课程包：${why}`);
+  };
+  if (skip) return dropOld("加了 --no-package");
+  const reason = await packageProblem(t, course);
+  if (reason) return dropOld(`${reason}。先 npm run build 打包编排器，再重新导出`);
+  const html = readFileSync(sequencerPath(), "utf8");
+  const r = packCourse(html, course, localDate(new Date()));
+  if (!r.html) return dropOld(`${r.error}`);
+  writeFileSync(path, r.html);
+  console.log(`已导出课程包：${path}`);
+  console.log("课程包里只有这节课的内容；发给自己的手机（文件传输助手、AirDrop、数据线），不要发到群里。手机上先保存，再用浏览器打开。");
+}
+
+/** 打包好的编排器能不能出这节课的课程包；能就返回 null。 */
+async function packageProblem(t: Templates, course: Course): Promise<string | null> {
+  const file = sequencerPath();
+  if (!existsSync(file)) return `没有找到打包好的编排器（${file}）`;
+  const p = packageInfo(readFileSync(file, "utf8"));
+  if (!p.info) return `编排器${p.error}`;
+  if (p.info.format !== PACKAGE_FORMAT) return `编排器的打包格式是「${p.info.format}」，这里只认 ${PACKAGE_FORMAT}`;
+  const mf = join(t.dir, "dist", "data", "motions.json");
+  if (p.info.motions === "none" || !existsSync(mf)) return "编排器打包时没带动作示意动图";
+  const stamp = await sequencerStamp();
+  if (p.info.motionsHash !== stamp.motionsHash(readFileSync(mf, "utf8"))) return "编排器里的动作示意动图和现在的模板不一样（模板更新过）";
+  if (p.info.motions !== course.source.templates) return `编排器的动图是模板 ${p.info.motions} 的，课程是 ${course.source.templates ?? "（没写）"} 的`;
+  const src = stamp.sourceHash();
+  if (!src) return "算不出源码哈希（不是 git 检出，或者没装 git），当作编排器过期";
+  if (src !== p.info.source) return "编排器的代码改过，打包好的还是旧的";
+  return null;
 }
 
 /**
@@ -326,7 +434,7 @@ function courseIssues(t: Templates, profile: Record<string, any>, scan: ReturnTy
       const sickAfter = hit && scan.sessions.some((s) => { const st = Date.parse(s.raw?.startedAt); return !Number.isNaN(st) && st >= new Date(`${hit.day}T00:00:00`).getTime()
         && !!(s.raw?.symptoms?.pain || s.raw?.symptoms?.dizzy || s.raw?.symptoms?.chest); });
       if (hit && (downAfter || sickAfter)) {
-        out.push({ level: "error", path: c.name, message: `这份课程是按 ${hit.day} 的进度导出的，之后${sickAfter ? "有过疼痛、头晕或胸闷" : "进度往下调过"}：旧课程比现在重，删掉或者重新导出` });
+        out.push({ level: "error", path: c.name, message: `这份课程是按 ${hit.day} 的进度导出的，之后${sickAfter ? "有过疼痛、头晕或胸闷" : "进度往下调过"}：旧课程比现在重，连同同名课程包一起删掉，或者重新导出` });
         continue;
       }
       if (hit) {
@@ -486,9 +594,170 @@ async function profileCheck(dir: string): Promise<number> {
   const scan = scanDir(dir, t, profile);
   return print([
     ...inProfile(validateProfile(profile)), ...inProfile(checkProfileWithTemplates(profile, t.manifest)),
-    ...scan.issues, ...courseIssues(t, profile, scan), ...progressIssues(t, profile, scan),
+    ...scan.issues, ...courseIssues(t, profile, scan), ...packageIssues(profile, scan), ...progressIssues(t, profile, scan),
     ...scan.sheets.flatMap((x) => checkSheet(assessCtx(t, profile, scan), x.name, x.text)),
   ]);
+}
+
+// ---------------- 练习记录导入（v4 阶段 8c 方案 3.3） ----------------
+
+const SYMPTOM_NAMES: Record<string, string> = { pain: "疼痛", dizzy: "头晕", chest: "胸闷" };
+const SESSION_TOP = ["schema", "course", "startedAt", "endedAt", "items", "feeling", "symptoms", "edited", "note"];
+const SESSION_ITEM = ["exercise", "setsPlanned", "setsDone", "skipped", "feel", "spare", "reverted"];
+
+/** 按格式重写：只留格式里有的字段、固定顺序；返回丢掉的字段名（不带值）。 */
+function normalizeSession(raw: Record<string, any>): { rec: Record<string, unknown>; dropped: string[] } {
+  const dropped: string[] = [];
+  const pick = (o: Record<string, any>, keys: readonly string[], where: string) => {
+    for (const k of Object.keys(o)) if (!keys.includes(k)) dropped.push(`${where}${k}`);
+    return Object.fromEntries(keys.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
+  };
+  const rec = pick(raw, SESSION_TOP, "");
+  const c = raw.course as Record<string, any>;
+  rec.course = { ...pick(c, ["id", "name", "source"], "course."), source: pick(c.source, SOURCE_KEYS, "course.source.") };
+  rec.items = (raw.items as Record<string, any>[]).map((it, i) => pick(it, SESSION_ITEM, `items[${i}].`));
+  rec.symptoms = pick(raw.symptoms, ["pain", "dizzy", "chest"], "symptoms.");
+  return { rec, dropped };
+}
+
+/** 两份记录哪几个字段不一样（症状放最前）。 */
+function diffFields(a: Record<string, unknown>, b: Record<string, unknown>): string[] {
+  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])];
+  const diff = keys.filter((k) => !sameJson(a[k], b[k]));
+  return [...diff.filter((k) => k === "symptoms"), ...diff.filter((k) => k !== "symptoms")];
+}
+
+const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
+
+/**
+ * 导入练习记录：校验格式、核对是这个档案导出的课（重算 id、档案里有这一段这一周）、时间、去重，
+ * 按格式重写进 打卡/。有不适的不管收不收都先报。--dry-run 只看不写；--replace 同一次练习内容变了时原地覆盖。
+ */
+async function importCmd(dir: string, args: string[]): Promise<number> {
+  const dry = args.includes("--dry-run");
+  const replace = args.includes("--replace");
+  const files = args.filter((a) => !a.startsWith("--"));
+  const t = await loadTemplates();
+  const profile = readJson(join(dir, "档案.json")) as Record<string, any>;
+  const scan = scanDir(dir, t, profile);
+  // 档案里已有的记录（含 历史/），规范化以后按 课程 id + 开始时间 找
+  const known = scan.sessions.flatMap((x) => {
+    try {
+      return validateSession(x.raw).some((i) => i.level === "error") ? [] : [{ name: x.name, rec: normalizeSession(x.raw).rec }];
+    } catch {
+      return [];
+    }
+  });
+  let rejected = 0;
+  let written = 0;
+  const now = Date.now();
+  for (const file of files) {
+    console.log(`\n— ${file}`);
+    const reject = (why: string) => {
+      rejected++;
+      console.log(`拒收：${why}`);
+    };
+    let raw: Record<string, any>;
+    try {
+      if (!statSync(file).isFile()) {
+        reject("不是文件");
+        continue;
+      }
+      if (statSync(file).size > 1024 * 1024) {
+        reject("文件大于 1 MB，不是练习记录");
+        continue;
+      }
+      raw = JSON.parse(readFileSync(file, "utf8"));
+    } catch {
+      reject("读不了或者解析不了（不是 JSON 文件）");
+      continue;
+    }
+    // 不适先报：不管后面收不收
+    const sym = raw && typeof raw === "object" && raw.symptoms && typeof raw.symptoms === "object" ? raw.symptoms : null;
+    const hurt = sym ? Object.keys(SYMPTOM_NAMES).filter((k) => sym[k] === true) : [];
+    if (hurt.length) console.log(`【注意】这次有${hurt.map((k) => SYMPTOM_NAMES[k]).join("、")}：下周不加量，按成品"疼了怎么办"处理；胸痛胸闷、头晕站不稳要建议就医。`);
+    const hurtNote = () => { if (hurt.length) console.log("这份记录没导入：周复盘时把不适照实写进复盘数据的 symptoms。"); };
+    const v = validateSession(raw);
+    if (v.some((i) => i.level === "error")) {
+      reject("格式不对");
+      print(v);
+      hurtNote();
+      continue;
+    }
+    for (const w of v.filter((i) => i.level === "warning" && i.path !== "symptoms")) console.log(`[提醒] ${w.path}：${w.message}`);
+    const src = raw.course.source as Record<string, any>;
+    if (src.plan !== "yangxia.plans/1" || !Number.isInteger(src.segment)) {
+      reject("练的不是档案里导出的课程（样例课、手写的课），不导入");
+      hurtNote();
+      continue;
+    }
+    if (courseIdFor(src.product, src.segment, src.type ?? "标准", src.week, src.day ?? "", src.half === true) !== raw.course.id) {
+      reject("课程 id 和出处对不上（记录被改过）");
+      hurtNote();
+      continue;
+    }
+    const segs = ((profile.segments ?? []) as Record<string, any>[]).filter((x) => x.n === src.segment);
+    const segOk = segs.length && segs.some((x) => (x.product ?? profile.product) === src.product && (x.type ?? "标准") === (src.type ?? "标准"))
+      && Math.max(...segs.map((x) => Number(x.week) || 0)) >= src.week;
+    if (!segOk) {
+      reject(`档案里没有这一段这一周（第 ${src.segment} 段第 ${src.week} 周，${src.product}）：练的不是这个档案的课`);
+      hurtNote();
+      continue;
+    }
+    const started = new Date(raw.startedAt);
+    const segStart = segs.map((x) => String(x.start ?? "")).filter(Boolean).sort()[0];
+    if (started.getTime() > now + 5 * 60_000) {
+      reject("开始时间在将来（电脑或手机的时间不对？）");
+      hurtNote();
+      continue;
+    }
+    if (segStart && localDate(started) < segStart) {
+      reject(`开始时间 ${localDate(started)} 早于这一段开始那天 ${segStart}`);
+      hurtNote();
+      continue;
+    }
+    const { rec, dropped } = normalizeSession(raw);
+    if (dropped.length) console.log(`丢掉了格式里没有的字段：${dropped.join("、")}`);
+    const same = known.find((k) => (k.rec.course as any).id === raw.course.id && k.rec.startedAt === raw.startedAt);
+    let target: string;
+    if (same) {
+      if (sameJson(same.rec, rec)) {
+        console.log(`已经导入过（${same.name}），跳过`);
+        continue;
+      }
+      const diff = diffFields(same.rec, rec);
+      if (!replace) {
+        reject(`同一次练习（${same.name}）已经有记录，内容不一样：${diff.join("、")}。问过使用者确实要换，加 --replace 原地覆盖`);
+        hurtNote();
+        continue;
+      }
+      target = join(dir, ...same.name.split("/"));
+      console.log(`原地覆盖 ${same.name}，改了：${diff.join("、")}`);
+    } else {
+      const base = `养夏_练习记录_${localDate(started)}_${hhmm(started)}`;
+      let n = 1;
+      target = join(dir, "打卡", `${base}.json`);
+      while (existsSync(target) || known.some((k) => join(dir, ...k.name.split("/")) === target)) target = join(dir, "打卡", `${base}_${++n}.json`);
+    }
+    if (typeof rec.note === "string" && rec.note.trim()) console.log(`备注（照 AGENTS.md 隐私核对：有病名、用药、血压体重数字的，问使用者删掉再导入）：\n  ${rec.note}`);
+    if (dry) {
+      console.log(`（--dry-run）会写到：${relative(dir, target)}`);
+      continue;
+    }
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, JSON.stringify(rec, null, 2) + "\n");
+    written++;
+    const rel = relative(dir, target).split(sep).join("/");
+    known.push({ name: rel, rec });
+    console.log(`已导入：${rel}`);
+  }
+  if (written) {
+    console.log("\n导入完了。原文件还在下载目录、手机、聊天记录里，可以删（个人数据只放在 profiles/）。");
+    console.log("档案检查（导入不回滚；复盘过的那一周来了新记录，那一周的复盘数据要照实改）：");
+    await profileCheck(dir);   // 档案检查的问题照常列出来；退出码只看这次导入有没有拒收
+  }
+  if (rejected) console.log(`\n有 ${rejected} 份记录没导入。`);
+  return rejected ? 1 : 0;
 }
 
 function readJson(path: string): unknown {
@@ -507,6 +776,7 @@ function mmss(sec: number): string {
 async function main(argv: string[]): Promise<number> {
   const [cmd, file, ...rest] = argv;
   if (cmd === "profile") {
+    if (file === "import" && rest[0] && rest.slice(1).some((a) => !a.startsWith("--"))) return importCmd(rest[0], rest.slice(1));
     if (file !== "check" || !rest[0]) {
       console.log(USAGE);
       return 2;

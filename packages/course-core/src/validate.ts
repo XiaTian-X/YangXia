@@ -24,6 +24,33 @@ const LOOKS: Record<string, (v: unknown) => boolean> = Object.fromEntries(
   Object.entries(SETTING_CHECKS).filter(([k]) => !(SAFETY_SETTINGS as readonly string[]).includes(k)),
 );
 
+/** 课程出处 source 认得的项（课程格式和练习记录都用；加字段时 course.schema.json、两个校验函数一起改）。 */
+export const SOURCE_KEYS = ["product", "templates", "week", "day", "plan", "segment", "type", "phase", "picks", "half"] as const;
+
+/** 课程出处 source 的写法（validateCourse 和 validateSession 共用，和 course.schema.json 的 source 一一对应）。 */
+export function sourceIssues(src: unknown, path: string): Issue[] {
+  const out: Issue[] = [];
+  const err = (p: string, message: string) => out.push({ level: "error", path: `${path}${p ? "." + p : ""}`, message });
+  if (!isObj(src)) {
+    err("", "缺少 source（出自哪份成品、第几周）");
+    return out;
+  }
+  if (typeof src.product !== "string" || !src.product) err("product", "缺少成品名");
+  if (src.phase === "稳定" ? !isInt(src.week, 1, 12) : !isInt(src.week, 1, 4)) err("week", "week 要是 1–4 的整数（稳定期 1–12）");
+  if (src.day !== undefined && (typeof src.day !== "string" || src.day.length > 20)) err("day", "day 最多 20 个字");
+  if (src.templates !== undefined && typeof src.templates !== "string") err("templates", "templates 要是字符串");
+  if (src.plan !== undefined && src.plan !== "yangxia.plans/1") err("plan", 'plan 只能是 "yangxia.plans/1"');
+  if (src.segment !== undefined && !isInt(src.segment, 1, 99)) err("segment", "segment 是第几段，从 1 起的整数");
+  if (src.type !== undefined && !["标准", "减量"].includes(src.type as string)) err("type", "type 只能是 标准 / 减量");
+  if (src.phase !== undefined && src.phase !== "起始" && src.phase !== "稳定") err("phase", "phase 只能是 起始 / 稳定");
+  if (src.half !== undefined && src.half !== true) err("half", "half 只能是 true（半量课：中断、生病回来的第一次）");
+  if (src.picks !== undefined && !(isObj(src.picks) && Object.values(src.picks).every((v) => typeof v === "string"))) err("picks", "picks 是 {轮换组: 动作 ID}");
+  for (const k of Object.keys(src)) {
+    if (!(SOURCE_KEYS as readonly string[]).includes(k)) err(k, `source 里不认识的项「${k}」（只能有 ${SOURCE_KEYS.join("、")}）`);
+  }
+  return out;
+}
+
 /** 播放设置的取值：安全项写错返回错误，外观项写错返回提醒。 */
 export function settingsIssues(raw: Obj, path: string): Issue[] {
   const out: Issue[] = [];
@@ -51,19 +78,7 @@ export function validateCourse(raw: unknown): { course: Course | null; issues: I
   if (typeof raw.name !== "string" || raw.name.length < 1 || raw.name.length > 60) err("name", "name 要 1–60 个字");
   if (!AGES.includes(raw.age as string)) err("age", `age 只能是 ${AGES.join(" / ")}（6–12 岁版和全家餐饮没有训练，不导出课程）`);
   const src = raw.source;
-  if (!isObj(src)) err("source", "缺少 source（出自哪份成品、第几周）");
-  else {
-    if (typeof src.product !== "string" || !src.product) err("source.product", "缺少成品名");
-    if (src.phase === "稳定" ? !isInt(src.week, 1, 12) : !isInt(src.week, 1, 4)) err("source.week", "week 要是 1–4 的整数（稳定期 1–12）");
-    if (src.day !== undefined && (typeof src.day !== "string" || src.day.length > 20)) err("source.day", "day 最多 20 个字");
-    if (src.templates !== undefined && typeof src.templates !== "string") err("source.templates", "templates 要是字符串");
-    if (src.plan !== undefined && src.plan !== "yangxia.plans/1") err("source.plan", 'plan 只能是 "yangxia.plans/1"');
-    if (src.segment !== undefined && !isInt(src.segment, 1, 99)) err("source.segment", "segment 是第几段，从 1 起的整数");
-    if (src.type !== undefined && !["标准", "减量"].includes(src.type as string)) err("source.type", "type 只能是 标准 / 减量");
-    if (src.phase !== undefined && src.phase !== "起始" && src.phase !== "稳定") err("source.phase", "phase 只能是 起始 / 稳定");
-    if (src.half !== undefined && src.half !== true) err("source.half", "half 只能是 true（半量课：中断、生病回来的第一次）");
-    if (src.picks !== undefined && !(isObj(src.picks) && Object.values(src.picks).every((v) => typeof v === "string"))) err("source.picks", "picks 是 {轮换组: 动作 ID}");
-  }
+  issues.push(...sourceIssues(src, "source"));
   if (raw.presentation !== undefined && !isObj(raw.presentation)) err("presentation", "presentation 要是对象");
   else if (isObj(raw.presentation) && raw.presentation.sequencer !== undefined) {
     if (!isObj(raw.presentation.sequencer)) err("presentation.sequencer", "presentation.sequencer 要是对象");

@@ -1,6 +1,7 @@
 // 只在 Node 里用：按 scripts/templates-path.mjs 的规则找模板仓库，读 manifest 和成品正文。
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { MOTIONS_FORMAT, type MotionsData } from "./figure-motion.ts";
 import { type Manifest, MANIFEST_FORMAT } from "./manifest.ts";
 import { PLANS_FORMAT, type PlansData, RULES_FORMAT, type RulesData } from "./plan.ts";
@@ -10,6 +11,18 @@ const REPO_ROOT = new URL("../../../", import.meta.url);
 export async function templatesDir(): Promise<string | null> {
   const mod = (await import(new URL("scripts/templates-path.mjs", REPO_ROOT).href)) as { templatesDir: () => string | null };
   return mod.templatesDir();
+}
+
+/** 打包好的编排器（课程包从它出）：环境变量 YANGXIA_SEQUENCER，没设就用 apps/sequencer/dist/养夏跟练编排器.html。 */
+export function sequencerPath(): string {
+  return process.env.YANGXIA_SEQUENCER
+    ? resolve(process.env.YANGXIA_SEQUENCER)
+    : join(fileURLToPath(REPO_ROOT), "apps", "sequencer", "dist", "养夏跟练编排器.html");
+}
+
+/** 编排器打包标记的算法（scripts/sequencer-stamp.mjs，打包时和这里共用）。 */
+export async function sequencerStamp(): Promise<{ sourceHash: () => string | null; motionsHash: (text: string) => string }> {
+  return (await import(new URL("scripts/sequencer-stamp.mjs", REPO_ROOT).href)) as { sourceHash: () => string | null; motionsHash: (text: string) => string };
 }
 
 export interface Templates {

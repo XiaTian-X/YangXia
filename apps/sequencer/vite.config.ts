@@ -71,6 +71,53 @@ function figureAssets(mode: string): Plugin {
   };
 }
 
+/**
+ * 课程包（v4 阶段 8c）：单文件内联之后，往页面里写打包标记和空的嵌入块，各恰好一个。
+ * course export 读标记核对"动图、源码是不是现在的"，再把课程写进嵌入块（packages/course-core/src/package.ts）。
+ * 标记的算法只用 scripts/sequencer-stamp.mjs，和 course export 同一个。
+ */
+function packageMarker(mode: string): Plugin {
+  return {
+    name: "yangxia-package",
+    apply: "build",
+    enforce: "post",
+    async generateBundle(_, bundle) {
+      const stamp = (await import(pathToFileURL(join(repo, "scripts", "sequencer-stamp.mjs")).href)) as {
+        sourceHash: () => string | null; motionsHash: (text: string) => string;
+      };
+      const file = await motionsFile(mode);
+      let motions = "none";
+      let motionsHash = "none";
+      if (file) {
+        const text = readFileSync(file, "utf8");
+        try {
+          const m = JSON.parse(text) as { format?: unknown; version?: unknown };
+          if (m.format === MOTIONS_FORMAT && typeof m.version === "string") {
+            motions = m.version;
+            motionsHash = stamp.motionsHash(text);
+          }
+        } catch {
+          // 解析不了：当作没带动图（figureAssets 里已经提醒过）
+        }
+      }
+      const source = stamp.sourceHash() ?? "none";
+      const meta = `<meta name="yangxia-package" content="format=yangxia.package/1;motions=${motions};motionsHash=${motionsHash};source=${source}">`;
+      const block = '<script type="application/json" id="yangxia-course"></script>';
+      for (const out of Object.values(bundle)) {
+        if (out.type !== "asset" || !out.fileName.endsWith(".html")) continue;
+        let html = String(out.source);
+        const charset = /<meta charset="[^"]*"\s*\/?>/i.exec(html);
+        if (!charset || !html.includes("</body>")) throw new Error("页面里找不到 <meta charset> 或 </body>，写不了课程包标记");
+        const at = charset.index + charset[0].length;
+        html = `${html.slice(0, at)}\n    ${meta}${html.slice(at)}`;
+        const end = html.lastIndexOf("</body>");
+        html = `${html.slice(0, end)}${block}\n  ${html.slice(end)}`;
+        out.source = html;
+      }
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const outDir = mode === "e2e" ? "dist-e2e" : "dist";   // e2e 用离线样例的动图，单独放，不覆盖正式打包
   return {
@@ -80,6 +127,7 @@ export default defineConfig(({ mode }) => {
       preact(),
       figureAssets(mode),
       viteSingleFile(),
+      packageMarker(mode),
       {
         name: "yangxia-csp",
         apply: "build",

@@ -540,7 +540,7 @@ export function exportCourse(input: ExportInput): ExportResult {
   const short = productName.replace(/岁-/, " ").replace(/版.*$/, "");
   out.course = {
     schema: "yangxia.course/1",
-    id: input.id ?? `c_${hash(`${productName}|${seg.n}|${seg.type}|${week}|${day}${input.half ? "|half" : ""}`)}`,
+    id: input.id ?? courseIdFor(productName, seg.n, seg.type, week, day, !!input.half),
     name: `${short} · 第 ${week} 周 · ${day} 日${input.half ? " · 半量" : ""}`.slice(0, 60),
     age: prod.age as Course["age"],
     source: {
@@ -578,6 +578,14 @@ function quotesFor(r: PlanRow, week: number): string[] {
   const xs = [...(r.evidence?.[String(week)] ?? []), ...r.quotes.map((q) => q.text)];
   const uniq = [...new Set(xs.map((x) => x.slice(0, 200)).filter((x) => x.length >= 2))];
   return (uniq.length ? uniq : [`训练单：${r.moves.join(" / ")} 第 ${week} 周 ${r.day} 日`]).slice(0, 4);
+}
+
+/**
+ * 导出课程的 id：成品、段、段型、周、日、半量算出来（轮换、模板版本、进度不进 id，同一天重新导出 id 不变）。
+ * profile import 用同一个算法从练习记录的 source 重算，核对记录没被手改。
+ */
+export function courseIdFor(product: string, segment: number, type: string, week: number, day: string, half: boolean): string {
+  return `c_${hash(`${product}|${segment}|${type}|${week}|${day}${half ? "|half" : ""}`)}`;
 }
 
 function hash(s: string): string {
