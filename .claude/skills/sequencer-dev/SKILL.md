@@ -33,4 +33,5 @@ npm run e2e
 - **依赖**：选发布超过两周的稳定版本，写死版本号，`package-lock.json` 一起提交。
 - **构建产物**（`apps/sequencer/dist/`、`dist-e2e/`）和导出的媒体不提交。
 - 新功能、去掉的功能，记进 `docs/编排器功能清单.md`。
+- **课程包**（v4 阶段 8c，`docs/数据约定.md` 四之二节）：打包时 `vite.config.ts` 的 `packageMarker` 写打包标记和空嵌入块，各恰好一个；课程包由核心库 `package.ts` 写，编排器只用 DOM 读（`src/live/embedded.ts`），代码里不要出现嵌入块的完整写法（`id="yangxia-course"` 这串字），否则"恰好一个"数不准。改了嵌入格式要同步 `package.ts`、`embedded.ts`、`e2e/package.spec.ts`。源码哈希的范围偏保守：改了课程核心库的命令行代码（`cli.ts` 这类不进编排器的文件）也要重新 `npm run build`，`course export` 才出课程包。
 - **界面**（v4 阶段 8b）：照设计画布 <https://claude.ai/artifact/RmVjkphomSGpQ3xd7qAMSE> 还原，颜色、字号都是 `src/styles.css` 开头的变量；改界面先出设计稿再实施。页面在 `src/ui/`（`App.tsx` 接线，`Today`、`LiveView`、`DoneView`、`Settings`、`MoreView`），跟练页显示什么由纯函数 `src/live/view.ts` 算（有单元测试），不在组件里拼。跟练页和导出的视频画面（`src/hud/draw.ts`）分开，视频画面不随界面改。五种尺寸（390×844、844×390、360×800、820×1180、1440×900）和几种手机浏览器带工具栏的实际可视高度都要过 `layout.spec.ts`（跟练页各块两两不重叠）。跟练页的呼吸环按中间一格剩下的空间缩放（`--info-h` 由 `LiveView` 量），不要写死高度。跟练页的声明写全文（未经专业审核、不是医学建议、不能替代医生的判断；疼、头晕、胸闷马上停下）。
