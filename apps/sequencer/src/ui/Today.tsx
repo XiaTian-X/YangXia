@@ -1,6 +1,7 @@
 // 今天的课：这节课的概要、"这节课怎么走"、每个动作（点开看原文）、开始按钮；没课程时是导入页。
 import { itemSpec, usableClip, type Course, type CourseItem, type Issue, type MotionClip, type Timeline } from "@yangxia/course-core";
 import { useEffect, useRef } from "preact/hooks";
+import { exportedLabel } from "../live/embedded.ts";
 import type { FigurePlayer } from "../figure/player.ts";
 import { Chevron, Clock, Download, File, Info, Play } from "./icons.tsx";
 
@@ -17,6 +18,8 @@ interface Props {
   edited: boolean;
   dragOver: boolean;
   busy: boolean;
+  /** 课程包打开的：导出日期（没写是 ""）；不是课程包是 null */
+  packagedOn: string | null;
   onStart: () => void;
   onExport: () => void;
   onReadFile: (f: File) => void;
@@ -70,10 +73,10 @@ export function Today(p: Props) {
         </div>
         <div class={`drop ${p.dragOver ? "over" : ""}`}>
           <File size={36} color="var(--accent)" />
-          <div style={{ fontSize: 16, color: "var(--ink)" }}>把 agent 给你的课程文件拖到这里</div>
+          <div style={{ fontSize: 16, color: "var(--ink)" }}>把 agent 给你的课程文件（.json 或课程包 .html）拖到这里</div>
           <div class="row" style={{ justifyContent: "center" }}>
             <label class="btn primary">选择课程文件
-              <input type="file" accept=".json,application/json" style={{ display: "none" }} data-input="course"
+              <input type="file" accept=".json,.html,application/json,text/html" style={{ display: "none" }} data-input="course"
                 onChange={(e) => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ""; if (f) p.onReadFile(f); }} />
             </label>
             <button class="btn" onClick={p.onSample}>载入样例课程</button>
@@ -112,6 +115,7 @@ export function Today(p: Props) {
               <span><Clock size={16} />约 {minutes(timeline.totalDuration)} 分钟</span>
               <span>{items.length} 个动作</span>
               {part && <span>第 {part.n} / {part.of} 部分</span>}
+              {p.packagedOn !== null && <span data-packaged>课程包{p.packagedOn ? ` · ${exportedLabel(p.packagedOn)}导出` : ""}</span>}
               {src.half && <span>半量课</span>}
             </div>
           </section>
@@ -141,7 +145,7 @@ export function Today(p: Props) {
           <p class="disclaimer"><Info size={16} color="var(--warn)" /><span>计划未经专业审核，不是医学建议，不能替代医生的判断。练的时候疼、头晕、胸闷，马上停下。</span></p>
           <div class="row">
             <label class="btn">换一节课
-              <input type="file" accept=".json,application/json" style={{ display: "none" }} data-input="course"
+              <input type="file" accept=".json,.html,application/json,text/html" style={{ display: "none" }} data-input="course"
                 onChange={(e) => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ""; if (f) p.onReadFile(f); }} />
             </label>
             <span class="note">也可以把课程文件拖进来</span>

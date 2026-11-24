@@ -18,6 +18,7 @@ import { loadClips } from "../figure/assets.ts";
 import { hudFigure } from "../figure/hud.ts";
 import { FigurePlayer } from "../figure/player.ts";
 import { applyEvent, drawHud, HUD_HEIGHT, HUD_WIDTH, initialHud, stepHud } from "../hud/draw.ts";
+import { embeddedCourse } from "../live/embedded.ts";
 import { KeepAwake } from "../live/keepAwake.ts";
 import { liveFrame } from "../live/view.ts";
 import { DoneView, emptyDoneForm, type DoneForm, type Session } from "./DoneView.tsx";
@@ -33,6 +34,8 @@ import { Today } from "./Today.tsx";
 
 type View = "today" | "settings" | "more";
 const READY_TEXT = "点\"开始跟练\"，或导出音频、字幕、视频";
+/** 普通编排器的标题（课程包打开时换成课程名） */
+const PLAIN_TITLE = typeof document !== "undefined" ? document.title : "养夏 · 跟练编排器";
 /** 课程里有没有从训练单导出的动作示意。 */
 const hasFigure = (c: Course) => !!c.source.plan && c.blocks.some((b) => b.items.some((i) => i.figure));
 const fullscreenOk = () => typeof document !== "undefined" && !!document.fullscreenEnabled && !!document.documentElement.requestFullscreen;
@@ -62,6 +65,8 @@ export function App() {
   const [pauseWhy, setPauseWhy] = useState("");   // 自动暂停的原因（切到后台），显示在跟练页上
   const [clips, setClips] = useState<Record<string, MotionClip>>({});
   const [figuresReady, setFiguresReady] = useState(0);
+  // 现在这节课是不是从课程包来的（v4 阶段 8c）：标题写课程名，"今天"页写导出日期
+  const [packaged, setPackaged] = useState<{ exported: string | null } | null>(null);
   // 动图数据解不开（整份没有）和个别片段预载失败分开记：载入新课程只会刷新后一种
   const [unpackIssue, setUnpackIssue] = useState("");
   const [prepareIssue, setPrepareIssue] = useState("");
@@ -223,6 +228,7 @@ export function App() {
     setActiveStage(null);
     setEdited(false);
     setSession(null);
+    setPackaged(null);
     setNotice(`已载入：${c.name}`);
     const h = hud.current;
     h.tagText = c.name;
@@ -232,12 +238,43 @@ export function App() {
   };
 
   const readFile = async (f: File) => {
+    let text: string;
     try {
-      if (load(JSON.parse(await f.text()), `「${f.name}」`)) setView("today");
+      text = await f.text();
     } catch {
-      setNotice(`「${f.name}」不是 JSON 文件。`);
+      setNotice(`「${f.name}」读不了。`);
+      return;
+    }
+    // 课程包（.html）：从里面取课程
+    if (/\.html?$/i.test(f.name) || text.trimStart().startsWith("<")) {
+      const e = embeddedCourse(new DOMParser().parseFromString(text, "text/html"));
+      if (!e.found || e.error) {
+        setNotice(e.error ? `「${f.name}」：${e.error}` : `「${f.name}」不是养夏课程包。`);
+        return;
+      }
+      if (load(e.raw, `课程包「${f.name}」里的课程`)) {
+        setPackaged({ exported: e.exported });
+        setView("today");
+      }
+      return;
+    }
+    try {
+      if (load(JSON.parse(text), `「${f.name}」`)) setView("today");
+    } catch {
+      setNotice(`「${f.name}」不是 JSON 文件，也不是课程包。`);
     }
   };
+
+  // 打开的是课程包：直接载入嵌着的这节课
+  useEffect(() => {
+    const e = embeddedCourse(document);
+    if (!e.found) return;
+    if (e.error) return setNotice(e.error);
+    if (load(e.raw, "课程包里的课程")) setPackaged({ exported: e.exported });
+  }, []);
+  useEffect(() => {
+    document.title = packaged && course ? `养夏 · ${course.name}` : PLAIN_TITLE;
+  }, [packaged, course]);
 
   const stop = async () => {
     if (player.current?.running) await player.current.stop(false);
@@ -546,6 +583,7 @@ export function App() {
           ? <DoneView session={session} form={doneForm} onForm={setDoneForm} onNotice={setNotice} onDone={() => setSession(null)} />
           : <Today course={course} timeline={timeline} clips={clips} figures={figures.current} figuresReady={figuresReady}
               issues={issues} notice={notice} figureIssue={figureIssue} edited={edited} dragOver={dragOver} busy={!!busy}
+              packagedOn={packaged ? packaged.exported ?? "" : null}
               onStart={() => void start()} onExport={() => openMore("export")} onReadFile={(f) => void readFile(f)}
               onSample={() => load(sample, "样例")} onLibrary={() => openMore("library")} />)}
         {view === "settings" && (

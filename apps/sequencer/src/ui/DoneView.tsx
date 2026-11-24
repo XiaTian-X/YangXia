@@ -143,21 +143,22 @@ export function DoneView({ session, form, onForm, onDone, onNotice }: Props) {
       </section>
 
       <label class="field"><span>备注（可不填）</span>
-        <textarea rows={2} maxLength={500} value={note} onInput={(e) => setNote(e.currentTarget.value)} />
+        <textarea rows={2} maxLength={500} value={note} onInput={(e) => setNote(e.currentTarget.value)} aria-describedby="note-hint" />
+        <span class="note" id="note-hint">不写病名、用药、血压体重数字。</span>
       </label>
 
       <div class="dock done-dock">
         <div class="row" style={{ flexWrap: "nowrap", width: "100%" }}>
-          <button class="btn primary big" style={{ flex: 1 }} data-save-record onClick={() => { download(blob(), recordName(session)); onNotice("练习记录已保存：放进 profiles/<代号>/打卡/，周复盘会读它。"); onDone(); }}>保存练习记录</button>
+          <button class="btn primary big" style={{ flex: 1 }} data-save-record onClick={() => { download(blob(), recordName(session)); onNotice("练习记录已保存：发回电脑（发给自己，不要发到群里），交给 agent 导入。"); onDone(); }}>保存练习记录</button>
           <button class="icon-btn big" aria-label="分享练习记录" data-share-record onClick={async () => {
             const r = await shareOrDownload(blob(), recordName(session));
             if (r === "cancelled") return;
-            onNotice(r === "shared" ? "练习记录已分享。" : "这台设备不能直接分享，已改成下载练习记录。");
+            onNotice(r === "shared" ? "练习记录已分享：发给自己，交给 agent 导入。" : "这台设备不能直接分享，已改成下载练习记录。");
             onDone();
           }}><Share size={22} /></button>
         </div>
         <div class="row" style={{ justifyContent: "space-between", width: "100%", flexWrap: "nowrap" }}>
-          <span class="note">记录只存成你自己的文件，周复盘时交给 agent。</span>
+          <span class="note">记录发回电脑（发给自己，不要发到群里），交给 agent 导入。</span>
           <button class="btn" style={{ border: 0, background: "none", color: "var(--accent)", flex: "none" }} onClick={onDone}>不记录</button>
         </div>
       </div>
