@@ -60,6 +60,8 @@ export interface ProfileCourseItem {
   archivedSegment?: number;
   /** 服务端可选：该课程导出/发布日期（YYYY-MM-DD，档案时区），供过重旧课作废判定。 */
   createdDate?: string;
+  /** 服务端可选：该课程发布精确时间戳（ISO 8601），用于区分同日“先不适后重发的新课”与“发布前的迟到不适”。 */
+  createdAt?: string;
 }
 
 export interface ProfileDocItem {
@@ -506,12 +508,17 @@ export function detectInvalidatedCourses(
     }
     if (c.createdDate && templates.plans && templates.rules) {
       const baseDate = c.createdDate;
+      const baseMs = c.createdAt ? Date.parse(c.createdAt) : Number.NaN;
       const downAfter = (bundle.profile.progressLog ?? []).some((e: any) => e?.date >= baseDate && (e.rule === "减量" || e.rule === "退回" || e.rule === "重来"
         || (e.rule === "找级" && Number(e.to) < Number(progressOn(bundle.profile, templates.plans!, templates.rules!, addDays(baseDate, -1), now, tz)?.[e.move]?.[e.field] ?? Infinity))));
       const sickAfter = bundle.sessions.some((s) => {
         const st = Date.parse(s.raw?.startedAt);
-        return !Number.isNaN(st) && dateInZone(new Date(st), tz) >= baseDate
-          && !!(s.raw?.symptoms?.pain || s.raw?.symptoms?.dizzy || s.raw?.symptoms?.chest);
+        if (Number.isNaN(st)) return false;
+        const isSick = !!(s.raw?.symptoms?.pain || s.raw?.symptoms?.dizzy || s.raw?.symptoms?.chest);
+        if (!isSick) return false;
+        // 若提供精确发布时间戳 createdAt，则仅当不适发生在发布之后才判 sickAfter，避免同日不适后管理员重发的轻课被误作废；
+        // 迟到不适（发生在发布前但晚于发布回传）由服务端在 submitMobileSessionOp 入库时刻按入库时间即时作废旧课。
+        return Number.isFinite(baseMs) ? st > baseMs : dateInZone(new Date(st), tz) >= baseDate;
       });
       if (downAfter || sickAfter) {
         out.push({ name: c.name, courseId: cid, reason: sickAfter ? "导出后出现疼痛、头晕或胸闷，旧课已作废" : "导出后个人进度已下调，旧课比现在重已作废" });

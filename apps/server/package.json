@@ -1,0 +1,19 @@
+{
+  "name": "@yangxia/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "养夏自托管后端服务（认证、多档案规则引擎、排课同步、模板只读、迁移与加密备份）",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.ts",
+    "cli": "node src/cli.ts",
+    "typecheck": "tsc -p .",
+    "test": "vitest run --root ../.. apps/server/test"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.6",
+    "@yangxia/course-core": "*",
+    "hono": "4.13.17",
+    "zod": "4.6.7"
+  }
+}

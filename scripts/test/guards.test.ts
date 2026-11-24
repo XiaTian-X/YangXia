@@ -27,10 +27,26 @@ describe("git 命令拦截", () => {
 });
 
 const tpl = join(ROOT, "templates");
-describe.skipIf(!existsSync(join(tpl, ".git")))("两个仓库的守门脚本一致", () => {
-  for (const f of [".githooks/pre-commit", ".claude/hooks/guard-git.mjs"]) {
-    it(f, () => expect(readFileSync(join(tpl, f), "utf8")).toBe(readFileSync(join(ROOT, f), "utf8")));
-  }
+describe.skipIf(!existsSync(join(tpl, ".git")))("两个仓库的守门脚本一致（主仓库保留模板全部基线并扩展自托管拦截）", () => {
+  it(".claude/hooks/guard-git.mjs", () => {
+    expect(readFileSync(join(tpl, ".claude/hooks/guard-git.mjs"), "utf8")).toBe(
+      readFileSync(join(ROOT, ".claude/hooks/guard-git.mjs"), "utf8"),
+    );
+  });
+  it(".githooks/pre-commit 包含模板基线全部拦截项与主函数逻辑", () => {
+    const tplHook = readFileSync(join(tpl, ".githooks/pre-commit"), "utf8");
+    const rootHook = readFileSync(join(ROOT, ".githooks/pre-commit"), "utf8");
+    for (const marker of [
+      "profiles/",
+      "BEGIN [A-Z ]*PRIVATE KEY",
+      "yangxia\\.(profile|session|review|assessment)/",
+      "def template_checks(paths):",
+      "def main():",
+    ]) {
+      expect(tplHook).toContain(marker);
+      expect(rootHook).toContain(marker);
+    }
+  });
 });
 
 describe("提交前检查", () => {
@@ -64,8 +80,21 @@ describe("提交前检查", () => {
     expect(run({ "r2.json": JSON.stringify({ schema: REVIEW }) }).code).toBe(1);
     expect(run({ "a.json": JSON.stringify([{ schema: ASSESS }]) }).code).toBe(1);
   });
-  it("拦下 profiles/、.env、私钥、日历", () => {
-    for (const f of ["profiles/甲/档案.json", ".env", "id_ed25519", "训练.ics"]) expect(run({ [f]: "x\n" }).code, f).toBe(1);
+  it("拦下 profiles/、.env、私钥、日历及自托管数据库/备份/密钥/安装包", () => {
+    for (const f of [
+      "profiles/甲/档案.json",
+      ".env",
+      "id_ed25519",
+      "训练.ics",
+      "data/yangxia.sqlite",
+      "yangxia.sqlite-wal",
+      "backup.yxbackup",
+      "master.key",
+      "release.jks",
+      "app-release.apk",
+    ]) {
+      expect(run({ [f]: "x\n" }).code, f).toBe(1);
+    }
   });
   it("放行样例目录里的档案样例和普通文件", () => {
     expect(run({ "contracts/fixtures/profiles/ok.json": JSON.stringify({ schema: PROFILE }), "README.md": "# x\n" }).code).toBe(0);

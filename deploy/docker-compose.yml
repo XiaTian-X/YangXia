@@ -1,0 +1,24 @@
+services:
+  yangxia:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: yangxia-server
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      TZ: UTC
+      PORT: "3000"
+      YANGXIA_DATA_DIR: /data
+      YANGXIA_TEMPLATES: /templates
+      # 若置于 Nginx / Caddy / Tailscale 反代后，填写反代 IP 或网段（逗号分隔），HTTPS 下自动开启 Cookie Secure
+      TRUSTED_PROXIES: "${TRUSTED_PROXIES:-}"
+      # 可选：启用管理员本地目录 v1.0.0 迁移时的白名单目录
+      YANGXIA_MIGRATE_DIR: "${YANGXIA_MIGRATE_DIR:-}"
+      # 可选：无交互定期自动加密备份口令（建议改用口令文件 YANGXIA_BACKUP_PASSPHRASE_FILE）
+      YANGXIA_BACKUP_PASSPHRASE: "${YANGXIA_BACKUP_PASSPHRASE:-}"
+    volumes:
+      - ../data:/data
+      # 挂载 YangXia-templates 仓库（只读）
+      - ../templates:/templates:ro

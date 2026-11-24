@@ -8,7 +8,8 @@
   },
   "workspaces": [
     "packages/course-core",
-    "apps/sequencer"
+    "apps/sequencer",
+    "apps/server"
   ],
   "scripts": {
     "setup": "node scripts/setup.mjs",
@@ -16,6 +17,8 @@
     "test": "vitest run",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "course": "node packages/course-core/src/cli.ts",
+    "server": "node apps/server/src/index.ts",
+    "server:cli": "node apps/server/src/cli.ts",
     "build": "npm run build -w @yangxia/sequencer",
     "build:player": "npm run build:player -w @yangxia/course-core",
     "e2e": "npm run build:e2e -w @yangxia/sequencer && npm run e2e -w @yangxia/sequencer",

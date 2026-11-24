@@ -27,6 +27,10 @@ BLOCK_PATH = [
     (re.compile(r"(^|/)\.claude/settings\.local\.json$"), "Claude Code 个人设置"),
     (re.compile(r"(^|/)CLAUDE\.local\.md$"), "Claude Code 个人说明"),
     (re.compile(r"\.ics$"), "日历文件（训练安排属于个人数据）"),
+    (re.compile(r"^data/"), "自托管服务端运行数据目录 data/"),
+    (re.compile(r"(^|/)master\.key$"), "服务端加密主密钥 master.key"),
+    (re.compile(r"\.(sqlite|sqlite-wal|sqlite-shm|db|yxbackup)$"), "数据库或加密备份文件"),
+    (re.compile(r"\.(jks|apk|aab)$"), "Android 签名密钥或安装包产物"),
 ]
 ALLOW_PATH = [re.compile(r"(^|/)\.env\.example$")]
 
