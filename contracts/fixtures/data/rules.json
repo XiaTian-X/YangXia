@@ -1,6 +1,6 @@
 {
  "format": "yangxia.rules/1",
- "version": "v3.4",
+ "version": "v1.0.0",
  "conditions": {
   "高血压": {
    "ask": "有没有高血压（包括吃药控制住的）",

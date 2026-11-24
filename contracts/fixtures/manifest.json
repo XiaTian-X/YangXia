@@ -1,8 +1,8 @@
 {
  "format": "yangxia.manifest/1",
  "project": "养夏计划模板",
- "version": "v3.4",
- "released": "2026-11-18",
+ "version": "v1.0.0",
+ "released": "2026-11-24",
  "products": [
   {
    "file": "18-39岁-健身房版.md",
