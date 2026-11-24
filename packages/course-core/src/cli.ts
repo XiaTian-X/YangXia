@@ -200,7 +200,10 @@ function scanDir(dir: string, t: Templates, profile: Record<string, any>) {
       const inCourses = /^(?:历史[\\/]第\d+段[\\/])?课程[\\/][^\\/]+$/.test(name);
       const html = readFileSync(f, "utf8");
       if (inCourses) packages.push({ name, archived, html });
-      else if (packageInfo(html).info || /id="yangxia-course"/.test(html)) issues.push({ level: "error", path: name, message: "课程包放在 课程/ 下" });
+      else if (packageInfo(html).info || /id="yangxia-course"/.test(html)) {
+        const embedded = !unpackCourse(html).empty;
+        issues.push({ level: "error", path: name, message: embedded ? "课程包放在 课程/ 下" : "编排器（没嵌课程）不放在档案目录里" });
+      }
       else issues.push({ level: "warning", path: name, message: "不认识的文件：复盘、菜单写成 .md，课程、练习记录是 .json，课程包放在 课程/；别的文件不检查" });
     } else if (!name.split(sep).some((s) => s.startsWith("."))) {
       issues.push({ level: "warning", path: name, message: "不认识的文件：复盘、菜单写成 .md，课程、练习记录是 .json；别的文件不检查" });
@@ -249,7 +252,8 @@ function packageIssues(profile: Record<string, any>, scan: ReturnType<typeof sca
     }
     const src = (u.course as { source?: Record<string, any> }).source ?? {};
     if (info.info.motions !== src.templates) err(`课程包里的动作示意是模板 ${info.info.motions} 的，课程是 ${src.templates ?? "（没写）"} 的：重新打包编排器、重新导出`);
-    if (!p.archived && seg && (src.segment !== seg.n || src.week !== seg.week)) {
+    if (p.archived) out.push({ level: "warning", path: p.name, message: "历史/ 里不留课程包：删掉就好（课程 JSON 留着）" });
+    else if (seg && (src.segment !== seg.n || src.week !== seg.week)) {
       out.push({ level: "warning", path: p.name, message: "以前几周的课程包：复盘完可以删（课程 JSON 留着）" });
     }
   }
@@ -355,17 +359,31 @@ const safeCode = (code: string) => code.replace(/[:*?"<>|\\/]/g, "_");
 
 /**
  * 课程包（v4 阶段 8c 方案 2.2）：用打包好的编排器嵌这节课。编排器没打包、代码改过没重新打包、动图和模板对不上时
- * 不出课程包，只留 JSON，并删掉同名的旧课程包（它和新课程对不上，不能留着被发出去）。不影响命令成功与否。
+ * 不出课程包，只留 JSON，并删掉同名的旧课程包（免得旧的被发出去）。不影响命令成功与否。
+ * 只删、只覆盖养夏自己的课程包（有打包标记的）：同名的别的文件（比如 --out 旁边使用者自己的网页）一律不动。
  */
 async function writePackage(t: Templates, course: Course, path: string, skip: boolean): Promise<void> {
+  const ours = () => {
+    try {
+      return !!packageInfo(readFileSync(path, "utf8")).info;
+    } catch {
+      return false;
+    }
+  };
   const dropOld = (why: string) => {
     if (existsSync(path)) {
-      unlinkSync(path);
-      console.log(`旧课程包已删：${path}（它和新课程对不上）`);
+      if (ours()) {
+        unlinkSync(path);
+        console.log(`旧课程包已删：${path}（不出新的课程包，旧的删掉，免得被发出去）`);
+      } else console.log(`${path} 不是养夏课程包，没有动它`);
     }
     console.log(`没出课程包：${why}`);
   };
   if (skip) return dropOld("加了 --no-package");
+  if (existsSync(path) && !ours()) {
+    console.log(`没出课程包：${path} 已经有一个不是养夏课程包的文件，没有动它`);
+    return;
+  }
   const reason = await packageProblem(t, course);
   if (reason) return dropOld(`${reason}。先 npm run build 打包编排器，再重新导出`);
   const html = readFileSync(sequencerPath(), "utf8");
@@ -434,7 +452,7 @@ function courseIssues(t: Templates, profile: Record<string, any>, scan: ReturnTy
       const sickAfter = hit && scan.sessions.some((s) => { const st = Date.parse(s.raw?.startedAt); return !Number.isNaN(st) && st >= new Date(`${hit.day}T00:00:00`).getTime()
         && !!(s.raw?.symptoms?.pain || s.raw?.symptoms?.dizzy || s.raw?.symptoms?.chest); });
       if (hit && (downAfter || sickAfter)) {
-        out.push({ level: "error", path: c.name, message: `这份课程是按 ${hit.day} 的进度导出的，之后${sickAfter ? "有过疼痛、头晕或胸闷" : "进度往下调过"}：旧课程比现在重，连同同名课程包一起删掉，或者重新导出` });
+        out.push({ level: "error", path: c.name, message: `这份课程是按 ${hit.day} 的进度导出的，之后${sickAfter ? "有过疼痛、头晕或胸闷" : "进度往下调过"}：旧课程比现在重，连同对应的课程包一起删掉，或者重新导出` });
         continue;
       }
       if (hit) {
@@ -627,6 +645,7 @@ function diffFields(a: Record<string, unknown>, b: Record<string, unknown>): str
   return [...diff.filter((k) => k === "symptoms"), ...diff.filter((k) => k !== "symptoms")];
 }
 
+const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g;
 const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
 
 /**
@@ -640,13 +659,15 @@ async function importCmd(dir: string, args: string[]): Promise<number> {
   const t = await loadTemplates();
   const profile = readJson(join(dir, "档案.json")) as Record<string, any>;
   const scan = scanDir(dir, t, profile);
-  // 档案里已有的记录（含 历史/），规范化以后按 课程 id + 开始时间 找
-  const known = scan.sessions.flatMap((x) => {
+  // 档案里已有的记录（含 历史/、格式不对的），按 课程 id + 开始时间 找；格式对的规范化以后比内容
+  const known: { name: string; raw: Record<string, any>; rec: Record<string, unknown> | null }[] = scan.sessions.map((x) => {
+    let rec: Record<string, unknown> | null = null;
     try {
-      return validateSession(x.raw).some((i) => i.level === "error") ? [] : [{ name: x.name, rec: normalizeSession(x.raw).rec }];
+      if (!validateSession(x.raw).some((i) => i.level === "error")) rec = normalizeSession(x.raw).rec;
     } catch {
-      return [];
+      rec = null;
     }
+    return { name: x.name, raw: x.raw, rec };
   });
   let rejected = 0;
   let written = 0;
@@ -676,7 +697,12 @@ async function importCmd(dir: string, args: string[]): Promise<number> {
     const sym = raw && typeof raw === "object" && raw.symptoms && typeof raw.symptoms === "object" ? raw.symptoms : null;
     const hurt = sym ? Object.keys(SYMPTOM_NAMES).filter((k) => sym[k] === true) : [];
     if (hurt.length) console.log(`【注意】这次有${hurt.map((k) => SYMPTOM_NAMES[k]).join("、")}：下周不加量，按成品"疼了怎么办"处理；胸痛胸闷、头晕站不稳要建议就医。`);
-    const hurtNote = () => { if (hurt.length) console.log("这份记录没导入：周复盘时把不适照实写进复盘数据的 symptoms。"); };
+    // 不适那一栏没写、或者写的不是 true / false：拒收时按可能有不适问使用者
+    const odd = !sym || Object.keys(SYMPTOM_NAMES).some((k) => sym[k] !== true && sym[k] !== false);
+    const hurtNote = () => {
+      if (hurt.length) console.log("这份记录没导入：周复盘时把不适照实写进复盘数据的 symptoms。");
+      else if (odd) console.log("【注意】这份记录的不适那一栏没写或写法不对：按可能有疼痛、头晕、胸闷问使用者，照实写进周复盘。");
+    };
     const v = validateSession(raw);
     if (v.some((i) => i.level === "error")) {
       reject("格式不对");
@@ -718,17 +744,26 @@ async function importCmd(dir: string, args: string[]): Promise<number> {
     }
     const { rec, dropped } = normalizeSession(raw);
     if (dropped.length) console.log(`丢掉了格式里没有的字段：${dropped.join("、")}`);
-    const same = known.find((k) => (k.rec.course as any).id === raw.course.id && k.rec.startedAt === raw.startedAt);
+    const same = known.find((k) => k.raw?.course?.id === raw.course.id && Date.parse(k.raw?.startedAt) === Date.parse(raw.startedAt));
     let target: string;
     if (same) {
-      if (sameJson(same.rec, rec)) {
+      if (same.rec && sameJson(same.rec, rec)) {
         console.log(`已经导入过（${same.name}），跳过`);
         continue;
       }
-      const diff = diffFields(same.rec, rec);
+      const diff = same.rec ? diffFields(same.rec, rec) : ["旧记录格式不对"];
       if (!replace) {
-        reject(`同一次练习（${same.name}）已经有记录，内容不一样：${diff.join("、")}。问过使用者确实要换，加 --replace 原地覆盖`);
+        reject(same.rec
+          ? `同一次练习（${same.name}）已经有记录，内容不一样：${diff.join("、")}。问过使用者确实要换，加 --replace 原地覆盖`
+          : `档案里这次练习的旧记录（${same.name}）格式不对：先改好它，或者问过使用者加 --replace 用这份替换`);
         hurtNote();
+        continue;
+      }
+      // 记下的不适、手改过的课不能改成没有（"有不适就停止加量"不能靠改记录绕过去）
+      const oldSym = same.raw?.symptoms ?? {};
+      const lost = Object.keys(SYMPTOM_NAMES).filter((k) => oldSym[k] === true && (rec.symptoms as Record<string, boolean>)[k] !== true);
+      if (lost.length || (same.raw?.edited === true && rec.edited !== true)) {
+        reject(`${lost.length ? `旧记录里的${lost.map((k) => SYMPTOM_NAMES[k]).join("、")}` : "手改过的课"}不能改成没有：使用者说当时点错了，照实写进周复盘，不改记录`);
         continue;
       }
       target = join(dir, ...same.name.split("/"));
@@ -739,7 +774,8 @@ async function importCmd(dir: string, args: string[]): Promise<number> {
       target = join(dir, "打卡", `${base}.json`);
       while (existsSync(target) || known.some((k) => join(dir, ...k.name.split("/")) === target)) target = join(dir, "打卡", `${base}_${++n}.json`);
     }
-    if (typeof rec.note === "string" && rec.note.trim()) console.log(`备注（照 AGENTS.md 隐私核对：有病名、用药、血压体重数字的，问使用者删掉再导入）：\n  ${rec.note}`);
+    // 打印备注前去掉控制字符（记录里藏着的终端转义序列不能原样打到终端上）
+    if (typeof rec.note === "string" && rec.note.trim()) console.log(`备注（照 AGENTS.md 隐私核对：有病名、用药、血压体重数字的，问使用者删掉再导入）：\n  ${rec.note.replace(CONTROL, "")}`);
     if (dry) {
       console.log(`（--dry-run）会写到：${relative(dir, target)}`);
       continue;
@@ -748,13 +784,14 @@ async function importCmd(dir: string, args: string[]): Promise<number> {
     writeFileSync(target, JSON.stringify(rec, null, 2) + "\n");
     written++;
     const rel = relative(dir, target).split(sep).join("/");
-    known.push({ name: rel, rec });
+    known.push({ name: rel, raw: rec as Record<string, any>, rec });
     console.log(`已导入：${rel}`);
   }
   if (written) {
     console.log("\n导入完了。原文件还在下载目录、手机、聊天记录里，可以删（个人数据只放在 profiles/）。");
     console.log("档案检查（导入不回滚；复盘过的那一周来了新记录，那一周的复盘数据要照实改）：");
-    await profileCheck(dir);   // 档案检查的问题照常列出来；退出码只看这次导入有没有拒收
+    // 档案检查的问题照常列出来；退出码只看这次导入有没有拒收，所以有错误时再醒目地说一句
+    if (await profileCheck(dir)) console.log("【注意】档案检查有错误：照上面改（多半是那一周的复盘数据：训练次数、有没有不适）。");
   }
   if (rejected) console.log(`\n有 ${rejected} 份记录没导入。`);
   return rejected ? 1 : 0;

@@ -9,7 +9,9 @@ import { afterAll, describe, expect, it } from "vitest";
 import { ASSESS_FORMAT } from "../src/assess.ts";
 import { loadTemplates, sequencerStamp, templatesDir } from "../src/node.ts";
 import { PACKAGE_FORMAT, unpackCourse } from "../src/package.ts";
+import { courseIdFor } from "../src/plan.ts";
 import { PROFILE_FORMAT, SESSION_FORMAT } from "../src/profile.ts";
+import { REVIEW_FORMAT } from "../src/progress.ts";
 import { buildSession } from "../src/session.ts";
 import type { Course } from "../src/types.ts";
 
@@ -33,21 +35,33 @@ async function fakeSequencer(name: string, o: { source?: string; motionsHash?: s
   return f;
 }
 
-/** 能导出第 1 周课程的档案（今天开始）。 */
-function dir(name: string, code = name) {
+const DECL = "> 本计划由养夏计划模板生成，未经专业审核，不是医学建议，不能替代医生的判断。";
+const back = (days: number) => { const x = new Date(Date.now() - days * 86_400_000); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+
+/** 能导出第 1 周课程的档案（今天开始）；twoWeeks：第 1 周 8 天前开始、复盘过，现在是第 2 周。 */
+function dir(name: string, code = name, twoWeeks = false) {
   const prod = t!.manifest.products.find((p) => p.name === PRODUCT)!;
   const items = t!.manifest.intake.screening.find((s) => s.age === prod.age)!.items;
   const p = {
     schema: PROFILE_FORMAT, code, stage: "18–39 岁", age: prod.age, venue: prod.venue, product: PRODUCT, startDate: today, birth: "1996-05", body: "不记",
     screening: { answers: items.map((item) => ({ item, answer: "否" })), doctorCleared: false, date: today },
-    segments: [{ n: 1, type: "标准", week: 1, start: today, product: PRODUCT }],
+    segments: twoWeeks ? [{ n: 1, type: "标准", week: 1, start: back(8), product: PRODUCT }, { n: 1, type: "标准", week: 2, start: back(1), product: PRODUCT }]
+      : [{ n: 1, type: "标准", week: 1, start: today, product: PRODUCT }],
     conditions: { 高血压: false }, progress: {}, progressLog: [],
   };
+  if (twoWeeks) (p as Record<string, unknown>).startDate = back(8);
   const d = join(root, name);
   mkdirSync(join(d, "评估"), { recursive: true });
   writeFileSync(join(d, "档案.json"), JSON.stringify(p));
-  writeFileSync(join(d, "评估", `${today}-入门.json`), JSON.stringify({ schema: ASSESS_FORMAT, date: today, kind: "入门",
+  const entry = twoWeeks ? back(8) : today;
+  writeFileSync(join(d, "评估", `${entry}-入门.json`), JSON.stringify({ schema: ASSESS_FORMAT, date: entry, kind: "入门",
     tests: [{ id: "pushup-test", level: 2, value: 12 }, { id: "wallsit-test", value: 30 }], conclusion: {} }));
+  if (twoWeeks) {
+    mkdirSync(join(d, "复盘"), { recursive: true });
+    writeFileSync(join(d, "复盘", `${back(8)}-第1周.json`), JSON.stringify({ schema: REVIEW_FORMAT, start: back(8), week: 1, trainings: 0, checkinDays: 6,
+      symptoms: false, moves: [], habits: { 散步: 5, 冥想: 5 } }));
+    writeFileSync(join(d, "复盘", `${back(8)}-第1周.md`), `# 第 1 周复盘\n\n${DECL}\n\n训练 0 次，没有不适。\n`);
+  }
   return d;
 }
 const run = (env: Record<string, string>, ...args: string[]) =>
@@ -73,6 +87,8 @@ describe.skipIf(!hasMotions)("course export 出课程包", () => {
   it("编排器过期、动图对不上、没打包：只出 JSON，删掉同名旧课程包", async () => {
     const d = dir("pkg-stale", "老夏");
     const pkg = join(d, "课程", "老夏-第1段-第1周-A日.html");
+    run({ YANGXIA_SEQUENCER: await fakeSequencer("stale-ok") }, "export", d, "1", "A");
+    const good = readFileSync(pkg, "utf8");   // 真的旧课程包
     for (const [env, why] of [
       [{ YANGXIA_SEQUENCER: await fakeSequencer("stale", { source: "0".repeat(64) }) }, /代码改过/],
       [{ YANGXIA_SEQUENCER: await fakeSequencer("motions", { motionsHash: "0".repeat(64) }) }, /动作示意动图和现在的模板不一样/],
@@ -80,7 +96,7 @@ describe.skipIf(!hasMotions)("course export 出课程包", () => {
       [{ YANGXIA_SEQUENCER: join(root, "没有.html") }, /没有找到打包好的编排器/],
     ] as const) {
       mkdirSync(join(d, "课程"), { recursive: true });
-      writeFileSync(pkg, "旧的课程包");
+      writeFileSync(pkg, good);
       const r = run(env, "export", d, "1", "A");
       expect(r.stdout).toMatch(/已导出：/);
       expect(r.stdout).toMatch(why);
@@ -88,6 +104,21 @@ describe.skipIf(!hasMotions)("course export 出课程包", () => {
       expect(existsSync(pkg)).toBe(false);
       expect(r.status).toBe(0);
     }
+  });
+
+  it("同名的文件不是养夏课程包：不删、不覆盖", async () => {
+    const seq = await fakeSequencer("mine");
+    const d = dir("pkg-mine");
+    const out = join(root, "pkg-mine-out", "report.json");
+    mkdirSync(join(root, "pkg-mine-out"), { recursive: true });
+    const mine = join(root, "pkg-mine-out", "report.html");
+    writeFileSync(mine, "我自己的网页");
+    const a = run({ YANGXIA_SEQUENCER: seq }, "export", d, "1", "A", "--out", out, "--no-package");
+    expect(a.stdout).toMatch(/不是养夏课程包，没有动它/);
+    expect(readFileSync(mine, "utf8")).toBe("我自己的网页");
+    const b = run({ YANGXIA_SEQUENCER: seq }, "export", d, "1", "A", "--out", out);
+    expect(b.stdout).toMatch(/已经有一个不是养夏课程包的文件，没有动它/);
+    expect(readFileSync(mine, "utf8")).toBe("我自己的网页");
   });
 
   it("--no-package 不出课程包；--out 的课程包同目录同名；半量课文件名带 -半量", async () => {
@@ -138,6 +169,21 @@ describe.skipIf(!hasMotions)("profile check 认课程包", () => {
     // 不是课程包
     writeFileSync(pkgPath, "<html>随便什么</html>");
     expect(run({}, "profile", "check", d).stdout).toMatch(/不是养夏课程包/);
+  });
+
+  it("以前几周的课程包：提醒可以删", async () => {
+    const seq = await fakeSequencer("old");
+    const d = dir("pkg-old", "旧", true);
+    run({ YANGXIA_SEQUENCER: seq }, "export", d, "2", "A");
+    const json = JSON.parse(readFileSync(join(d, "课程", "第1段-第2周-A日.json"), "utf8"));
+    const html = readFileSync(join(d, "课程", "旧-第1段-第2周-A日.html"), "utf8");
+    // 造一份"第 1 周"的课程和课程包（内容照第 2 周的改周次、重算 id）
+    const w1 = { ...json, id: courseIdFor(json.source.product, 1, "标准", 1, "A", false), source: { ...json.source, week: 1 } };
+    writeFileSync(join(d, "课程", "第1段-第1周-A日.json"), JSON.stringify(w1));
+    const { packCourse } = await import("../src/package.ts");
+    const plain = html.replace(/<script type="application\/json" id="yangxia-course"[^>]*>[\s\S]*?<\/script>/, '<script type="application/json" id="yangxia-course"></script>');
+    writeFileSync(join(d, "课程", "旧-第1段-第1周-A日.html"), packCourse(plain, w1, today).html!);
+    expect(run({}, "profile", "check", d).stdout).toMatch(/旧-第1段-第1周-A日\.html.*以前几周的课程包/);
   });
 });
 
@@ -234,6 +280,79 @@ describe.skipIf(!hasMotions)("profile import", () => {
     expect(dry.stdout).toMatch(/会写到：打卡/);
     expect(dry.stdout).toMatch(/今天腿有点酸/);
     expect(s.checkins()).toEqual([]);
+  });
+
+  it("--replace 不能把不适、手改过的课改成没有", async () => {
+    const s = await setup("down");
+    s.imp(s.file("a", s.rec({ symptoms: { pain: true, dizzy: false, chest: false }, edited: true })));
+    const [f] = s.checkins();
+    const r = s.imp(s.file("b", s.rec({ symptoms: { pain: false, dizzy: false, chest: false }, edited: true })), "--replace");
+    expect(r.stdout).toMatch(/旧记录里的疼痛不能改成没有/);
+    expect(r.status).toBe(1);
+    const e = s.imp(s.file("c", s.rec({ symptoms: { pain: true, dizzy: false, chest: false } })), "--replace");
+    expect(e.stdout).toMatch(/手改过的课不能改成没有/);
+    const saved = JSON.parse(readFileSync(join(s.d, "打卡", f), "utf8"));
+    expect(saved.symptoms.pain).toBe(true);
+    expect(saved.edited).toBe(true);
+    // 往上加不适照常可以
+    const up = s.imp(s.file("d", s.rec({ symptoms: { pain: true, dizzy: true, chest: false }, edited: true })), "--replace");
+    expect(up.stdout).toMatch(/原地覆盖/);
+  });
+
+  it("档案里的旧记录格式不对：不重复导入，提示先改好", async () => {
+    const s = await setup("broken");
+    s.imp(s.file("a", s.rec()));
+    const [f] = s.checkins();
+    const p = join(s.d, "打卡", f);
+    const bad = JSON.parse(readFileSync(p, "utf8"));
+    bad.course.source.who = "x";
+    writeFileSync(p, JSON.stringify(bad));
+    const r = s.imp(s.file("b", s.rec()));
+    expect(r.stdout).toMatch(/旧记录.*格式不对/);
+    expect(s.checkins()).toEqual([f]);
+  });
+
+  it("档案里没有这一周（id 照算）、不是文件、大于 1 MB、不适一栏写法不对：拦下", async () => {
+    const s = await setup("more");
+    const c = s.rec().course;
+    const w3 = s.rec({ course: { ...c, source: { ...c.source, week: 3 }, id: courseIdFor(c.source.product, c.source.segment, c.source.type, 3, c.source.day, false) } });
+    const a = s.imp(s.file("w3", w3));
+    expect(a.stdout).toMatch(/档案里没有这一段这一周/);
+    expect(s.imp(root).stdout).toMatch(/不是文件/);
+    const big = join(root, "more-big.json");
+    writeFileSync(big, " ".repeat(1024 * 1024 + 1));
+    expect(s.imp(big).stdout).toMatch(/大于 1 MB/);
+    const odd = s.imp(s.file("odd", s.rec({ symptoms: { pain: "是", dizzy: false, chest: false } })));
+    expect(odd.stdout).toMatch(/格式不对/);
+    expect(odd.stdout).toMatch(/不适那一栏没写或写法不对/);
+    expect(s.checkins()).toEqual([]);
+  });
+
+  it("半量课的记录导入后 half 还在；复盘过的那一周晚到的记录：档案检查报复盘要改", async () => {
+    const seq = await fakeSequencer("late");
+    const d = dir("imp-late", "imp-late", true);
+    run({ YANGXIA_SEQUENCER: seq }, "export", d, "2", "A", "--half", "--no-package");
+    const half = JSON.parse(readFileSync(join(d, "课程", "第1段-第2周-A日-半量.json"), "utf8")) as Course;
+    const startedH = new Date(Date.now() - 600_000);
+    const recH = buildSession(half, { startedAt: startedH, endedAt: new Date(), feeling: "正好", symptoms: { pain: false, dizzy: false, chest: false }, setsDone: {} });
+    const fh = join(root, "late-half.json");
+    writeFileSync(fh, JSON.stringify(recH));
+    const r = run({}, "profile", "import", d, fh);
+    expect(r.stdout, r.stdout).toMatch(/已导入/);
+    const saved = readdirSync(join(d, "打卡")).map((f) => JSON.parse(readFileSync(join(d, "打卡", f), "utf8")));
+    expect(saved[0].course.source.half).toBe(true);
+    // 第 1 周（已经复盘过，训练 0 次）晚到一份记录
+    const w1 = { ...half, id: courseIdFor(half.source.product, 1, "标准", 1, "A", false), source: { ...half.source, week: 1, half: undefined } };
+    delete (w1.source as Record<string, unknown>).half;
+    const started1 = new Date(Date.now() - 6 * 86_400_000);
+    const rec1 = buildSession(w1 as Course, { startedAt: started1, endedAt: new Date(started1.getTime() + 600_000), feeling: "正好",
+      symptoms: { pain: false, dizzy: false, chest: false }, setsDone: {} });
+    const f1 = join(root, "late-w1.json");
+    writeFileSync(f1, JSON.stringify(rec1));
+    const late = run({}, "profile", "import", d, f1);
+    expect(late.stdout, late.stdout).toMatch(/已导入/);
+    expect(late.stdout).toMatch(/档案检查有错误/);
+    expect(late.stdout).toMatch(/复盘/);
   });
 
   it("一批里有坏的：别的照样导入，退出码非 0", async () => {

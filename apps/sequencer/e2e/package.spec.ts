@@ -42,6 +42,17 @@ test("打包好的编排器：标记和空嵌入块各恰好一个", () => {
   expect(html).toMatch(/<script type="application\/json" id="yangxia-course"><\/script>/);
 });
 
+test("打包标记和 course export 用同一个算法：源码哈希、动图哈希都对得上", async () => {
+  const stamp = (await import(new URL("../../../scripts/sequencer-stamp.mjs", import.meta.url).href)) as {
+    sourceHash: () => string | null; motionsHash: (t: string) => string;
+  };
+  const info = packageInfo(plain.toString("utf8")).info!;
+  expect(info.source).toBe(stamp.sourceHash());
+  const motions = readFileSync(new URL("../../../contracts/fixtures/data/motions.json", import.meta.url), "utf8");
+  expect(info.motionsHash).toBe(stamp.motionsHash(motions));
+  expect(info.motions).toBe((JSON.parse(motions) as { version: string }).version);
+});
+
 test("课程包：断网打开就是这节课，能练、能保存记录、能导出字幕", async ({ page, context }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
