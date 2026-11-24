@@ -99,6 +99,12 @@
       "type": "string",
       "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
     },
+    "timezone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "可选：档案所属的 IANA 时区名（如 Asia/Shanghai）；用于按使用者所在时区算今天、周次边界和练习记录日期，不依赖服务器系统时区"
+    },
     "screening": {
       "type": "object",
       "required": [

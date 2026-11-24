@@ -3,18 +3,18 @@
 // 只生成现在这一周的单子；profile check 把现在这一周和以前几周的单子都按档案重新生成、逐字比对
 // （以前几周的按那一周、生成时的进度重新生成；对不上就删掉——以前几周的单子不用留）。
 import { type AssessContext, assessRules, cardioMode, fallRiskList, productInfo } from "./assess.ts";
+import { addDays } from "./date.ts";
 import { bodySheetLines, goalSheetLines, severeObese } from "./goals.ts";
 import { activeAddOns, addOnSheetLines } from "./senior.ts";
 import { currentSegment, exportCourse, maxWeek, planType, ROUND_WEEKS, roundWeek } from "./plan.ts";
 import { DECLARATION } from "./profile.ts";
-import { localDate, progressOn } from "./progress.ts";
+import { progressOn } from "./progress.ts";
 import { itemSpec } from "./timeline.ts";
 import type { Issue } from "./types.ts";
 
 type Obj = Record<string, any>;
 const MARK = /^<!-- 养夏计划单 段=(\d+) 周=(\d+) 开始=(\d{4}-\d{2}-\d{2}) 模板=(\S+) 进度=(\d{4}-\d{2}-\d{2}\/\d+) -->$/m;
 const FILE = /(?:^|[\\/])第(\d+)段-第(\d+)周\.md$/;
-const addDays = (d: string, n: number) => localDate(new Date(new Date(`${d}T12:00:00`).getTime() + n * 86_400_000));
 
 /** 计划单的文件名（相对档案目录）。 */
 export const sheetFile = (segment: number, week: number) => `计划/第${segment}段-第${week}周.md`;
@@ -158,7 +158,7 @@ export function checkSheet(ctx: AssessContext, name: string, text: string): Issu
   const snapLog = log.slice(0, count);
   const snap = { ...ctx.profile, progressLog: snapLog };
   const okSnap = count <= log.length && progressDate(snap) === mark.progress;
-  const thenProgress = okSnap ? progressOn(snap, ctx.plans, ctx.rules, mark.progress.split("/")[0], ctx.now) : null;
+  const thenProgress = okSnap ? progressOn(snap, ctx.plans, ctx.rules, mark.progress.split("/")[0], ctx.now, ctx.timeZone) : null;
   const madeThen = thenProgress ? buildSheet({ ...ctx, profile: at({ ...snap, progress: thenProgress }) }).text : null;
   if (!isNow) return madeThen === text ? [] : err(`以前几周的计划单和按当时的档案重新生成的不一样（手改过，或者条件、复盘、筛查后来变了）：${drop}`);
   const madeNow = buildSheet(ctx).text;

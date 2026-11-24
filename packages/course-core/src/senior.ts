@@ -2,6 +2,7 @@
 // 医生同意（addClear）以后，一轮的第 1 周最多加一项（addOnLog），训练单不动、导出时按 rules.stable.addOns 改坐站起的上限或组数。
 // 设计值 A65_ADD_ONE、A65_ADD_REPS、A65_ADD_CLEAR；摔倒、头晕的轮末处理在 assess.ts（A65_STABLE_FALL）。
 import { type AssessContext, assessRules, cycleHold, param, productInfo } from "./assess.ts";
+import { addDays } from "./date.ts";
 import { clearValid } from "./goals.ts";
 import { type AddOnDef, addOnDefs, addOnsFromLog, roundWeek } from "./plan.ts";
 import { reviewDataName, type SegmentEntry } from "./progress.ts";
@@ -150,10 +151,7 @@ const defsMax = (ctx: AssessContext, code: string) => {
   const v = ctx.rules?.stable?.params.find((x) => x.name === "加项每轮最多" && x.products.includes(code))?.number;
   return typeof v === "number" ? v : 1;
 };
-const prevDay = (d: string) => {
-  const t = new Date(`${d}T12:00:00Z`).getTime() - 86_400_000;
-  return new Date(t).toISOString().slice(0, 10);
-};
+const prevDay = (d: string) => addDays(d, -1);
 
 /** 计划单上加项的几行（65 岁以上稳定期才有）。 */
 export function addOnSheetLines(ctx: AssessContext, index: number): string[] {

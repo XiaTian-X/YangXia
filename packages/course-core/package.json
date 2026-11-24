@@ -2,13 +2,16 @@
   "name": "@yangxia/course-core",
   "version": "0.1.0",
   "private": true,
-  "description": "养夏课程核心库：课程格式、节奏、时间轴、字幕、课程检查（零运行时依赖）",
+  "description": "养夏课程核心库：课程格式、节奏、时间轴、字幕、课程检查、规则引擎（零运行时依赖）",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./player": "./src/player.ts",
+    "./node": "./src/node.ts"
   },
   "scripts": {
     "typecheck": "tsc -p .",
+    "build:player": "vite build -c vite.player.config.ts",
     "test": "vitest run --root ."
   }
 }

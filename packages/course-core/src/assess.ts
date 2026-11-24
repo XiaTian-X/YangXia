@@ -2,12 +2,13 @@
 // 参数全部来自模板 rules.json 的 assess、nextRound、habits（content/rules/评估.md、下一轮.md、打卡.md），
 // BMI 切点来自 manifest 的官方参数（BMI_CN、WEIGHT_LOW_CN）。结论由这里重算，评估记录里写的结论对不上就报错。
 // 稳定期（阶段 3）：周期末结论照 rules.json 的 stable.nextCycle 重算；进稳定期的两条路、有氧稳态 / 间歇（cardio）也在这里。
+import { addDays, dateInZone, daysBetween, resolveTimeZone } from "./date.ts";
 import type { Manifest } from "./manifest.ts";
 import { habitPassWeeks, type PlansData, ROUND_WEEKS, roundWeek, type RulesData, stableParam } from "./plan.ts";
 import { fallRiskConclusion, fallRiskIssues, fallRiskRules, validateFallRisk, validateOfficial } from "./fallrisk.ts";
 import { bodyStateOn, cycleGoals, goalRules, lastWeighed, validateGoalFields, validateGoalRecord } from "./goals.ts";
 import { validateAddFields } from "./senior.ts";
-import { gapBefore, localDate, longGapDays, reviewDataName, type SegmentEntry, type SessionFile, trainingDates } from "./progress.ts";
+import { gapBefore, longGapDays, reviewDataName, type SegmentEntry, type SessionFile, trainingDates } from "./progress.ts";
 import type { Issue } from "./types.ts";
 
 type Obj = Record<string, any>;
@@ -23,10 +24,9 @@ const BIKE = ["稳态分钟", "间歇轮数"];
 const BODY_AGES = ["a18", "a40"];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
-const DAY = 86_400_000;
-const dayStart = (d: string) => new Date(`${d}T00:00:00`).getTime();
-const addDays = (d: string, n: number) => localDate(new Date(dayStart(d) + n * DAY + 12 * 3_600_000));
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
+const ctxTz = (ctx: { timeZone?: string; profile?: Obj }) => resolveTimeZone(ctx.timeZone, ctx.profile);
+const ctxToday = (ctx: { now?: Date; timeZone?: string; profile?: Obj }) => dateInZone(ctx.now ?? new Date(), ctxTz(ctx));
 
 // ---------- 模板参数 ----------
 
@@ -424,7 +424,7 @@ function extrasStep(next: NextRule[], code: string, habit: string): number | und
 
 // ---------- 整个档案目录的评估核对 ----------
 
-export interface AssessFile { name: string; raw: Obj }
+export interface AssessFile { name: string; raw: Obj; archived?: boolean; archivedSegment?: number }
 export interface AssessContext {
   profile: Obj;
   manifest: Manifest;
@@ -434,6 +434,7 @@ export interface AssessContext {
   reviewData: Record<string, Obj>;
   assessments: AssessFile[];
   now?: Date;
+  timeZone?: string;
 }
 
 const sameJson = (x: unknown, y: unknown) => JSON.stringify(sortKeys(x ?? {})) === JSON.stringify(sortKeys(y ?? {}));
@@ -486,7 +487,7 @@ export function doctorEvents(ctx: AssessContext): DoctorEvent[] {
   const ss = (p.segments ?? []) as SegmentEntry[];
   const cur = ss.length ? productInfo(ctx.manifest, ss[ss.length - 1].product) : null;
   // 65 岁以上按人的年龄（满 65 岁当月起），不只看成品年龄段（阶段 3c 第五节）
-  const today = localDate(ctx.now ?? new Date());
+  const today = ctxToday(ctx);
   const age = personAge(ctx, today) === "a65" ? "a65" : cur?.age ?? p.age;
   const ev: DoctorEvent[] = [];
   const sd = typeof sc.date === "string" ? sc.date : "";
@@ -500,7 +501,7 @@ export function doctorEvents(ctx: AssessContext): DoctorEvent[] {
   if (age === "a65") for (const d of fallDates(ctx)) ev.push({ date: d, reason: "摔倒过" });
   // 跌倒风险自查：一年内的每一份，跌倒过、高风险的都要先问医生（医生同意不早于那份问卷）
   for (const fr of fallRiskList(ctx)) {
-    if (fr.conclusion.doctorFirst && fr.askedOn <= today && (dayStart(today) - dayStart(fr.askedOn)) / DAY <= 365) ev.push({ date: fr.askedOn, reason: FALL_REASON });
+    if (fr.conclusion.doctorFirst && fr.askedOn <= today && daysBetween(today, fr.askedOn) <= 365) ev.push({ date: fr.askedOn, reason: FALL_REASON });
   }
   return ev.filter((e) => e.date).sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
 }
@@ -789,8 +790,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
     warn("档案.json", "模板还没有评估规则（rules.json 的 assess）：评估、跨段、中断都没核对，先更新模板");
     return out;
   }
-  const now = ctx.now ?? new Date();
-  const today = localDate(now);
+  const today = ctxToday(ctx);
   const A = ctx.assessments;
   const byKind = (k: string) => A.filter((a) => a.raw?.kind === k);
   const fileName = (a: AssessFile) => a.name.replace(/^.*[\\/]/, "");
@@ -1093,12 +1093,12 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
   // 4. 满一年复筛、医生同意、摔倒、体重下降、生病换药
   const code = segCode(ctx.manifest, last.product);
   const yearDays = param(ar.assess, "筛查有效天数", code)?.number;
-  if (sd && yearDays !== undefined && (dayStart(today) - dayStart(sd)) / DAY > yearDays) {
+  if (sd && yearDays !== undefined && daysBetween(today, sd) > yearDays) {
     err("档案.json screening.date", `安全筛查是 ${sd} 做的，已经超过 ${yearDays} 天：做触发评估（满一年），重做筛查${curInfo?.age === "a65" ? "，也问医生做一次跌倒风险评估" : ""}`);
   }
   const a65Now = curInfo?.age === "a65" || personAge(ctx, today) === "a65";
   if (a65Now) {
-    const recent = fallDates(ctx).filter((d) => (dayStart(today) - dayStart(d)) / DAY <= 365);
+    const recent = fallDates(ctx).filter((d) => daysBetween(today, d) <= 365);
     const lastFall = recent[recent.length - 1];
     if (lastFall) {
       const it = screeningItem(p, /摔倒/);
@@ -1138,7 +1138,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       if (same) err(`${a.name} fallRisk`, `${why}要重新做一次问卷：这份问卷和 ${same.name} 那份一模一样（${fr.askedOn}），不能照抄；两件事一起的，写成一份记录`);
     }
     const all = fallRiskList(ctx);
-    const within = (x: string) => x <= today && (dayStart(today) - dayStart(x)) / DAY <= 365;
+    const within = (x: string) => x <= today && daysBetween(today, x) <= 365;
     const recent = all.filter((x) => within(x.askedOn));
     const falls = fallDates(ctx);
     for (const fr of all) {
@@ -1151,7 +1151,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
         err(`${name} fallRisk.dizzy`, raw.dizzy ? `问卷说经常头晕，安全筛查"${dz.item}"却是"否"：人现在经常头晕，照实重做安全筛查` : `问卷之前做的安全筛查"${dz.item}"是"是"，问卷却说不经常头晕：照实答（经常头晕的不在家测步态）`);
       }
       // 问卷之后几天重做的筛查对头晕答得不一样：前后矛盾，提醒再确认（问卷那天自己说不头晕、当天测的步态不算违规）
-      if (dz && sd && sd > askedOn && (dayStart(sd) - dayStart(askedOn)) / DAY <= 7 && typeof raw.dizzy === "boolean" && raw.dizzy !== (dz.answer === "是")) {
+      if (dz && sd && sd > askedOn && daysBetween(sd, askedOn) <= 7 && typeof raw.dizzy === "boolean" && raw.dizzy !== (dz.answer === "是")) {
         warn(`${name} fallRisk.dizzy`, `问卷（${askedOn}）说${raw.dizzy ? "" : "不"}经常头晕，几天后的安全筛查（${sd}）"${dz.item}"却是"${dz.answer}"：照实再确认；经常头晕的不在家测步态，测过的告诉医生`);
       }
       if (dz?.answer === "是" && sd) {
@@ -1164,18 +1164,18 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       // 和档案对得上（问卷照实答）：问卷之前 12 个月里档案记着的摔倒，一次一项。
       // 问卷那天的摔倒分不清先后：说跌倒过的算上（"2 次以上"要照实），说没跌倒过的不追溯（之后要有一份新的问卷，见下面）
       const fellNow = raw.general?.fell === true;
-      const before = falls.filter((x) => (x < askedOn || (x === askedOn && fellNow)) && (dayStart(askedOn) - dayStart(x)) / DAY <= 365);
+      const before = falls.filter((x) => (x < askedOn || (x === askedOn && fellNow)) && daysBetween(askedOn, x) <= 365);
       if (before.length && raw.general?.fell === false) err(`${name} fallRisk.general.fell`, `档案里 ${before[before.length - 1]} 摔倒过，"在过去 12 个月内，你是否跌倒过？"却答了"否"：照实答`);
       if (before.length >= 2 && raw.severity?.twoPlus === false) err(`${name} fallRisk.severity.twoPlus`, `档案里过去 12 个月摔倒过 ${before.length} 次，"跌倒的次数是否大于等于 2 次"却答了"否"：照实答`);
       // 前一份说一年内跌倒过、不到一年的后一份说没有：档案里没有建档以前那次摔倒的日期，只提醒
-      const prevFell = all.find((x) => x.askedOn < askedOn && x.file.raw.fallRisk.general?.fell === true && (dayStart(askedOn) - dayStart(x.askedOn)) / DAY <= 365);
+      const prevFell = all.find((x) => x.askedOn < askedOn && x.file.raw.fallRisk.general?.fell === true && daysBetween(askedOn, x.askedOn) <= 365);
       if (prevFell && raw.general?.fell === false) warn(`${name} fallRisk.general.fell`, `${prevFell.askedOn} 那份自查说过去 12 个月跌倒过，这一份却说没有：那次摔倒要是在 ${askedOn} 之前 12 个月以内，照实改成"是"`);
       // 先问医生：医生看过这份结果（fallRiskSeen），同意的日期在问卷之后 askedValidDays 天以内——每一份分别核对，新问卷盖不掉旧问卷
       const c = fr.conclusion;
       if (c.doctorFirst) {
         const seen = A.filter((a) => a.raw?.fallRiskSeen === true && typeof a.raw.date === "string" && a.raw.date >= askedOn);
         const cleared = seen.filter((a) => a.raw.doctorCleared === true && typeof a.raw.doctorDate === "string");
-        const inTime = cleared.some((a) => a.raw.doctorDate >= askedOn && (dayStart(a.raw.doctorDate) - dayStart(askedOn)) / DAY <= rr.askedValidDays);
+        const inTime = cleared.some((a) => a.raw.doctorDate >= askedOn && daysBetween(a.raw.doctorDate, askedOn) <= rr.askedValidDays);
         const what = c.officialNeeded ? "过去 12 个月内跌倒过" : "是高风险";
         if (!seen.length) err(name, `跌倒风险自查${what}——先带着结果问医生，这份记录或之后的"看完医生回来"写 fallRiskSeen: true（医生看过这份自查结果），之前不出计划`);
         else if (!cleared.length) err(name, `跌倒风险自查${what}：医生看过结果、同意练以后（写 fallRiskSeen 的那份记录记 doctorCleared、doctorDate）才出计划`);
@@ -1187,13 +1187,13 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
     if (fellRec) {
       const lastFall = falls.filter((d) => d <= today).pop();
       const ok = A.some((a) => isObj(a.raw?.official) && a.raw.official.afterFall === true && typeof a.raw.official.date === "string"
-        && a.raw.official.date <= today && (!lastFall || a.raw.official.date >= lastFall) && (dayStart(today) - dayStart(a.raw.official.date)) / DAY <= 365);
+        && a.raw.official.date <= today && (!lastFall || a.raw.official.date >= lastFall) && daysBetween(today, a.raw.official.date) <= 365);
       if (!ok) err(fellRec.file.name, `过去 12 个月内跌倒过：先去医生或社区卫生服务中心做一次正式的跌倒风险评估（要在${lastFall ? ` ${lastFall} 那次` : "最近一次"}摔倒之后），记 official { date, afterFall: true }；医生同意以后才出计划`);
     }
     // 高风险（不是因为跌倒过）：问卷之后 1～3 个月提醒随访
     for (const fr of recent) {
       if (fr.conclusion.effective !== "高" || fr.conclusion.officialNeeded) continue;
-      const days = (dayStart(today) - dayStart(fr.askedOn)) / DAY;
+      const days = daysBetween(today, fr.askedOn);
       const followed = A.some((a) => isObj(a.raw?.official) && typeof a.raw.official.date === "string" && a.raw.official.date > fr.askedOn);
       if (days >= rr.highFollowup.min && !followed) warn(fr.file.name, `跌倒风险自查是高风险（${fr.askedOn}）：官方标准建议 1～3 个月后随访一次、再次评估——问问医生或社区卫生服务中心`);
     }
@@ -1224,7 +1224,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
   const drops = [
     ...ss.filter((s) => ctx.reviewData[reviewDataName(s)]?.weightDrop === true).map((s) => s.start),
     ...A.filter((a) => a.raw?.weightDrop === true).map((a) => a.raw.date as string),
-  ].filter((d) => (dayStart(today) - dayStart(d)) / DAY <= 365).sort();
+  ].filter((d) => daysBetween(today, d) <= 365).sort();
   if (drops.length && a65Now) {
     const it = screeningItem(p, /体重/);
     const d = drops[drops.length - 1];
@@ -1246,7 +1246,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
   // BMI：只看最近一次筛查以后称的体重（评估里量的、减脂复盘里称的；称的那天是"记"）——筛查以前的旧体重不拿来推翻后来的筛查答案，
   // 改成不记也躲不开筛查以后量过的。评估里量的和复盘里称的分开核对：评估里量到 28 以上照实改筛查（报错），
   // 复盘称到的只提醒、下一次评估确认（一次周称重不停训练），复盘的提醒不顶掉评估的报错
-  const todayB = localDate(ctx.now ?? new Date());
+  const todayB = ctxToday(ctx);
   type Weighed = ReturnType<typeof lastWeighed>;
   const afterScreen = (w: Weighed): Weighed => (w && (!sd || w.date >= sd) ? w : null);
   const lastA = afterScreen(lastWeighed(ctx, todayB, "评估"));
@@ -1284,7 +1284,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       // 6–12 岁没有"训练"这一项：升初中以后，那几周不出这条提醒（CROSS_FAMILY_RESET）
       if (rv && rv.trainings === 0 && productInfo(ctx.manifest, s.product)?.age !== "a06") warn(`复盘/${reviewDataName(s)}`, "这一周没有训练：回来第一次只做一半的量（course export 加 --half）");
     });
-    const trained = trainingDates(ss, ctx.sessions, ctx.reviewData, today);
+    const trained = trainingDates(ss, ctx.sessions, ctx.reviewData, today, ctxTz(ctx));
     const longDays = ctx.rules ? longGapDays(ctx.rules, code) : 28;
     for (const a of A.filter((x) => hasReason(x, "中断"))) {
       const d = gapBefore(trained, gapBase(ctx), a.raw.date);
@@ -1298,7 +1298,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       if (from < 0 || phaseOf(ss[from]) !== "稳定") continue;
       const info2 = productInfo(ctx.manifest, ss[from].product);
       const limit = info2 ? stableParam(ctx.rules, info2.code, "回起始期的中断天数")?.number : undefined;
-      const days = Math.round((dayStart(trained[k]) - dayStart(trained[k - 1])) / DAY);
+      const days = daysBetween(trained[k], trained[k - 1]);
       if (limit === undefined || days <= limit) continue;
       // 断了以后：第一项起始期，或者第一项真的练过的（中间 0 次、重复本周的那几周跳过）
       const trainedIn = (j: number) => trained.some((d) => d >= ss[j].start && d < (j + 1 < ss.length ? ss[j + 1].start : "9999-12-31"));
@@ -1349,9 +1349,9 @@ export function gap(ctx: AssessContext, code: string, today: string): { last: st
   if (remindDays === undefined || longDays === undefined) return null;
   const ss = ctx.profile.segments as SegmentEntry[];
   // 这一周有练习记录的，以练习记录为准；没有的，按这一周开始后的第 7 天算（trainingDates）；6–12 岁那几段不算（CROSS_FAMILY_RESET）
-  const dates = [gapBase(ctx), ...trainingDates(ss, ctx.sessions, ctx.reviewData, today)];
+  const dates = [gapBase(ctx), ...trainingDates(ss, ctx.sessions, ctx.reviewData, today, ctxTz(ctx))];
   const last = dates.sort().pop()!;
-  const days = Math.round((dayStart(today) - dayStart(last)) / DAY);
+  const days = daysBetween(today, last);
   return { last, days, remindDays, longDays, long: days > longDays };
 }
 
@@ -1408,7 +1408,7 @@ export function cardioMode(rules: RulesData | null, profile: Obj, product: { cod
 export function balanceHold(ctx: AssessContext): boolean {
   const ss = (ctx.profile.segments ?? []) as SegmentEntry[];
   const cur = ss.length ? productInfo(ctx.manifest, ss[ss.length - 1].product) : null;
-  if (cur?.age !== "a65" && personAge(ctx, localDate(ctx.now ?? new Date())) !== "a65") return false;
+  if (cur?.age !== "a65" && personAge(ctx, ctxToday(ctx)) !== "a65") return false;
   const falls = fallDates(ctx);
   if (!falls.length) return false;
   const dd = ctx.profile.screening?.doctorDate;

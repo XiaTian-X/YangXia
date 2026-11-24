@@ -3,6 +3,7 @@
 // - 每一周结束都有周复盘（复盘/<开始日期>-第N周.md 和同名 .json），不复盘不能进下一周；
 // - 一周里有疼痛、头晕、胸闷，下一周不能往上走，这一周之后的进度也不能往上加；
 // - 进度只能照成品的规则改（找级、升级、加次数、加重各有允许的周和依据），一次只改一样，重放日志要等于档案的 progress。
+import { addDays, dateInZone, daysBetween, resolveTimeZone } from "./date.ts";
 import { addOnsFromLog, allowedLevels, currentSegment, planType, type PlansData, progressRow, ROUND_WEEKS, roundOf, roundWeek, ruleValue, type RulesData, stableParam, startLevel } from "./plan.ts";
 import { validateGoalReview } from "./goals.ts";
 import type { Issue } from "./types.ts";
@@ -32,18 +33,18 @@ const TYPES = ["标准", "减量"];
 export const reviewName = (e: { start: string; week: number }) => `${e.start}-第${e.week}周.md`;
 export const reviewDataName = (e: { start: string; week: number }) => `${e.start}-第${e.week}周.json`;
 
-const DAY = 86_400_000;
-/** 本地时区的这一天 0 点。 */
-const dayStart = (d: string) => new Date(`${d}T00:00:00`).getTime();
-const localDate = (t: Date) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
-const localToday = (now: Date) => dayStart(localDate(now));
+/** 瞬时时间转指定时区（未传时按进程本地时区）的 YYYY-MM-DD。 */
+const localDate = (t: Date, timeZone?: string) => dateInZone(t, timeZone);
 
 /**
  * segments 的结构：至少一段；第一段是第 1 段第 1 周、从 startDate 开始；每一周至少 7 天、开始日期最晚是明天；
  * 同一段里每次最多推进一周、成品和段型不变；新开一段（n 加 1）从第 1 周开始，只能在上一段第 4 周之后或者换成品时；
  * 最后一段的成品就是档案的 product。旧的 week、round、weeks 不再用。
  */
-export function validateSegments(p: Obj, now = new Date()): Issue[] {
+export function validateSegments(p: Obj, now = new Date(), timeZone?: string): Issue[] {
+  const tz = resolveTimeZone(timeZone, p);
+  const today = dateInZone(now, tz);
+  const tomorrow = addDays(today, 1);
   const out: Issue[] = [];
   const err = (path: string, message: string) => out.push({ level: "error", path, message });
   for (const k of ["week", "round", "weeks"]) {
@@ -74,8 +75,8 @@ export function validateSegments(p: Obj, now = new Date()): Issue[] {
   for (let i = 1; i < ss.length; i++) {
     const s = ss[i] as SegmentEntry;
     const prev = ss[i - 1] as SegmentEntry;
-    if (dayStart(s.start) - dayStart(prev.start) < 7 * DAY) err(`segments[${i}].start`, `每一周至少练 7 天：上一周 ${prev.start} 开始，这一周最早 7 天后开始`);
-    if (dayStart(s.start) > localToday(now) + DAY) err(`segments[${i}].start`, `开始日期 ${s.start} 还没到：周复盘做完才追加下一周，最早从明天开始`);
+    if (daysBetween(s.start, prev.start) < 7) err(`segments[${i}].start`, `每一周至少练 7 天：上一周 ${prev.start} 开始，这一周最早 7 天后开始`);
+    if (s.start > tomorrow) err(`segments[${i}].start`, `开始日期 ${s.start} 还没到：周复盘做完才追加下一周，最早从明天开始`);
     if (s.n === prev.n) {
       if (s.product !== prev.product || s.type !== prev.type || (s.phase ?? "起始") !== (prev.phase ?? "起始")) err(`segments[${i}]`, "同一段里成品、段型、阶段不变；换成品、换段型要新开一段（n 加 1）");
       if (s.week > prev.week + 1) err(`segments[${i}].week`, `从第 ${prev.week} 周不能直接跳到第 ${s.week} 周：每次最多推进一周`);
@@ -96,6 +97,7 @@ export interface SessionFile {
   name: string;
   raw: Obj;
   archived?: boolean;
+  archivedSegment?: number;
 }
 
 const symptomatic = (raw: Obj) => {
@@ -103,10 +105,16 @@ const symptomatic = (raw: Obj) => {
   return !!s && !!(s.pain || s.dizzy || s.chest);
 };
 
-/** 某个时间落在 segments 的哪一项（周）；早于第一项返回 -1。 */
-function periodIndex(ss: SegmentEntry[], t: number): number {
-  for (let i = ss.length - 1; i >= 0; i--) if (t >= dayStart(ss[i].start)) return i;
+/** 某个日历日（YYYY-MM-DD）落在 segments 的哪一项（周）；早于第一项返回 -1。 */
+function periodIndexForDate(ss: SegmentEntry[], ymd: string): number {
+  for (let i = ss.length - 1; i >= 0; i--) if (ymd >= ss[i].start) return i;
   return -1;
+}
+
+/** 某个瞬时时间（ms）按档案时区落在 segments 的哪一项（周）；早于第一项返回 -1。 */
+function periodIndex(ss: SegmentEntry[], t: number, timeZone?: string): number {
+  if (Number.isNaN(t)) return -1;
+  return periodIndexForDate(ss, dateInZone(new Date(t), timeZone));
 }
 
 /**
@@ -115,12 +123,12 @@ function periodIndex(ss: SegmentEntry[], t: number): number {
  * 这样算出的中断会少几天——找级、"不算长时间中断"这类往上的放得更紧，"超过 28 天先做触发评估"会晚几天报；没有练习记录就只能这样）。
  * 升序、不重复。
  */
-export function trainingDates(ss: SegmentEntry[], sessions: SessionFile[], reviewData: Record<string, Obj>, today: string): string[] {
+export function trainingDates(ss: SegmentEntry[], sessions: SessionFile[], reviewData: Record<string, Obj>, today: string, timeZone?: string): string[] {
   const dates = new Set<string>();
   const sessionDates: string[] = [];
   for (const s of sessions) {
     const t = Date.parse(s.raw?.startedAt);
-    if (!Number.isNaN(t)) sessionDates.push(localDate(new Date(t)));
+    if (!Number.isNaN(t)) sessionDates.push(dateInZone(new Date(t), timeZone));
   }
   for (const d of sessionDates) dates.add(d);
   ss.forEach((s, i) => {
@@ -128,7 +136,7 @@ export function trainingDates(ss: SegmentEntry[], sessions: SessionFile[], revie
     if (!(rv && rv.trainings > 0)) return;
     const next = i + 1 < ss.length ? ss[i + 1].start : "9999-12-31";
     if (sessionDates.some((d) => d >= s.start && d < next)) return;
-    const end = localDate(new Date(dayStart(s.start) + 6 * DAY + DAY / 2));
+    const end = addDays(s.start, 6);
     dates.add(end < today ? end : today);
   });
   return [...dates].sort();
@@ -141,17 +149,18 @@ export function trainingDates(ss: SegmentEntry[], sessions: SessionFile[], revie
  * - 某一周有不适，同一段的下一周不能比它高；
  * - 练习记录练的周次比当时高：提醒。
  */
-export function checkProgress(profile: Obj, sessions: SessionFile[], reviews: string[], now = new Date(), reviewData: Record<string, Obj> = {}): Issue[] {
+export function checkProgress(profile: Obj, sessions: SessionFile[], reviews: string[], now = new Date(), reviewData: Record<string, Obj> = {}, timeZone?: string): Issue[] {
+  const tz = resolveTimeZone(timeZone, profile);
   const out: Issue[] = [];
   const ss = profile.segments as SegmentEntry[];
-  if (!Array.isArray(ss) || validateSegments(profile, now).some((i) => i.level === "error")) return out;
+  if (!Array.isArray(ss) || validateSegments(profile, now, tz).some((i) => i.level === "error")) return out;
   const sick = new Set<number>();
   const halfWeeks = new Set<number>();
   const count = new Map<number, number>();
   for (const s of sessions) {
     const t = Date.parse(s.raw?.startedAt);
     if (Number.isNaN(t)) continue;
-    const i = periodIndex(ss, t);
+    const i = periodIndex(ss, t, tz);
     if (i < 0) {
       if (!s.archived) out.push({ level: "warning", path: s.name, message: `练习记录早于开始日期 ${ss[0].start}，不算进任何一周` });
       continue;
@@ -247,7 +256,7 @@ export function longGapDays(rules: RulesData, code: string): number {
 export function gapBefore(trained: string[], start: string, date: string): number {
   const before = trained.filter((d) => d < date);
   const last = before.length ? before[before.length - 1] : start;
-  return Math.round((dayStart(date) - dayStart(last)) / DAY);
+  return daysBetween(date, last);
 }
 
 type State = Record<string, Partial<Record<Field, number>> & { product?: Partial<Record<Field, string>> }>;
@@ -261,23 +270,26 @@ type State = Record<string, Partial<Record<Field, number>> & { product?: Partial
  * - 练习记录当依据：日期不晚于这条改动，在规定的周里，不是手改过的课程（edited），这个动作练过（setsDone > 0）；
  * - 复盘数据当依据：必须是紧挨着的上一周的复盘，那一周不能有不适。
  */
-export function checkProgressLog(profile: Obj, plans: PlansData, rules: RulesData, sessions: SessionFile[], reviewData: Record<string, Obj>, now = new Date(), assessments: { raw: Obj }[] = []): Issue[] {
-  return replayProgress(profile, plans, rules, sessions, reviewData, now, false, assessments).issues;
+export function checkProgressLog(profile: Obj, plans: PlansData, rules: RulesData, sessions: SessionFile[], reviewData: Record<string, Obj>, now = new Date(), assessments: { raw: Obj }[] = [], timeZone?: string): Issue[] {
+  return replayProgress(profile, plans, rules, sessions, reviewData, now, false, assessments, timeZone).issues;
 }
 
 /** 重放到某一天为止的进度（不核对规则），给"档案进度变了，旧课程是按哪一天的进度导出的"用。 */
-export function progressOn(profile: Obj, plans: PlansData, rules: RulesData, date: string, now = new Date()): Obj {
+export function progressOn(profile: Obj, plans: PlansData, rules: RulesData, date: string, now = new Date(), timeZone?: string): Obj {
   const p = { ...profile, progressLog: (profile.progressLog ?? []).filter((e: Obj) => typeof e?.date === "string" && e.date <= date) };
-  return replayProgress(p, plans, rules, [], {}, now, true).state;
+  return replayProgress(p, plans, rules, [], {}, now, true, [], timeZone).state;
 }
 
-function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessions: SessionFile[], reviewData: Record<string, Obj>, now: Date, quiet = false, assessments: { raw: Obj }[] = []): { issues: Issue[]; state: Obj } {
+function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessions: SessionFile[], reviewData: Record<string, Obj>, now: Date, quiet = false, assessments: { raw: Obj }[] = [], timeZone?: string): { issues: Issue[]; state: Obj } {
+  const tz = resolveTimeZone(timeZone, profile);
+  const today = dateInZone(now, tz);
+  const tomorrow = addDays(today, 1);
   const out: Issue[] = [];
   const err = (i: number, message: string) => out.push({ level: "error", path: `progressLog[${i}]`, message });
   const ss = profile.segments as SegmentEntry[];
   const state: State = {};
   const plainState = () => Object.fromEntries(Object.entries(state).map(([k, v]) => [k, Object.fromEntries(FIELDS.filter((f) => v[f] !== undefined).map((f) => [f, v[f]]))]));
-  if (!Array.isArray(ss) || validateSegments(profile, now).some((x) => x.level === "error") || validateProgressShape(profile).length) return { issues: out, state: plainState() };
+  if (!Array.isArray(ss) || validateSegments(profile, now, tz).some((x) => x.level === "error") || validateProgressShape(profile).length) return { issues: out, state: plainState() };
   if (!quiet) {
     for (const name of Object.keys(profile.conditions ?? {})) {
       if (!rules.conditions[name]) out.push({ level: "error", path: `conditions.${name}`, message: `模板的规则层没有条件「${name}」（有：${Object.keys(rules.conditions).join("、")}）` });
@@ -301,10 +313,14 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
     const idx = (y: SegmentEntry) => (stableOf(y) ? Math.floor((y.week - 1) / ROUND_WEEKS) : 0);
     return ss.findIndex((y) => y.n === x.n && idx(y) === idx(x));
   };
-  const trained = trainingDates(ss, sessions, reviewData, localDate(now));
+  const trained = trainingDates(ss, sessions, reviewData, today, tz);
   const lateUp = new Set<string>();               // 40–64 岁"下一轮升级"：这一轮已经按上一轮的复盘升过的动作
   const sessionAt = (name: string) => sessions.find((s) => s.name === name || s.name.endsWith(`/${name}`));
-  const sessionPeriod = (s: SessionFile) => periodIndex(ss, Date.parse(s.raw?.startedAt));
+  const sessionDate = (s: SessionFile) => {
+    const ms = Date.parse(s.raw?.startedAt);
+    return Number.isNaN(ms) ? null : dateInZone(new Date(ms), tz);
+  };
+  const sessionPeriod = (s: SessionFile) => periodIndex(ss, Date.parse(s.raw?.startedAt), tz);
   const sickPeriods = new Set<number>();
   for (const s of sessions) {
     const i = sessionPeriod(s);
@@ -315,12 +331,11 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
   });
   for (const e of log) {
     const i = e._i as number;
-    const t = dayStart(e.date);
-    if (t < dayStart(ss[0].start) || t > localToday(now) + DAY) {
+    if (e.date < ss[0].start || e.date > tomorrow) {
       err(i, `日期 ${e.date} 不在档案的时间范围里（${ss[0].start} 到明天）`);
       continue;
     }
-    const pi = periodIndex(ss, t);
+    const pi = periodIndexForDate(ss, e.date);
     const period = ss[pi];
     const p = plans.products[period.product];
     if (!p) {
@@ -357,8 +372,8 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
     const itemOf = (raw: Obj) => (raw?.items ?? []).find((it: Obj) => it.exercise === e.move || (ladder ?? []).some((l) => l.exercise === it.exercise));
     const sessOk = (weeksRule?: string): string | null => {
       if (!sess) return `依据要写这个动作的练习记录（evidence 写 打卡/… 的文件名）`;
-      const st = Date.parse(sess.raw?.startedAt);
-      if (Number.isNaN(st) || dayStart(localDate(new Date(st))) > t) return "依据的练习记录要早于这条改动";
+      const sd = sessionDate(sess);
+      if (!sd || sd > e.date) return "依据的练习记录要早于这条改动";
       const si = sessionPeriod(sess);
       if (si < 0 || ss[si].n !== period.n || si < pi - 1) return "依据的练习记录要是这一周或上一周的";
       if (weeksRule) {
@@ -388,7 +403,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       if (!sess) return false;
       const at = Date.parse(sess.raw?.startedAt);
       // 中间那次这个动作没练（0 组，比如被砍掉了）不算"又练过"
-      return sessions.some((x) => { const xt = Date.parse(x.raw?.startedAt); return x !== sess && !Number.isNaN(xt) && xt > at && xt < t && itemOf(x.raw)?.setsDone > 0; });
+      return sessions.some((x) => { const xt = Date.parse(x.raw?.startedAt); return x !== sess && !Number.isNaN(xt) && xt > at && dateInZone(new Date(xt), tz) < e.date && itemOf(x.raw)?.setsDone > 0; });
     };
     const spareNeed = (rule: string, fallback: number) => weeksOf(rule)?.min ?? fallback;
     const inWeeks = (rule: string) => {
@@ -433,7 +448,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
       const days = stableParam(rules, p.code, "找级窗口天数")?.number ?? 14;
       const longDays = longGapDays(rules, p.code);
       const hit = assessments.filter((a) => a.raw?.kind === "触发" && Array.isArray(a.raw?.reasons) && a.raw.reasons.includes("中断")
-        && typeof a.raw.date === "string" && DATE.test(a.raw.date) && dayStart(a.raw.date) <= t && t < dayStart(a.raw.date) + days * DAY
+        && typeof a.raw.date === "string" && DATE.test(a.raw.date) && a.raw.date <= e.date && daysBetween(e.date, a.raw.date) < days
         && gapBefore(trained, ss.find((s) => plans.products[s.product])?.start ?? ss[0].start, a.raw.date) > longDays).map((a) => a.raw.date as string).sort();
       return hit.length ? hit[hit.length - 1] : null;
     };
@@ -464,7 +479,10 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
     } else if (UP.has(e.rule)) {
       // 不适：这一段里出现过（稳定期按轮：这 4 周里出现过），或者上一周有，都不往上加
       const segStart = blockStart(pi);
-      const sickToday = sessions.some((s) => sessionPeriod(s) === pi && symptomatic(s.raw) && Date.parse(s.raw?.startedAt) < t + DAY);
+      const sickToday = sessions.some((s) => {
+        const sd = sessionDate(s);
+        return sessionPeriod(s) === pi && symptomatic(s.raw) && sd !== null && sd <= e.date;
+      });
       const sickBefore = sickToday || [...sickPeriods].some((k) => k === pi - 1 || (k >= segStart && k < pi));
       if (sickBefore) err(i, `${stable ? "这一轮（4 周）里" : "这一段里"}（或上一周）有疼痛、头晕或胸闷的记录：不加量、不升级（可以降）`);
       else if (stable && carryBlocked(pi)) err(i, "上一轮有过疼痛、头晕或胸闷：这一轮要先有一周没有不适的复盘，才接着往上走");
@@ -492,7 +510,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         const back = backDate !== null;
         const findOk = stable ? back || direct : inWeeks("找级周");
         const problem = sessOk(back ? undefined : "找级周")
-          ?? (back && localDate(new Date(Date.parse(sess!.raw?.startedAt))) < backDate! ? `中断回来以后的找级，依据要是做完触发评估（${backDate}）以后练的那一次` : null);
+          ?? (back && (sessionDate(sess!) ?? "") < backDate! ? `中断回来以后的找级，依据要是做完触发评估（${backDate}）以后练的那一次` : null);
         const it = sess ? itemOf(sess.raw) : null;
         const want = to > before! ? FEELS[2] : FEELS[0];
         if (field !== "level") err(i, "找级只改难度级");
@@ -502,14 +520,15 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         else if (Math.abs(to - before!) !== 1) err(i, `找级一次只能上下调一级（第 ${before} 级 → 第 ${to} 级）`);
         else if (!allowed.has(to)) err(i, `第 ${to} 级这一周不能用（可以用第 ${[...allowed].join("、")} 级）`);
         else if (problem) err(i, `找级：${problem}，记录里这个动作的感受要是"${want}"`);
-        else if (lastChange.has(e.move) && localDate(new Date(Date.parse(sess!.raw?.startedAt))) <= lastChange.get(e.move)!) err(i, `找级的依据要是上一次改动（${lastChange.get(e.move)}）之后练的那一次`);
+        else if (lastChange.has(e.move) && (sessionDate(sess!) ?? "") <= lastChange.get(e.move)!) err(i, `找级的依据要是上一次改动（${lastChange.get(e.move)}）之后练的那一次`);
         else if (it.feel !== want) err(i, `依据的练习记录里这个动作的感受是"${it.feel ?? "（没填）"}"，${to > before! ? "升" : "降"}一级要"${want}"`);
         break;
       }
       case "退回": {
         const it = sess ? itemOf(sess.raw) : null;
+        const sd = sess ? sessionDate(sess) : null;
         if (field !== "level" || to !== before! - 1) err(i, "退回是难度级降回上一级");
-        else if (!it || it.reverted !== true || Date.parse(sess!.raw?.startedAt) >= t + DAY) err(i, "退回要写依据：这一天之前的练习记录里这个动作标了\"退回\"（reverted）");
+        else if (!it || it.reverted !== true || !sd || sd > e.date) err(i, "退回要写依据：这一天之前的练习记录里这个动作标了\"退回\"（reverted）");
         break;
       }
       case "减量":
@@ -546,7 +565,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
           if (field !== "reps" || to !== before! + 1) err(i, "双进阶每次只多做 1 下");
           else if (row?.reps && to > row.reps.max) err(i, `不能超过 ${row.reps.max} 次：3 组都做到 ${row.reps.max} 次就该加一档、回到 ${row.reps.min} 次`);
           else if (problem) err(i, `双进阶加次数：${problem}`);
-          else if (lastTouch.has(e.move) && localDate(new Date(Date.parse(sess!.raw?.startedAt))) <= lastTouch.get(e.move)!) err(i, `依据要是上一次改动（${lastTouch.get(e.move)}）之后练的那一次`);
+          else if (lastTouch.has(e.move) && (sessionDate(sess!) ?? "") <= lastTouch.get(e.move)!) err(i, `依据要是上一次改动（${lastTouch.get(e.move)}）之后练的那一次`);
           else if (notLatest()) err(i, "双进阶的依据要是最近一次练这个动作的练习记录（它之后又练过这个动作，按后面那一次）");
           else if (it.setsDone !== it.setsPlanned || !(it.spare >= spareNeed("双进阶加次数余力", GYM_REPS_SPARE))) err(i, `双进阶加次数要依据的练习记录里这个动作每组都做完、"还能做几下"是 ${spareNeed("双进阶加次数余力", GYM_REPS_SPARE)} 下以上（加完仍留 2 下余力）`);
           break;
@@ -575,7 +594,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
         else if (field !== "weight" || !(to > before!)) err(i, "加一档是重量往上加一档");
         else if (!row?.reps || reps !== row.reps.max) err(i, `加一档要先把次数做到 ${row?.reps?.max ?? "区间上限"} 次（现在是 ${reps ?? row?.reps?.min ?? "下限"} 次）`);
         else if (problem) err(i, `加一档：${problem}`);
-        else if (lastTouch.has(e.move) && localDate(new Date(Date.parse(sess!.raw?.startedAt))) <= lastTouch.get(e.move)!) err(i, `依据要是上一次改动（${lastTouch.get(e.move)}）之后练的那一次`);
+        else if (lastTouch.has(e.move) && (sessionDate(sess!) ?? "") <= lastTouch.get(e.move)!) err(i, `依据要是上一次改动（${lastTouch.get(e.move)}）之后练的那一次`);
         else if (notLatest()) err(i, "双进阶的依据要是最近一次练这个动作的练习记录（它之后又练过这个动作，按后面那一次）");
         else if (it.setsDone !== it.setsPlanned || !(it.spare >= spareNeed("双进阶加一档余力", GYM_STEP_SPARE)) || it.reverted === true) err(i, `加一档要依据的练习记录里这个动作每组都做完、"还能做几下"是 ${spareNeed("双进阶加一档余力", GYM_STEP_SPARE)} 下以上、没有当场退回`);
         else if (cap !== undefined && to > before! * (1 + cap / 100) + 1e-9) err(i, `加一档最多加 ${cap}%（${before} → 最多 ${Math.round(before! * (1 + cap / 100) * 100) / 100}）`);
@@ -617,7 +636,7 @@ function replayProgress(profile: Obj, plans: PlansData, rules: RulesData, sessio
     if (typeof (entry as Obj).restart !== "string") return;
     const p = plans.products[entry.product];
     if (!p) return;
-    const st = progressOn(profile, plans, rules, entry.start, now);
+    const st = progressOn(profile, plans, rules, entry.start, now, tz);
     for (const [move, v] of Object.entries(st as Record<string, Obj>)) {
       const ladder = p.ladders[move];
       const row = progressRow(p, rules, profile, entry.type, 1, move);

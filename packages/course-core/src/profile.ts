@@ -1,6 +1,7 @@
 // 个人档案 yangxia.profile/1 和练习记录 yangxia.session/1 的结构校验（和 contracts/*.schema.json 对应），
 // 以及 agent 写进档案目录的文字（周复盘、菜单）的红线检查。
 import { validateAssessFields } from "./assess.ts";
+import { isValidTimeZone, resolveTimeZone } from "./date.ts";
 import { FEELS, validateProgressShape, validateSegments } from "./progress.ts";
 import type { RedlineRules } from "./redlines.ts";
 import { redlineHits } from "./redlines.ts";
@@ -16,7 +17,12 @@ type Obj = Record<string, any>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-export function validateProfile(raw: unknown): Issue[] {
+export interface ValidateProfileOptions {
+  now?: Date;
+  timeZone?: string;
+}
+
+export function validateProfile(raw: unknown, opts?: ValidateProfileOptions): Issue[] {
   const out: Issue[] = [];
   const err = (path: string, message: string) => out.push({ level: "error", path, message });
   if (!isObj(raw)) return [{ level: "error", path: "", message: "档案要是 JSON 对象" }];
@@ -27,11 +33,13 @@ export function validateProfile(raw: unknown): Issue[] {
   if (raw.venue !== undefined && !VENUES.includes(raw.venue)) err("venue", `venue 只能是 ${VENUES.join("、")}`);
   if (typeof raw.product !== "string" || !raw.product) err("product", "缺少选用的成品名");
   for (const k of ["wake", "bedtime"]) if (raw[k] !== undefined && !HHMM.test(raw[k])) err(k, `${k} 要写成 HH:MM`);
+  if (raw.timezone !== undefined && !isValidTimeZone(raw.timezone)) err("timezone", "timezone 要是合法的 IANA 时区名（如 Asia/Shanghai）");
   if (typeof raw.startDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw.startDate)) err("startDate", "startDate 要写成 YYYY-MM-DD");
   if (raw.household !== undefined && !(Array.isArray(raw.household) && raw.household.every((a: unknown) => AGES.includes(a as string)))) {
     err("household", `household 是家庭成员的年龄段列表，只能写 ${AGES.join("、")}`);
   }
-  out.push(...validateSegments(raw), ...validateProgressShape(raw), ...validateAssessFields(raw));
+  const tz = resolveTimeZone(opts?.timeZone, raw);
+  out.push(...validateSegments(raw, opts?.now, tz), ...validateProgressShape(raw), ...validateAssessFields(raw));
   // 播放偏好（v4 阶段 8）：本人不要呼吸提示、想在做完时报数这类选择，只记选择；course export 写进课程，不低于安全下限
   const pb = raw.playback;
   if (pb !== undefined) {

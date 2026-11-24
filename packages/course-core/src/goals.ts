@@ -2,8 +2,9 @@
 // 参数来自模板 rules.json 的 goals（content/rules/目标.md）；这里管：谁能选、减脂这一周的有氧台阶、中途退回、周期末下一周期能选什么、
 // 计划单上的基础代谢两栏。目标只改有氧、吃和周期末，力量课程不变；有氧不导出，只写在计划单和导出提示里。
 import { type AssessContext, type AssessFile, ageAt, assessRules, bmiOf, cardioMode, doctorEvents, entryHeight, productInfo } from "./assess.ts";
+import { addDays, daysBetween } from "./date.ts";
 import { type RulesData, stableParam } from "./plan.ts";
-import { localDate, reviewDataName, type SegmentEntry } from "./progress.ts";
+import { reviewDataName, type SegmentEntry } from "./progress.ts";
 import type { Issue } from "./types.ts";
 
 type Obj = Record<string, any>;
@@ -12,11 +13,8 @@ export type Goal = (typeof GOALS)[number];
 const BODY_STATES = ["记", "不记", "停记"];
 const EATING = ["问过", "只能保持"];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const DAY = 86_400_000;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
-const dayStart = (d: string) => new Date(`${d}T00:00:00`).getTime();
-const addDays = (d: string, n: number) => localDate(new Date(dayStart(d) + n * DAY + 12 * 3_600_000));
-const days = (a: string, b: string) => Math.round((dayStart(b) - dayStart(a)) / DAY);
+const days = (a: string, b: string) => daysBetween(b, a);
 
 export interface GoalRules {
   params: { name: string; products: string[]; number: number }[];

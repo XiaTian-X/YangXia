@@ -1,18 +1,13 @@
 // 65 岁以上的跌倒风险自查（v4 阶段 3c）：照 WS/T 887—2026 第 5 章的问法、测法和分级。
 // 问法、判定线、参数来自模板 rules.json 的 fallRisk（content/rules/跌倒风险.md）；这里只管记录的写法和结论怎么算。
 // 这是在家做的自查，不是正式的跌倒风险评估；结论只决定"先不先问医生、要不要先做正式评估、多久再查"，不放宽任何现有规则。
+import { addDays, daysBetween } from "./date.ts";
 import type { RulesData } from "./plan.ts";
 import type { Issue } from "./types.ts";
 
 type Obj = Record<string, any>;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
-const DAY = 86_400_000;
-const dayStart = (d: string) => new Date(`${d}T00:00:00`).getTime();
-const addDays = (d: string, n: number) => {
-  const t = new Date(dayStart(d) + n * DAY + 12 * 3_600_000);
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
-};
 
 export interface FallRiskRules {
   effective: string;
@@ -129,7 +124,7 @@ export function noHomeGait(fr: Obj, frailMin: number, officialHigh = false): str
  */
 export function officialLevel(fr: Obj, rr: FallRiskRules, official: Obj | undefined): { level: Level; date: string } | null {
   if (!official || !(LEVELS as readonly string[]).includes(official.level) || typeof official.date !== "string" || typeof fr.askedOn !== "string") return null;
-  const days = Math.abs(dayStart(official.date) - dayStart(fr.askedOn)) / DAY;
+  const days = Math.abs(daysBetween(official.date, fr.askedOn));
   return days <= rr.officialRecentDays ? { level: official.level, date: official.date } : null;
 }
 
