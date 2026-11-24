@@ -1,4 +1,19 @@
-# 养夏自托管服务端容器镜像（Node 24 + 内置 SQLite，非 root 运行，默认 TZ=UTC）
+# 养夏自托管镜像（两阶段构建：先构建静态网页端 apps/web/dist，再以非 root Node 24 运行服务端）
+FROM node:24-slim AS web-builder
+
+WORKDIR /build
+COPY package.json package-lock.json ./
+COPY packages/course-core/package.json ./packages/course-core/
+COPY apps/sequencer/package.json ./apps/sequencer/
+COPY apps/server/package.json ./apps/server/
+COPY apps/web/package.json ./apps/web/
+
+RUN npm ci --workspace=@yangxia/course-core --workspace=@yangxia/web
+
+COPY packages/course-core ./packages/course-core
+COPY apps/web ./apps/web
+RUN npm run build -w @yangxia/web
+
 FROM node:24-slim
 
 ENV NODE_ENV=production \
@@ -14,6 +29,7 @@ COPY package.json package-lock.json ./
 COPY packages/course-core/package.json ./packages/course-core/
 COPY apps/sequencer/package.json ./apps/sequencer/
 COPY apps/server/package.json ./apps/server/
+COPY apps/web/package.json ./apps/web/
 
 RUN npm ci --omit=dev --workspace=@yangxia/course-core --workspace=@yangxia/server
 
@@ -21,6 +37,7 @@ COPY scripts ./scripts
 COPY contracts ./contracts
 COPY packages/course-core ./packages/course-core
 COPY apps/server ./apps/server
+COPY --from=web-builder /build/apps/web/dist ./apps/web/dist
 
 RUN mkdir -p /data /templates && chown -R node:node /app /data /templates
 USER node

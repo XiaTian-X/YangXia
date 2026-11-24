@@ -9,7 +9,8 @@
   "workspaces": [
     "packages/course-core",
     "apps/sequencer",
-    "apps/server"
+    "apps/server",
+    "apps/web"
   ],
   "scripts": {
     "setup": "node scripts/setup.mjs",
@@ -20,8 +21,10 @@
     "server": "node apps/server/src/index.ts",
     "server:cli": "node apps/server/src/cli.ts",
     "build": "npm run build -w @yangxia/sequencer",
+    "build:web": "npm run build -w @yangxia/web",
     "build:player": "npm run build:player -w @yangxia/course-core",
     "e2e": "npm run build:e2e -w @yangxia/sequencer && npm run e2e -w @yangxia/sequencer",
+    "e2e:web": "npm run build:web && npm run e2e -w @yangxia/web",
     "baseline": "node apps/sequencer/e2e/baseline.mjs",
     "snapshot": "node packages/course-core/test/export-snapshot.ts",
     "profile": "node packages/course-core/src/cli.ts profile"

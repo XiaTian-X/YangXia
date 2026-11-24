@@ -1,4 +1,6 @@
-// Hono 应用工厂：统一异常处理、安全响应头、公开/受保护路由装配与可选静态前端托管。
+// Hono 应用工厂：统一异常处理、安全响应头、公开/受保护路由装配与静态前端 SPA 托管。
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { extname, join, resolve } from "node:path";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError } from "zod";
@@ -12,6 +14,42 @@ import { registerMobileRoutes } from "./routes/mobile.ts";
 import { registerOpsRoutes } from "./routes/ops.ts";
 import { registerProfileRoutes } from "./routes/profiles.ts";
 import { registerTemplateRoutes } from "./routes/templates.ts";
+
+const STATIC_MIME: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".webp": "image/webp",
+  ".ico": "image/x-icon",
+  ".woff2": "font/woff2",
+};
+
+const DEFAULT_WEB_DIST = resolve(new URL("../../web/dist", import.meta.url).pathname);
+
+function safeStaticFile(rootDir: string, reqPath: string): string | null {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(reqPath);
+  } catch {
+    return null;
+  }
+  const clean = decoded.replace(/^\/+/, "");
+  if (!clean || clean.includes("\0") || clean.includes("..")) return null;
+  const full = resolve(rootDir, clean);
+  if (!full.startsWith(rootDir + "/") && full !== rootDir) return null;
+  if (!existsSync(full)) return null;
+  try {
+    if (!statSync(full).isFile()) return null;
+  } catch {
+    return null;
+  }
+  return full;
+}
 
 export function createApp(ctx: ServerContext): Hono {
   const app = new Hono();
@@ -72,6 +110,43 @@ export function createApp(ctx: ServerContext): Hono {
   registerAgentRoutes(dynamicAuthed, ctx);
 
   app.route("/", dynamicAuthed);
+
+  // 未命中的 /api/* 统一返回 JSON 404，绝不回落至 HTML
+  app.all("/api/*", (c) => c.json({ ok: false, code: "NOT_FOUND", message: "接口不存在" }, 404));
+
+  // 静态前端 SPA 托管（已构建 apps/web/dist 时生效）
+  const webDistDir = resolve(process.env.YANGXIA_WEB_DIST || DEFAULT_WEB_DIST);
+  app.get("*", (c) => {
+    if (!existsSync(webDistDir)) {
+      return c.text("养夏服务端已启动。请先运行 npm run build:web 构建网页管理端。", 200);
+    }
+    const reqPath = c.req.path;
+    const direct = safeStaticFile(webDistDir, reqPath);
+    if (direct) {
+      const ext = extname(direct).toLowerCase();
+      const cache = reqPath.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "no-cache";
+      return new Response(readFileSync(direct), {
+        status: 200,
+        headers: {
+          "Content-Type": STATIC_MIME[ext] ?? "application/octet-stream",
+          "Cache-Control": cache,
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    }
+    const indexHtml = join(webDistDir, "index.html");
+    if (!existsSync(indexHtml)) {
+      return c.text("网页管理端尚未构建（缺少 index.html）", 404);
+    }
+    return new Response(readFileSync(indexHtml), {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-cache",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  });
 
   return app;
 }

@@ -1,0 +1,22 @@
+{
+  "name": "@yangxia/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "养夏自托管网页排课、建档、评估复盘、饮食阅读与 Agent 对话管理端",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc -p .",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@yangxia/course-core": "0.1.0",
+    "preact": "10.29.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@preact/preset-vite": "2.10.6",
+    "vite": "8.3.5"
+  }
+}
