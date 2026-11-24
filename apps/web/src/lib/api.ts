@@ -129,7 +129,7 @@ export async function streamSsePost(
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
-    buf += decoder.decode(value, { stream: true });
+    buf += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
     let idx: number;
     while ((idx = buf.indexOf("\n\n")) !== -1) {
       const block = buf.slice(0, idx).trim();

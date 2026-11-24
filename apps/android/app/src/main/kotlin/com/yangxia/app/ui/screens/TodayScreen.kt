@@ -210,16 +210,18 @@ fun TodayScreen(
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
-                    if (!env?.follow.isNullOrEmpty()) {
+                    val followLines = env?.followLines().orEmpty()
+                    if (followLines.isNotEmpty()) {
                         Text(
-                            "配套有氧/习惯：${env.follow.joinToString("；")}",
+                            "配套有氧/习惯：${followLines.joinToString("；")}",
                             fontSize = 13.sp,
                             color = YangXiaColors.Ink2,
                         )
                     }
-                    if (!env?.notes.isNullOrEmpty()) {
+                    val noteLines = env?.noteLines().orEmpty()
+                    if (noteLines.isNotEmpty()) {
                         Text(
-                            "练前提醒：${env.notes.joinToString("；")}",
+                            "练前提醒：${noteLines.joinToString("；")}",
                             fontSize = 12.sp,
                             color = YangXiaColors.Warn,
                         )

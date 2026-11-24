@@ -76,5 +76,13 @@ class PrivateNetworkGuardTest {
         val lookupAfterPin = safeDns.lookup("rebind.local")
         assertTrue(lookupAfterPin.all { it.hostAddress == "192.168.1.20" })
         assertTrue(pinned == lookupAfterPin)
+
+        // 即使钉选过期或重新校验，明文主机绝不会回落到无校验 delegate.lookup
+        try {
+            safeDns.verifyAndPinCleartextHost("rebind.local")
+            fail("重绑定到公网 IP 后必须拦截")
+        } catch (_: CleartextPublicHostException) {
+            // expected
+        }
     }
 }

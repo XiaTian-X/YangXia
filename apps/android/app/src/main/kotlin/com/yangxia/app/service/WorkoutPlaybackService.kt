@@ -68,6 +68,10 @@ object WorkoutPlaybackBus {
         val course: CourseDto,
         val courseJson: String,
         val plan: PlayerPlanResultDto,
+        val deviceVoiceVol: Int = 92,
+        val deviceCueVol: Int = 70,
+        val deviceBreathVol: Int = 65,
+        val deviceSoundStyle: String = "woodblock",
         val forceOfflineVoice: Boolean,
         val vibrate: Boolean,
     )
@@ -103,6 +107,12 @@ object WorkoutPlaybackBus {
     fun stopAndFinish(context: Context) {
         val intent = Intent(context, WorkoutPlaybackService::class.java).apply { action = ACTION_FINISH }
         context.startService(intent)
+    }
+
+    fun abortAndStop(context: Context) {
+        pendingStartPayload = null
+        resetToIdle()
+        runCatching { context.stopService(Intent(context, WorkoutPlaybackService::class.java)) }
     }
 
     fun resetToIdle() {
@@ -151,7 +161,20 @@ class WorkoutPlaybackService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             WorkoutPlaybackBus.ACTION_START -> {
-                val payload = WorkoutPlaybackBus.pendingStartPayload ?: return START_NOT_STICKY
+                val payload = WorkoutPlaybackBus.pendingStartPayload
+                if (payload == null) {
+                    // Android 12–15 经 startForegroundService 拉起后必须先进入前台再停止，防 ForegroundServiceDidNotStartInTimeException
+                    ServiceCompat.startForeground(
+                        this,
+                        NOTIFICATION_ID,
+                        buildNotification("养夏跟练", "正在准备结束"),
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+                    )
+                    ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
+                WorkoutPlaybackBus.pendingStartPayload = null
                 startSession(payload)
             }
             WorkoutPlaybackBus.ACTION_TOGGLE_PAUSE -> togglePause()
@@ -171,7 +194,14 @@ class WorkoutPlaybackService : Service() {
         vibrateEnabled = payload.vibrate
         playedIndices.clear()
 
-        val enforcedSettings = LiveViewMath.enforceSafetyFloor(payload.plan.effectiveSettings, payload.plan.floor)
+        // 融合本机设备音量与音色偏好，再经安全下限硬覆盖（floor == "pluck" 时 breathVolume 恒 >= 15）
+        val mergedSettings = payload.plan.effectiveSettings.copy(
+            sound = payload.deviceSoundStyle.ifBlank { payload.plan.effectiveSettings.sound },
+            voiceVolume = payload.deviceVoiceVol.coerceIn(0, 100),
+            soundVolume = payload.deviceCueVol.coerceIn(0, 100),
+            breathVolume = payload.deviceBreathVol.coerceIn(0, 100),
+        )
+        val enforcedSettings = LiveViewMath.enforceSafetyFloor(mergedSettings, payload.plan.floor)
         accumulatedSec = 0.0
         baseElapsedRealtimeMs = SystemClock.elapsedRealtime()
         nextEventIdx = 0
@@ -266,45 +296,51 @@ class WorkoutPlaybackService : Service() {
     private fun startTicker() {
         tickerJob?.cancel()
         tickerJob = scope.launch {
-            while (isActive) {
-                val st = WorkoutPlaybackBus.state.value
-                val plan = st.plan ?: break
-                val settings = st.settings ?: plan.effectiveSettings
-                val tl = plan.timeline
-                val nowSec = currentElapsedSec()
+            try {
+                while (isActive) {
+                    val st = WorkoutPlaybackBus.state.value
+                    val plan = st.plan ?: break
+                    val settings = st.settings ?: plan.effectiveSettings
+                    val tl = plan.timeline
+                    val nowSec = currentElapsedSec()
 
-                while (nextEventIdx < tl.events.size && tl.events[nextEventIdx].time <= nowSec) {
-                    val ev = tl.events[nextEventIdx]
-                    playedIndices.add(nextEventIdx)
-                    dispatchEventAudio(ev, settings)
-                    nextEventIdx++
-                }
+                    while (nextEventIdx < tl.events.size && tl.events[nextEventIdx].time <= nowSec) {
+                        val ev = tl.events[nextEventIdx]
+                        playedIndices.add(nextEventIdx)
+                        dispatchEventAudio(ev, settings)
+                        nextEventIdx++
+                    }
 
-                if (nowSec >= tl.totalDuration) {
-                    accumulatedSec = tl.totalDuration
+                    if (nowSec >= tl.totalDuration) {
+                        accumulatedSec = tl.totalDuration
+                        WorkoutPlaybackBus.update {
+                            it.copy(
+                                status = WorkoutPhaseStatus.COMPLETED,
+                                elapsedSec = tl.totalDuration,
+                                lastEventIndex = tl.events.lastIndex,
+                                playedEventIndices = playedIndices.toList(),
+                            )
+                        }
+                        releaseWakeLock()
+                        ServiceCompat.stopForeground(this@WorkoutPlaybackService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                        break
+                    }
+
                     WorkoutPlaybackBus.update {
                         it.copy(
-                            status = WorkoutPhaseStatus.COMPLETED,
-                            elapsedSec = tl.totalDuration,
-                            lastEventIndex = tl.events.lastIndex,
+                            elapsedSec = nowSec,
+                            lastEventIndex = (nextEventIdx - 1).coerceAtLeast(-1),
                             playedEventIndices = playedIndices.toList(),
+                            ttsChineseAvailable = audioEngine.ttsChineseAvailable,
                         )
                     }
+                    delay(33L)
+                }
+            } finally {
+                if (WorkoutPlaybackBus.state.value.status != WorkoutPhaseStatus.PLAYING) {
                     releaseWakeLock()
-                    ServiceCompat.stopForeground(this@WorkoutPlaybackService, ServiceCompat.STOP_FOREGROUND_REMOVE)
-                    stopSelf()
-                    break
                 }
-
-                WorkoutPlaybackBus.update {
-                    it.copy(
-                        elapsedSec = nowSec,
-                        lastEventIndex = (nextEventIdx - 1).coerceAtLeast(-1),
-                        playedEventIndices = playedIndices.toList(),
-                        ttsChineseAvailable = audioEngine.ttsChineseAvailable,
-                    )
-                }
-                delay(33L)
             }
         }
     }
@@ -337,7 +373,7 @@ class WorkoutPlaybackService : Service() {
                 tokens = ev.voiceTokens,
                 bpm = if (ev.bpm > 0) ev.bpm else settings.bpm,
                 volumePct = vol,
-                forceOffline = forceOfflineVoice || settings.voice == "synth",
+                forceOffline = forceOfflineVoice || settings.voiceEngine == "embedded",
             )
         }
     }
@@ -378,11 +414,19 @@ class WorkoutPlaybackService : Service() {
             Intent(this, WorkoutPlaybackService::class.java).apply { action = WorkoutPlaybackBus.ACTION_TOGGLE_PAUSE },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val publicVersion = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("养夏跟练")
+            .setContentText("正在语音播报中")
+            .setOngoing(true)
+            .build()
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(text)
             .setContentIntent(openIntent)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
             .setOngoing(true)
             .addAction(0, "暂停 / 继续", pauseIntent)
             .build()

@@ -246,6 +246,9 @@ export function registerProfileRoutes(
     const db = ctx.getDb();
     const id = c.req.param("id");
     const meta = assertProfileAccess(db, actor, id, "manage");
+    if (meta.age === "a06") {
+      throw new AppError(400, "UNSUPPORTED_FOR_MOBILE", "6–12 岁家长版无手机跟练课程，无需生成手机绑定码");
+    }
     const now = ctx.now();
     const code = generatePairingCode();
     const codeHash = sha256Hex(code);

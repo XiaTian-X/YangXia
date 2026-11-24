@@ -87,6 +87,9 @@ export function AgentChatPage({
 
   useEffect(() => {
     void loadInfoAndThreads();
+    return () => {
+      abortRef.current?.abort();
+    };
   }, []);
 
   useEffect(() => {

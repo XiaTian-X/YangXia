@@ -1,6 +1,8 @@
 package com.yangxia.app
 
 import com.yangxia.app.audio.OfflineAudioMixer
+import com.yangxia.app.network.MobileTodayResponse
+import com.yangxia.app.network.MotionsBatchResponse
 import com.yangxia.app.player.LiveViewMath
 import com.yangxia.app.player.MotionClipMetaDto
 import com.yangxia.app.player.QuickJsTimelineProvider
@@ -235,5 +237,107 @@ class GoldenPlayerParityTest {
         assertTrue("BPM=95 应加速播放采样率，实得 $fastSr", fastSr in 27000..28300)
         val clampedScale = OfflineAudioMixer.tempoScaleForBpm(140)
         assertTrue(abs(clampedScale - 0.78) < 1e-6)
+    }
+
+    @Test
+    fun serverMobileContractAndHypertensionFloorSurviveRoundTrip() = runTest {
+        // 核对真实服务端 /api/mobile/today（含嵌套 profile 与 coaching.floor）与 /api/mobile/motions/batch 契约
+        val todayPayload = """
+            {
+              "profile": {
+                "id": "11111111-1111-4111-8111-111111111111",
+                "code": "爸爸",
+                "age": "a40",
+                "stage": "40–64 岁",
+                "product": "40-64岁-居家版",
+                "timezone": "Asia/Shanghai",
+                "version": 2,
+                "hasConflict": true,
+                "conflict": { "message": "发现迟到不适记录，请先复盘处理" }
+              },
+              "supported": true,
+              "declaration": "未经专业审核，不是医学建议，不能替代医生的判断",
+              "playback": { "breathAfter": "quiet", "breathLead": 0 },
+              "activeCourses": [{
+                "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "courseId": "c_bp0001",
+                "segment": 1,
+                "week": 1,
+                "day": "A",
+                "half": false,
+                "status": "active",
+                "snapshotHash": "snap-1",
+                "updatedAt": "2026-11-24T01:00:00Z",
+                "envelope": {
+                  "schema": "yangxia.delivery/1",
+                  "declaration": "未经专业审核，不是医学建议，不能替代医生的判断",
+                  "course": {
+                    "schema": "yangxia.course/1",
+                    "id": "c_bp0001",
+                    "name": "40-64 居家第1周A日",
+                    "age": "a40",
+                    "source": { "product": "40-64岁-居家版", "templates": "v1.0.0", "week": 1, "day": "A", "plan": "yangxia.plans/1", "segment": 1 },
+                    "coaching": { "floor": "pluck" },
+                    "blocks": [{
+                      "kind": "sets",
+                      "items": [{
+                        "exercise": "squat",
+                        "name": "徒手深蹲",
+                        "mode": "reps",
+                        "sets": 2,
+                        "reps": 8,
+                        "rest": 60,
+                        "tempo": { "start": "down", "down": 2, "up": 1 },
+                        "quote": ["测试"]
+                      }]
+                    }]
+                  },
+                  "follow": ["稳态快走 20 分钟"],
+                  "notes": ["高血压保守模式：禁止憋气"],
+                  "motionHashes": { "squat": "h-squat" }
+                }
+              }],
+              "invalidatedCourses": []
+            }
+        """.trimIndent()
+
+        val today = json.decodeFromString(MobileTodayResponse.serializer(), todayPayload)
+        assertEquals("爸爸", today.profile.code)
+        assertTrue("迟到不适冲突告警必须被保留", today.profile.hasConflict)
+        assertEquals("发现迟到不适记录，请先复盘处理", today.profile.conflict?.get("message")?.jsonPrimitive?.content)
+        assertEquals(1, today.activeCourses.size)
+
+        // 原始 JSON 信封原样保留 coaching.floor = "pluck"，即使尝试用 quiet / volume=0 覆盖也绝不能静音
+        val rawCourseJson = today.activeCourses[0].envelope["course"]!!.toString()
+        val runtimeFile = File("src/main/assets/player-runtime.js")
+        val provider = QuickJsTimelineProvider({ runtimeFile.readText() }, json)
+        try {
+            val plan = provider.buildPlayerPlan(rawCourseJson, """{"breathVolume":15}""", """{"breathAfter":"quiet","breathLead":0}""")
+            assertEquals("pluck", plan.floor)
+            assertEquals("pluck", plan.effectiveSettings.breathAfter)
+            val enforced = LiveViewMath.enforceSafetyFloor(plan.effectiveSettings.copy(breathVolume = 0, breathAfter = "quiet"), plan.floor)
+            assertEquals("pluck", enforced.breathAfter)
+            assertTrue("换气下限音量必须 >= 15", enforced.breathVolume >= 15)
+        } finally {
+            provider.close()
+        }
+
+        // 核对 /api/mobile/motions/batch 嵌套 { hash, clip } 解包
+        val batchPayload = """
+            {
+              "templateVersion": "v1.0.0",
+              "clips": {
+                "squat": {
+                  "hash": "h-squat",
+                  "clip": { "exercises": ["squat"], "frames": 24, "dur": 2.0, "lottie": { "ip": 0, "op": 24 } }
+                }
+              },
+              "unchanged": [],
+              "missing": []
+            }
+        """.trimIndent()
+        val batch = json.decodeFromString(MotionsBatchResponse.serializer(), batchPayload)
+        assertEquals("h-squat", batch.clips["squat"]?.hash)
+        assertNotNull(batch.clips["squat"]?.clip?.jsonObject?.get("lottie"))
     }
 }

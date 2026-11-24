@@ -39,7 +39,7 @@ COPY packages/course-core ./packages/course-core
 COPY apps/server ./apps/server
 COPY --from=web-builder /build/apps/web/dist ./apps/web/dist
 
-RUN mkdir -p /data /templates && chown -R node:node /app /data /templates
+RUN mkdir -p /data /templates && chown -R root:node /app && chmod -R a-w /app && chown -R node:node /data /templates
 USER node
 
 EXPOSE 3000

@@ -139,8 +139,22 @@ test("桌面 1440×900 与平板 820×1180：无大模型全闭环 + Agent SSE �
     await page.getByPlaceholder("如 小夏、爸爸").fill("小夏E2E");
     await page.getByRole("button", { name: "按公式计算" }).click();
     await expect(page.locator('input[placeholder="点击右侧计算"]')).toHaveValue(/\d{2}:\d{2}/);
-    // 设置日期与当前测试时钟对齐（2026-11-02）
+    // 设置日期与当前测试时钟对齐（2026-11-02），并显式逐项勾选全部安全筛查为「否」
     await page.locator('input[type="date"]').first().fill("2026-11-02");
+    const scrNoRadios = page.locator('input[type="radio"][name^="scr-"]').filter({ has: page.locator("..") });
+    const scrGroups = await page.locator('input[type="radio"][name^="scr-"]').evaluateAll((els) => {
+      const names = new Set<string>();
+      for (const el of els) {
+        const n = el.getAttribute("name");
+        if (n) names.add(n);
+      }
+      return [...names];
+    });
+    expect(scrGroups.length).toBeGreaterThan(0);
+    for (const name of scrGroups) {
+      await page.locator(`input[type="radio"][name="${name}"]`).first().check();
+    }
+    expect(scrNoRadios).toBeTruthy();
     await page.getByLabel("a18", { exact: true }).check();
     await page.getByLabel("a06", { exact: true }).check();
     await page.getByRole("button", { name: "校验并创建档案" }).click();

@@ -90,6 +90,11 @@ npm run course -- bedtime <阶段> <HH:MM>              # 算上床时间（不�
 npm run course -- moves <成品名>                      # 这份成品能导出的动作、处方原文、呼吸节奏
 npm run profile -- check profiles/<代号>              # 档案（和模板核对）、周次推进、个人进度日志、练习记录、课程、课程包、计划单、评估、复盘和菜单的检查
 npm run profile -- import profiles/<代号> <记录.json>… [--dry-run] [--replace]   # 导入练习记录：校验格式、核对是这个档案的课、去重，按格式写进 打卡/
+npm run build:player                                  # 打包核心库 ES2020 播放器运行时（packages/course-core/dist/player-runtime.js）
+npm run build:web                                     # 构建自托管网页排课管理端（apps/web/dist/）
+npm run dev:server                                    # 启动自托管服务端（apps/server/src/index.ts）
+npm run e2e -w @yangxia/web                           # 网页管理端 Playwright E2E（桌面 + 平板，断言 0 外部请求）
+./apps/android/gradlew -p apps/android testDebugUnitTest assembleDebug   # 安卓端 JVM 单测（含 8 组黄金跨端一致性）与 Debug APK 构建
 python3 templates/tpl.py all                          # 改了模板后构建 + 校验
 ```
 
@@ -106,7 +111,11 @@ AGENTS.md  CLAUDE.md  README.md  package.json
 scripts/               setup、templates-path
 templates/             模板仓库（独立 git）
 apps/sequencer/        跟练编排器（npm run build → dist/养夏跟练编排器.html）；reference/原版.html 是重构前的版本，只读，只在本地保留、不提交
-packages/course-core/  课程核心库：格式、节奏、时间轴、字幕、课程检查（npm run course）
+apps/server/           自托管服务端（Node 24 + Hono + node:sqlite + 受控 Agent 工具层）
+apps/web/              自托管网页排课管理端（Preact + Vite，由服务端静态托管）
+apps/android/          Android 原生跟练端（Kotlin + Jetpack Compose + QuickJS + 离线音频包）
+deploy/                Docker 构建与 docker-compose.yml（自托管部署配置）
+packages/course-core/  课程核心库：格式、节奏、时间轴、字幕、课程检查、存储无关 engine 与 player-runtime.js
 contracts/             课程、练习记录、个人档案的数据格式和样例（说明见 docs/数据约定.md）
 profiles/              个人数据（不提交）
 docs/                  数据约定、编排器功能清单、重构方案、全面审查、历史文档
@@ -124,3 +133,5 @@ docs/                  数据约定、编排器功能清单、重构方案、全
 阶段 7（编排器的动作示意动图，`docs/v4 阶段 7 细化方案（编排器：动作示意动图）.md`）已实施，两个仓库都合并回 main（2026-11-19），还没发版（模板更新记录在"未发布"，版本号由用户定）。编排器要模板带 `dist/data/motions.json` 才有动图；换了做法的难度级由动作库扩充的补图批次补了分级小图（`docs/动作库扩充 补图细化方案（难度级动作示意）.md`，2026-11-19 实施，还没发版）；13–17 岁桌下划船照旧不显示。显示阶段、MP4、对外联动记为以后。
 
 阶段 8（编排器重设计：报数、呼吸提示、本机设置、适配手机平板电脑）和阶段 9（新手培训期）见 `docs/v4 阶段 8 细化方案（编排器重设计与新手培训期）.md`（2026-11-20 定稿）。阶段 8 在主仓库分支 `v4-phase8` 实施，不改模板：8a（核心库）、8b-0（真机验证，定为本地文件）、8b（界面照设计画布重做，改界面先出设计稿）已实施，2026-11-24 合并回 main（还没发版）；8c（课程包、练习记录导入，`docs/v4 阶段 8c 细化方案（课程包和练习记录导入）.md`）已实施，2026-11-24 合并回 main（还没发版）。阶段 9 的模板内容（方案第五节 T1–T6）由另一个会话在模板仓库写，2026-11-24 合并回模板 main（还没发版）；主仓库部分（导出带培训期的课程、编排器的讲解和要领卡）没做，这一版里培训期照成品原文做。
+
+自托管版（分支 `v2-selfhosted`，需求见 `docs/自托管版需求文档.md` v3 定稿，架构与实施见 `docs/自托管版架构与分阶段实施方案.md` v2 定稿）：阶段 1（核心库解耦 + ES2020 播放器运行时 + 8 组黄金测试集）、阶段 2（服务端核心 + RBAC + 同步/作废 + 迁移/加密备份）、阶段 3（受控 Agent 工具层 + Vercel AI SDK 单文件抽象 + 两阶段确认卡）、阶段 4（Web 排课管理端，无大模型完整闭环 + 0 外部请求）、阶段 5（Android 原生原型 + 43 条离线音频包 + 小米 6 真机验证）、阶段 6（Android 完整端 + M8 Deep Link + 独立安全审查修复 + 真机联调）均已实施并留在 `v2-selfhosted` 分支，是否合并回 `main` 与发版由用户决定；v1.0.0 离线编排器与 CLI 保持完整可用，不改 `templates/`。

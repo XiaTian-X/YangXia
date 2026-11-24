@@ -71,6 +71,9 @@ interface ProfileDao {
     @Query("SELECT * FROM cached_profiles ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<CachedProfileEntity>>
 
+    @Query("SELECT * FROM cached_profiles ORDER BY updatedAt DESC")
+    suspend fun listAll(): List<CachedProfileEntity>
+
     @Query("SELECT * FROM cached_profiles WHERE profileId = :profileId LIMIT 1")
     suspend fun getById(profileId: String): CachedProfileEntity?
 
@@ -79,6 +82,9 @@ interface ProfileDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(profiles: List<CachedProfileEntity>)
+
+    @Query("DELETE FROM cached_profiles WHERE profileId NOT IN (:keepIds)")
+    suspend fun pruneMissing(keepIds: List<String>)
 
     @Query("DELETE FROM cached_profiles")
     suspend fun clearAll()
@@ -139,8 +145,8 @@ interface PendingSessionDao {
     @Query("SELECT * FROM pending_sessions ORDER BY createdAt ASC")
     suspend fun listAll(): List<PendingSessionEntity>
 
-    @Query("SELECT * FROM pending_sessions WHERE lastErrorCode = 'CLOCK_SKEW_FUTURE' LIMIT 1")
-    fun observeClockSkewAlert(): Flow<PendingSessionEntity?>
+    @Query("SELECT * FROM pending_sessions WHERE profileId = :profileId AND lastErrorCode = 'CLOCK_SKEW_FUTURE' LIMIT 1")
+    fun observeClockSkewAlert(profileId: String): Flow<PendingSessionEntity?>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIgnore(item: PendingSessionEntity): Long

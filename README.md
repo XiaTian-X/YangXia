@@ -24,7 +24,10 @@
 |---|---|---|
 | **养夏计划模板** | 20 份成品：16 份训练成品（8 份起始期、8 份稳定期）、6–12 岁家长版、全家餐饮模板、2 份《超重与肥胖》附册；另有三餐菜谱手册、动作图解手册 | 独立仓库 `YangXia-templates`，放在 `templates/`；怎么选版本见 `templates/README.md` |
 | **养夏跟练编排器** | 跟练一天的训练（暂停、屏幕常亮、全屏，手机、平板、电脑都能用），也能导出跟练音频（WAV）、视频（WebM）和字幕（SRT），画面带动作示意动图，练完保存练习记录；`course export` 还会出嵌了当天课程的**课程包**，打开就能练 | `apps/sequencer/`；`npm run build` 生成单文件 `apps/sequencer/dist/养夏跟练编排器.html`，双击打开、离线可用 |
-| **养夏课程核心库** | 课程格式、节奏、时间轴、字幕，课程导出和检查，档案检查（`npm run course`、`npm run profile`） | `packages/course-core/` |
+| **养夏课程核心库** | 课程格式、节奏、时间轴、字幕，课程导出和检查，档案检查（`npm run course`、`npm run profile`）；同时提供存储无关的 `engine` 与 ES2020 `player-runtime.js` 供服务端与移动端共用 | `packages/course-core/` |
+| **自托管服务端** | Node 24 + Hono + 内置 `node:sqlite`，单档案互斥锁与乐观锁、角色白名单 RBAC、扫码配对、换机可用加密备份（`.yxbackup`）、v1.0.0 迁移导入，以及可插拔外部大模型 Agent（Vercel AI SDK 隔离在单文件内，后续可无痛切至 `dsh`） | `apps/server/`、`deploy/` |
+| **网页排课管理端** | 暖纸叶绿双栏控制台：0 外部网络请求、无大模型完整可用（可视建档、按公式算上床时间、纯本地 SVG 配对二维码、评估/复盘、排课发布、全家菜单红线、模板阅读），配置模型后启用 SSE 流式对话与两阶段确认卡 | `apps/web/`（`npm run build:web`） |
+| **Android 原生跟练端** | Kotlin + Jetpack Compose 原生跟练端：内嵌 QuickJS（与核心库黄金测试 100% 一致，含服务端预计算回退开关）、16 音效 + 27 词元离线中文语音兜底、Android 15 锁屏持续语音播报前台服务、Keystore AES-GCM 凭据加密、三层私网明文守卫、M8 Deep Link 外部拉起 | `apps/android/` |
 | **数据约定** | 课程、练习记录、个人档案、复盘数据的 JSON Schema 和离线样例 | `contracts/`；说明见 [docs/数据约定.md](docs/数据约定.md) |
 | **agent 工作流** | 建档、导出课程、周复盘、排菜单的流程，以及安全底线、隐私和提交规则 | [AGENTS.md](AGENTS.md)、[.claude/skills/](.claude/skills/) |
 
@@ -182,8 +185,12 @@ package.json             npm 工作区（packages/*、apps/*），package-lock.j
 .githooks/pre-commit     提交前检查（和模板仓库是同一份脚本）
 .claude/                 项目设置、hooks（git 命令拦截、每轮结束的检查）、skills
 scripts/                 setup、找模板仓库、每轮结束的检查
-apps/sequencer/          养夏跟练编排器；reference/原版.html 是重构前的版本，只在本地保留、不提交
-packages/course-core/    养夏课程核心库
+apps/sequencer/          养夏跟练编排器（v1.0.0 离线单文件版，保持完整可用）
+apps/server/             自托管服务端（Node 24 + Hono + node:sqlite + 受控 Agent 工具层）
+apps/web/                自托管网页排课管理端（Preact + Vite，由服务端静态托管）
+apps/android/            Android 原生跟练端（Kotlin + Compose + QuickJS + Room + Keystore）
+deploy/                  Docker 两阶段镜像与 docker-compose.yml（含反代与 HTTPS 示例）
+packages/course-core/    养夏课程核心库（含 storage-independent engine 与 player-runtime.js）
 contracts/               数据格式（JSON Schema）和离线样例 fixtures/
 docs/                    数据约定、编排器功能清单、重构方案、全面审查、历史文档
 templates/               模板仓库 YangXia-templates（独立 git，本仓库忽略）
@@ -246,7 +253,15 @@ npx playwright install chromium
   - **阶段 7「编排器的动作示意动图」已实施**：跟练和导出的视频画面显示动作示意动图，动作跟着课程节拍走；之后补了换了做法的难度级的分级小图。
   - **阶段 8「编排器重设计」已实施**：8a 报数默认每次开始时报、呼吸提示改成"领几次 + 之后安静或提示音"并有安全下限、设置记在本机；8b 界面照设计稿重做（今天、设置、更多，跟练全屏页、练完页，适配手机、平板、电脑，暂停、常亮、全屏）；8c 课程包和练习记录导入。
   - **阶段 9「新手培训期」**：模板部分已实施（8 份起始期成品的《培训期》一章、所有训练成品的跟练要领卡、规则层的培训期、呼吸提示和掌握评估）；主仓库部分（导出带培训期的课程、编排器的讲解和要领卡）没做，这一版里培训期照成品原文做。
-- **下一步：自托管版**——服务端、网页排课、原生手机跟练，另写方案。这一版的数据格式、模板发布物和检查规则写在 [docs/数据约定.md](docs/数据约定.md) 和各阶段方案里。
+- **自托管版（分支 `v2-selfhosted`，阶段 1–6 已实施，合并与发版由用户决定）**：
+  - 方案文档：[docs/自托管版需求文档.md](docs/自托管版需求文档.md)（v3 定稿）、[docs/自托管版架构与分阶段实施方案.md](docs/自托管版架构与分阶段实施方案.md)（v2 定稿）。
+  - 常用命令：
+    - `npm run build:web`：构建网页管理端静态产物（`apps/web/dist/`）。
+    - `npm run dev:server`：本地启动自托管服务端（默认 `http://0.0.0.0:3000`，数据落 `./data/`）。
+    - `docker compose -f deploy/docker-compose.yml up -d --build`：容器化部署（含 `/data` 持久化与只读 `/templates` 挂载）。
+    - `npm run e2e -w @yangxia/web`：运行网页管理端 Playwright 端到端测试（断言 0 外部网络请求）。
+    - `./apps/android/gradlew -p apps/android testDebugUnitTest assembleDebug`：运行安卓 JVM 跨端黄金一致性/安全/Deep Link 单测并打 Debug APK；连接真机后可运行 `connectedDebugAndroidTest`（配合 `adb reverse tcp:8787 tcp:8787` 可跑通真机全链路联调）。
+  - 外部应用拉起（M8 Deep Link，仅接受不透明 UUID、拒绝查询参数）：`yangxia://today`、`yangxia://profile/<uuid>`、`yangxia://course/<uuid>`。
 - 每一次改了什么见 [CHANGELOG.md](CHANGELOG.md)；模板仓库的改动记在 `templates/CHANGELOG.md`。
 
 ## 文档

@@ -96,13 +96,20 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         if (pid.isBlank()) flowOf(emptyList()) else repo.db.pendingSessionDao().observeByProfile(pid)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    val clockSkewAlert: StateFlow<PendingSessionEntity?> = repo.db.pendingSessionDao().observeClockSkewAlert().stateIn(
+    val clockSkewAlert: StateFlow<PendingSessionEntity?> = devicePrefs.flatMapLatest { p ->
+        val pid = p.activeProfileId.ifBlank { _creds.value?.boundProfileId.orEmpty() }
+        if (pid.isBlank()) flowOf(null) else repo.db.pendingSessionDao().observeClockSkewAlert(pid)
+    }.stateIn(
         viewModelScope,
         SharingStarted.Eagerly,
         null,
     )
 
     val workoutState = WorkoutPlaybackBus.state
+
+    /** 试听专用纯离线音频引擎（复用单实例、不绑定 TTS，onCleared 统一释放，避免反复点击泄漏线程/服务）。 */
+    private val sampleAudioEngine by lazy { AndroidAudioEngine(getApplication(), enableTts = false) }
+    private var sampleEngineInitialized = false
 
     init {
         if (_creds.value != null) {
@@ -175,11 +182,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun logout() {
         viewModelScope.launch {
-            WorkoutPlaybackBus.resetToIdle()
+            WorkoutPlaybackBus.abortAndStop(getApplication())
+            _deferredDeepLink.value = null
+            _deepLinkDialog.value = null
+            _motionRawMap.value = emptyMap()
+            _motionMetaMap.value = emptyMap()
+            _summarySetsDone.value = emptyList()
             repo.logout()
             _creds.value = null
             _screen.value = AppScreen.CONNECT
-            _message.value = "已退出当前账号"
+            _message.value = "已退出当前账号并清理本机缓存"
         }
     }
 
@@ -256,6 +268,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         course = envelope.course,
                         courseJson = rawCourseJson,
                         plan = plan,
+                        deviceVoiceVol = prefs.voiceVol,
+                        deviceCueVol = prefs.cueVol,
+                        deviceBreathVol = prefs.breathVol,
+                        deviceSoundStyle = prefs.soundStyle,
                         forceOfflineVoice = prefs.forceOfflineVoice,
                         vibrate = prefs.vibrate,
                     ),
@@ -354,8 +370,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun testOfflineVoiceSample() {
         viewModelScope.launch {
             runCatching {
-                val engine = AndroidAudioEngine(getApplication())
-                engine.speakOfflineTokens(listOf("3", "2", "1", "开始"), 60, devicePrefs.value.voiceVol.coerceAtLeast(50))
+                sampleEngineInitialized = true
+                sampleAudioEngine.speakOfflineTokens(listOf("3", "2", "1", "开始"), 60, devicePrefs.value.voiceVol.coerceAtLeast(50))
             }
         }
     }
@@ -374,7 +390,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun applyDeepLinkTarget(target: DeepLinkTarget) {
         viewModelScope.launch {
-            val profs = profiles.value
+            // 直接挂起查询 Room，避免冷启动时 StateFlow 初始空列表导致误判无权限/找不到课程
+            val profs = repo.db.profileDao().listAll()
             val allCourses = profs.flatMap { repo.db.courseDao().listByProfile(it.profileId) }
             val currentPid = devicePrefs.value.activeProfileId.ifBlank { _creds.value?.boundProfileId }
             val ctx = DeepLinkRuntimeContext(
@@ -471,6 +488,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
+        if (sampleEngineInitialized) runCatching { sampleAudioEngine.close() }
         repo.quickJsProvider.close()
         super.onCleared()
     }

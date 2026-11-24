@@ -81,20 +81,24 @@ class SafePrivateNetDns(
     private data class PinnedEntry(val addresses: List<InetAddress>, val expiresAtMs: Long)
 
     private val pinned = ConcurrentHashMap<String, PinnedEntry>()
+    private val cleartextHosts = ConcurrentHashMap.newKeySet<String>()
 
     @Throws(UnknownHostException::class, CleartextPublicHostException::class)
     fun verifyAndPinCleartextHost(host: String): List<InetAddress> {
+        val key = host.lowercase()
+        cleartextHosts.add(key)
         val resolved = delegate.lookup(host)
         if (resolved.isEmpty()) throw UnknownHostException("无法解析主机：$host")
         val tailscale = allowTailscale()
         for (addr in resolved) {
             if (!PrivateNetworkGuard.isAllowedCleartextAddress(addr, tailscale)) {
+                pinned.remove(key)
                 throw CleartextPublicHostException(
                     "安全拦截：明文 HTTP 仅允许访问局域网/回环地址${if (tailscale) "或 Tailscale 网段" else ""}，已拒绝公网地址 ${addr.hostAddress}。如需外网访问请配置 HTTPS。",
                 )
             }
         }
-        pinned[host.lowercase()] = PinnedEntry(resolved, System.currentTimeMillis() + 5_000L)
+        pinned[key] = PinnedEntry(resolved, System.currentTimeMillis() + 5_000L)
         return resolved
     }
 
@@ -105,6 +109,10 @@ class SafePrivateNetDns(
             return entry.addresses
         }
         pinned.remove(key)
+        // 对明文主机绝不在 TTL 过期后无校验回落至 delegate.lookup，防止重试/慢连时向公网发包
+        if (cleartextHosts.contains(key)) {
+            return verifyAndPinCleartextHost(hostname)
+        }
         return delegate.lookup(hostname)
     }
 }
@@ -143,13 +151,18 @@ class SafePrivateNetNetworkInterceptor(
             }
         }
         val resp = chain.proceed(req)
-        // 拦截响应头中的跨公网明文重定向，避免下一跳提前发包
+        // 拦截响应头中的跨公网明文重定向，异常前先关闭 Response 防止连接泄漏
         if (resp.isRedirect) {
             val loc = resp.header("Location")
             if (!loc.isNullOrBlank()) {
                 val target = req.url.resolve(loc)
                 if (target != null && !target.isHttps) {
-                    safeDns.verifyAndPinCleartextHost(target.host)
+                    try {
+                        safeDns.verifyAndPinCleartextHost(target.host)
+                    } catch (e: IOException) {
+                        resp.close()
+                        throw e
+                    }
                 }
             }
         }

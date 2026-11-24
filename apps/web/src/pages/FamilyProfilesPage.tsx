@@ -54,7 +54,8 @@ export function FamilyProfilesPage({
   const [bedtime, setBedtime] = useState("");
   const [timezone, setTimezone] = useState("Asia/Shanghai");
   const [startDate, setStartDate] = useState(todayIso());
-  const [screenAnswers, setScreenAnswers] = useState<Record<string, "是" | "否">>({});
+  const [screenAnswers, setScreenAnswers] = useState<Record<string, "是" | "否" | "">>({});
+  const [condState, setCondState] = useState<Record<string, "未确认" | "是" | "否">>({});
   const [doctorCleared, setDoctorCleared] = useState(false);
   const [doctorDate, setDoctorDate] = useState(todayIso());
   const [isManaged, setIsManaged] = useState(false);
@@ -120,12 +121,34 @@ export function FamilyProfilesPage({
   const startProducts = (intake?.products ?? []).filter((p) => p.age === age && p.phase !== "稳定");
   const screeningItems = intake?.intake.screening.find((s) => s.age === age)?.items ?? [];
 
+  // 按年龄段展示对应的训练安全条件项（未确认时不写入，交由核心规则层导出保守版本）
+  const conditionFields: { key: string; label: string }[] =
+    age === "a18" || age === "a40"
+      ? [
+          { key: "高血压", label: "是否有高血压（未确认将按保守版：稳态有氧 + 保留换气提示音）" },
+          { key: "骨质疏松", label: "是否有骨质疏松" },
+          { key: "重度肥胖", label: "BMI 是否达到 37.5 及以上（仅记是/否，不记身高体重数字）" },
+          { key: "没地方跳", label: "是否没有跳跃场地" },
+        ]
+      : age === "a65"
+        ? [
+            { key: "家里没有别人", label: "训练时家里是否没有其他人陪同" },
+            { key: "高血压", label: "是否有高血压" },
+            { key: "骨质疏松", label: "是否有骨质疏松" },
+          ]
+        : age === "a13"
+          ? [
+              { key: "家长在旁边", label: "训练时家长是否在旁边" },
+              { key: "没地方跳", label: "是否没有跳跃场地" },
+            ]
+          : [];
+
   useEffect(() => {
     if (startProducts.length && !startProducts.some((p) => p.name === product)) {
       setProduct(startProducts[0].name);
     }
-    const initAns: Record<string, "是" | "否"> = {};
-    for (const item of screeningItems) initAns[item] = screenAnswers[item] ?? "否";
+    const initAns: Record<string, "是" | "否" | ""> = {};
+    for (const item of screeningItems) initAns[item] = screenAnswers[item] ?? "";
     setScreenAnswers(initAns);
   }, [age, intake]);
 
@@ -147,6 +170,18 @@ export function FamilyProfilesPage({
     setError(null);
     setNotice(null);
     try {
+      const unanswered = screeningItems.filter((item) => screenAnswers[item] !== "是" && screenAnswers[item] !== "否");
+      if (unanswered.length > 0) {
+        setError(`请先逐项明确勾选全部安全筛查问题（尚有 ${unanswered.length} 项未选择「是 / 否」）`);
+        setBusy(false);
+        return;
+      }
+      const resolvedConditions: Record<string, boolean> = {};
+      for (const f of conditionFields) {
+        const v = condState[f.key];
+        if (v === "是") resolvedConditions[f.key] = true;
+        else if (v === "否") resolvedConditions[f.key] = false;
+      }
       const prodObj = startProducts.find((p) => p.name === product);
       const venue = prodObj?.venue ?? "home";
       const profilePayload: Record<string, any> = {
@@ -160,7 +195,7 @@ export function FamilyProfilesPage({
         startDate,
         segments: [{ n: 1, type: "标准", week: 1, start: startDate, product }],
         screening: {
-          answers: screeningItems.map((item) => ({ item, answer: screenAnswers[item] ?? "否" })),
+          answers: screeningItems.map((item) => ({ item, answer: screenAnswers[item] as "是" | "否" })),
           doctorCleared,
           date: startDate,
           ...(doctorCleared ? { doctorDate } : {}),
@@ -172,7 +207,7 @@ export function FamilyProfilesPage({
       if (age === "a06" || age === "a13") {
         profilePayload.school = { stage: schoolStage, entry: Number(schoolEntry) };
         if (age === "a13") {
-          profilePayload.conditions = { 家长在旁边: true };
+          if (Object.keys(resolvedConditions).length) profilePayload.conditions = resolvedConditions;
           profilePayload.choices = ["table-row"];
           profilePayload.progress = {};
           profilePayload.progressLog = [];
@@ -180,13 +215,13 @@ export function FamilyProfilesPage({
       } else if (age === "a65") {
         profilePayload.birth = birth;
         profilePayload.habitBase = { 散步: 20 };
-        profilePayload.conditions = { 家里没有别人: false };
+        if (Object.keys(resolvedConditions).length) profilePayload.conditions = resolvedConditions;
         profilePayload.progress = {};
         profilePayload.progressLog = [];
       } else {
         profilePayload.birth = birth;
         profilePayload.body = "不记";
-        profilePayload.conditions = { 高血压: false, 没地方跳: false };
+        if (Object.keys(resolvedConditions).length) profilePayload.conditions = resolvedConditions;
         profilePayload.choices = ["table-row"];
         profilePayload.progress = {};
         profilePayload.progressLog = [];
@@ -232,11 +267,13 @@ export function FamilyProfilesPage({
         patch.body = editBody;
       }
       if (editDoctorCleared !== Boolean(profileDetail.profile?.screening?.doctorCleared)) {
-        patch.screening = {
+        const nextScreening: Record<string, any> = {
           ...(profileDetail.profile?.screening ?? {}),
           doctorCleared: editDoctorCleared,
-          ...(editDoctorCleared ? { doctorDate: todayIso() } : {}),
         };
+        if (editDoctorCleared) nextScreening.doctorDate = todayIso();
+        else delete nextScreening.doctorDate;
+        patch.screening = nextScreening;
       }
       await apiRequest(`/api/profiles/${selectedProfile.id}`, {
         method: "PATCH",
@@ -431,7 +468,7 @@ export function FamilyProfilesPage({
                     <input
                       type="radio"
                       name={`scr-${item}`}
-                      checked={(screenAnswers[item] ?? "否") === "否"}
+                      checked={screenAnswers[item] === "否"}
                       onChange={() => setScreenAnswers({ ...screenAnswers, [item]: "否" })}
                     />
                     <span>否</span>
@@ -448,6 +485,31 @@ export function FamilyProfilesPage({
                 </div>
               </div>
             ))}
+            {conditionFields.length > 0 && (
+              <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: "1px solid var(--line)" }}>
+                <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "6px" }}>
+                  训练安全条件（可选，只记是/否；选「未确认」将自动导出保守版本）
+                </div>
+                {conditionFields.map((f) => (
+                  <div class="row-between" key={f.key} style={{ borderBottom: "1px solid var(--line)", padding: "5px 0" }}>
+                    <span style={{ flex: 1, fontSize: "13px" }}>{f.label}</span>
+                    <div class="row">
+                      {(["未确认", "否", "是"] as const).map((opt) => (
+                        <label class="check" key={opt}>
+                          <input
+                            type="radio"
+                            name={`cond-${f.key}`}
+                            checked={(condState[f.key] ?? "未确认") === opt}
+                            onChange={() => setCondState({ ...condState, [f.key]: opt })}
+                          />
+                          <span>{opt}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div class="row" style={{ marginTop: "6px" }}>
               <label class="check">
                 <input type="checkbox" checked={doctorCleared} onChange={(e) => setDoctorCleared((e.target as HTMLInputElement).checked)} />
@@ -665,19 +727,23 @@ export function FamilyProfilesPage({
             </p>
             <div class="qr-wrap">
               {(() => {
-                const qr = qrSvgPath(pairModal.payload);
-                return (
-                  <svg
-                    width="220"
-                    height="220"
-                    viewBox={`0 0 ${qr.size} ${qr.size}`}
-                    role="img"
-                    aria-label="手机扫码配对二维码"
-                  >
-                    <rect width={qr.size} height={qr.size} fill="#FFFFFF" />
-                    <path d={qr.path} fill="#1D2B24" />
-                  </svg>
-                );
+                try {
+                  const qr = qrSvgPath(pairModal.payload);
+                  return (
+                    <svg
+                      width="220"
+                      height="220"
+                      viewBox={`0 0 ${qr.size} ${qr.size}`}
+                      role="img"
+                      aria-label="手机扫码配对二维码"
+                    >
+                      <rect width={qr.size} height={qr.size} fill="#FFFFFF" />
+                      <path d={qr.path} fill="#1D2B24" />
+                    </svg>
+                  );
+                } catch {
+                  return <div class="muted">当前服务地址过长，无法渲染二维码，请直接复制下方配对码手动绑定。</div>;
+                }
               })()}
             </div>
             <label class="field">

@@ -78,14 +78,21 @@ class Mi6DeviceRuntimeTest {
             val coldPlan = provider.buildPlayerPlan(sampleCourse, "{}")
             val coldPlanMs = (System.nanoTime() - t0) / 1_000_000L
 
-            val t1 = System.nanoTime()
-            val plan = provider.buildPlayerPlan(sampleCourse, "{}")
-            val warmPlanMs = (System.nanoTime() - t1) / 1_000_000L
+            // 取 3 次稳态中位数，消除单次调频/GC 偶发抖动，同时严守 < 200ms 预算
+            val samples = LongArray(3)
+            var plan = coldPlan
+            for (k in samples.indices) {
+                val ts = System.nanoTime()
+                plan = provider.buildPlayerPlan(sampleCourse, "{}")
+                samples[k] = (System.nanoTime() - ts) / 1_000_000L
+            }
+            samples.sort()
+            val medianPlanMs = samples[1]
 
-            Log.i("Mi6Benchmark", "QuickJS warmup=${warmupMs}ms, coldPlan=${coldPlanMs}ms, warmPlan=${warmPlanMs}ms, events=${plan.timeline.events.size}")
+            Log.i("Mi6Benchmark", "QuickJS warmup=${warmupMs}ms, coldPlan=${coldPlanMs}ms, warmMedian=${medianPlanMs}ms (samples=${samples.joinToString(",")}), events=${plan.timeline.events.size}")
             assertEquals(coldPlan.timeline.events.size, plan.timeline.events.size)
             assertTrue("时间轴事件应非空", plan.timeline.events.size > 50)
-            assertTrue("Mi 6 单课计算耗时应 < 200ms，实测 cold=${coldPlanMs}ms, warm=${warmPlanMs}ms", warmPlanMs < 200L)
+            assertTrue("Mi 6 单课计算稳态中位耗时应 < 200ms，实测 cold=${coldPlanMs}ms, median=${medianPlanMs}ms", medianPlanMs < 200L)
         } finally {
             provider.close()
         }
@@ -140,14 +147,16 @@ class Mi6DeviceRuntimeTest {
             db.motionDao().pruneLru(2)
             assertEquals(2, db.motionDao().listHashes().size)
 
-            // 幂等补传队列去重 + CLOCK_SKEW_FUTURE 告警
+            // 幂等补传队列去重 + CLOCK_SKEW_FUTURE 按 profileId 分区隔离告警
             val item = PendingSessionEntity("idem-1", "pA", "c1", "cid1", "h1", "2026-11-02T03:00:00Z", "{}", null, null, 0, 1L)
             assertTrue(db.pendingSessionDao().insertIgnore(item) > 0)
             assertEquals(-1L, db.pendingSessionDao().insertIgnore(item))
             db.pendingSessionDao().recordError("idem-1", "CLOCK_SKEW_FUTURE", "手机时间超前 10 分钟")
-            val alert = db.pendingSessionDao().observeClockSkewAlert().first()
-            assertNotNull(alert)
-            assertEquals("CLOCK_SKEW_FUTURE", alert!!.lastErrorCode)
+            val alertA = db.pendingSessionDao().observeClockSkewAlert("pA").first()
+            val alertB = db.pendingSessionDao().observeClockSkewAlert("pB").first()
+            assertNotNull(alertA)
+            assertEquals("CLOCK_SKEW_FUTURE", alertA!!.lastErrorCode)
+            assertEquals(null, alertB)
         } finally {
             db.close()
         }

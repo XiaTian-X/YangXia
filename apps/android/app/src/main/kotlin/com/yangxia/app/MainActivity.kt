@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -55,8 +56,13 @@ class MainActivity : ComponentActivity() {
             notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        // 处理冷启动 Deep Link
-        intent?.dataString?.let { vm.handleDeepLink(it) }
+        // 仅在首次冷启动时消费 Deep Link，避免横竖屏切换重建重复触发
+        if (savedInstanceState == null) {
+            intent?.dataString?.let { raw ->
+                intent?.data = null
+                vm.handleDeepLink(raw)
+            }
+        }
 
         setContent {
             YangXiaTheme {
@@ -76,12 +82,15 @@ class MainActivity : ComponentActivity() {
                 val message by vm.message.collectAsState()
                 val dlDialog by vm.deepLinkDialog.collectAsState()
 
-                // 跟练界面保持屏幕常亮，离开后立即释放
+                // 跟练界面保持屏幕常亮并切深色状态栏图标，离开后恢复浅色暖纸状态栏图标
                 LaunchedEffect(screen) {
+                    val controller = WindowCompat.getInsetsController(window, window.decorView)
                     if (screen == AppScreen.WORKOUT) {
                         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        controller.isAppearanceLightStatusBars = false
                     } else {
                         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        controller.isAppearanceLightStatusBars = true
                     }
                 }
 
@@ -161,6 +170,8 @@ class MainActivity : ComponentActivity() {
                         AppScreen.SETTINGS -> SettingsScreen(
                             serverUrl = vm.repo.tokenStore.getServerUrl(),
                             profileCode = activeProfile?.code,
+                            profilePlaybackJson = activeProfile?.playbackJson,
+                            pendingSessionCount = pendingSessions.size,
                             allowTailscale = vm.repo.tokenStore.isAllowTailscaleCleartext(),
                             devicePrefs = devicePrefs,
                             busy = busy,
@@ -211,7 +222,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        val raw = intent.dataString
+        intent.data = null
         setIntent(intent)
-        intent.dataString?.let { vm.handleDeepLink(it) }
+        if (!raw.isNullOrBlank()) {
+            vm.handleDeepLink(raw)
+        }
     }
 }

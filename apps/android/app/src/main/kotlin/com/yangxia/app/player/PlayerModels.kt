@@ -3,6 +3,9 @@ package com.yangxia.app.player
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 @Serializable
 data class TempoDto(
@@ -47,13 +50,13 @@ data class CourseItemDto(
 data class CourseBlockDto(
     val kind: String = "sets", // "sets" | "circuit"
     val rounds: Int? = null,
-    val restBetween: Int? = null,
+    val restBetweenRounds: Int? = null,
     val items: List<CourseItemDto> = emptyList(),
 )
 
 @Serializable
 data class CoachingDto(
-    val breathFloor: String? = null, // "pluck" | null
+    val floor: String? = null, // "pluck" | null
     val prefs: JsonObject? = null,
 )
 
@@ -65,6 +68,7 @@ data class CourseDto(
     val age: String = "a18",
     val source: CourseSourceDto = CourseSourceDto(),
     val coaching: CoachingDto? = null,
+    val presentation: JsonObject? = null,
     val blocks: List<CourseBlockDto> = emptyList(),
 ) {
     fun allItems(): List<CourseItemDto> = blocks.flatMap { it.items }
@@ -79,14 +83,14 @@ data class CourseDto(
 @Serializable
 data class PlaybackSettingsDto(
     val bpm: Int = 60,
-    val sound: String = "bell",
-    val voice: String = "tts",
-    val timbre: String = "warm",
+    val sound: String = "woodblock",
+    val voiceEngine: String = "tts",
+    val voiceTimbre: String = "female",
     val music: String = "none",
     val musicVolume: Int = 0,
     val voiceVolume: Int = 92,
     val soundVolume: Int = 70,
-    val breathVolume: Int = 60,
+    val breathVolume: Int = 65,
     val breathLead: JsonElement? = null,
     val breathAfter: String = "pluck",
     val countTiming: String = "on-up",
@@ -224,7 +228,22 @@ data class DeliveryEnvelopeDto(
     val templateHash: String = "",
     val snapshotHash: String = "",
     val course: CourseDto,
-    val follow: List<String> = emptyList(),
-    val notes: List<String> = emptyList(),
+    val follow: List<JsonElement> = emptyList(),
+    val notes: List<JsonElement> = emptyList(),
     val motionHashes: Map<String, String> = emptyMap(),
-)
+) {
+    fun followLines(): List<String> = follow.mapNotNull(::formatNoteElement)
+    fun noteLines(): List<String> = notes.mapNotNull(::formatNoteElement)
+
+    companion object {
+        private fun formatNoteElement(el: JsonElement): String? = when (el) {
+            is JsonPrimitive -> el.content.takeIf { it.isNotBlank() }
+            is JsonObject -> {
+                val name = el["name"]?.jsonPrimitive?.content ?: el["label"]?.jsonPrimitive?.content ?: ""
+                val reason = el["reason"]?.jsonPrimitive?.content ?: el["text"]?.jsonPrimitive?.content ?: el["detail"]?.jsonPrimitive?.content ?: ""
+                listOf(name, reason).filter { it.isNotBlank() }.joinToString("：").ifBlank { null }
+            }
+            else -> null
+        }
+    }
+}

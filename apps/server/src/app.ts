@@ -1,6 +1,7 @@
 // Hono 应用工厂：统一异常处理、安全响应头、公开/受保护路由装配与静态前端 SPA 托管。
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { extname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError } from "zod";
@@ -29,7 +30,10 @@ const STATIC_MIME: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-const DEFAULT_WEB_DIST = resolve(new URL("../../web/dist", import.meta.url).pathname);
+const DEFAULT_WEB_DIST = resolve(fileURLToPath(new URL("../../web/dist", import.meta.url)));
+
+const SPA_CSP =
+  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
 function safeStaticFile(rootDir: string, reqPath: string): string | null {
   let decoded: string;
@@ -44,21 +48,25 @@ function safeStaticFile(rootDir: string, reqPath: string): string | null {
   if (!full.startsWith(rootDir + "/") && full !== rootDir) return null;
   if (!existsSync(full)) return null;
   try {
-    if (!statSync(full).isFile()) return null;
+    const realRoot = realpathSync(rootDir);
+    const realFull = realpathSync(full);
+    if (!realFull.startsWith(realRoot + "/") && realFull !== realRoot) return null;
+    if (!statSync(realFull).isFile()) return null;
+    return realFull;
   } catch {
     return null;
   }
-  return full;
 }
 
 export function createApp(ctx: ServerContext): Hono {
   const app = new Hono();
 
-  // 基础安全头
+  // 基础安全头（防 MIME 嗅探、点击劫持与跨站引用泄漏）
   app.use("*", async (c, next) => {
     await next();
     c.header("X-Content-Type-Options", "nosniff");
     c.header("Referrer-Policy", "same-origin");
+    c.header("X-Frame-Options", "DENY");
   });
 
   // 统一错误映射（不向客户端暴露堆栈或敏感字段）
@@ -131,6 +139,8 @@ export function createApp(ctx: ServerContext): Hono {
           "Content-Type": STATIC_MIME[ext] ?? "application/octet-stream",
           "Cache-Control": cache,
           "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY",
+          ...(ext === ".svg" ? { "Content-Security-Policy": "default-src 'none'; sandbox" } : {}),
         },
       });
     }
@@ -144,6 +154,8 @@ export function createApp(ctx: ServerContext): Hono {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "no-cache",
         "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Content-Security-Policy": SPA_CSP,
       },
     });
   });

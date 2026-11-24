@@ -39,6 +39,17 @@ interface TimelineProvider {
         note: String,
         edited: Boolean = false,
     ): String
+
+    suspend fun buildSessionWithSetsDoneJson(
+        courseJson: String,
+        setsDone: List<Int>,
+        startedAtIso: String,
+        endedAtIso: String,
+        symptoms: List<String>,
+        feeling: String,
+        note: String,
+        edited: Boolean = false,
+    ): String
 }
 
 /**
@@ -187,21 +198,22 @@ class QuickJsTimelineProvider(
         val headJson = packed.substring(0, firstNl)
         val head = json.decodeFromString(PlayerPlanResultDto.serializer(), headJson)
         val events = ArrayList<TimelineEventDto>(1024)
+        val cols = Array(19) { "" }
         var pos = firstNl + 1
         val len = packed.length
         while (pos < len) {
             var end = packed.indexOf('\n', pos)
             if (end < 0) end = len
             if (end > pos) {
-                events.add(parseEventRow(packed, pos, end))
+                events.add(parseEventRow(packed, pos, end, cols))
             }
             pos = end + 1
         }
         return head.copy(timeline = head.timeline.copy(events = events))
     }
 
-    private fun parseEventRow(src: String, start: Int, end: Int): TimelineEventDto {
-        val cols = Array(19) { "" }
+    private fun parseEventRow(src: String, start: Int, end: Int, cols: Array<String>): TimelineEventDto {
+        cols.fill("")
         var col = 0
         var cStart = start
         var i = start
@@ -355,8 +367,44 @@ class QuickJsTimelineProvider(
         }
     }
 
-    /** 供黄金对比测试直接评估任意 JS 表达式。 */
-    suspend fun evalRawJson(jsExpression: String): String = mutex.withLock {
+    override suspend fun buildSessionWithSetsDoneJson(
+        courseJson: String,
+        setsDone: List<Int>,
+        startedAtIso: String,
+        endedAtIso: String,
+        symptoms: List<String>,
+        feeling: String,
+        note: String,
+        edited: Boolean,
+    ): String = mutex.withLock {
+        withContext(dispatcher) {
+            val rt = ensureRuntime()
+            val setsMapJson = json.encodeToString(setsDone.mapIndexed { i, v -> i.toString() to v }.toMap())
+            val pain = symptoms.contains("疼痛")
+            val dizzy = symptoms.contains("头晕")
+            val chest = symptoms.contains("胸闷")
+            val script = """
+                (function() {
+                  var course = JSON.parse(${lit(courseJson)});
+                  var sets = JSON.parse(${lit(setsMapJson)});
+                  var sess = globalThis.YangXiaPlayer.buildSession(course, {
+                    startedAt: new Date(${lit(startedAtIso)}),
+                    endedAt: new Date(${lit(endedAtIso)}),
+                    setsDone: sets,
+                    symptoms: { pain: $pain, dizzy: $dizzy, chest: $chest },
+                    feeling: ${lit(feeling)},
+                    edited: $edited,
+                    note: ${lit(note)}
+                  });
+                  return globalThis.__yxToJniSafeJson(sess);
+                })()
+            """.trimIndent()
+            rt.evaluate<String>(script)
+        }
+    }
+
+    /** 仅限测试使用的受控 JS 评估入口。 */
+    internal suspend fun evalRawJson(jsExpression: String): String = mutex.withLock {
         withContext(dispatcher) {
             val rt = ensureRuntime()
             rt.evaluate<String>(jsExpression)
@@ -438,8 +486,30 @@ class ServerPrecomputedTimelineProvider(
         note: String,
         edited: Boolean,
     ): String {
-        val course = json.decodeFromString(CourseDto.serializer(), courseJson)
         val setsDone = computeSetsDone(courseJson, timelineJson, playedIndices)
+        return buildSessionWithSetsDoneJson(
+            courseJson = courseJson,
+            setsDone = setsDone,
+            startedAtIso = startedAtIso,
+            endedAtIso = endedAtIso,
+            symptoms = symptoms,
+            feeling = feeling,
+            note = note,
+            edited = edited,
+        )
+    }
+
+    override suspend fun buildSessionWithSetsDoneJson(
+        courseJson: String,
+        setsDone: List<Int>,
+        startedAtIso: String,
+        endedAtIso: String,
+        symptoms: List<String>,
+        feeling: String,
+        note: String,
+        edited: Boolean,
+    ): String {
+        val course = json.decodeFromString(CourseDto.serializer(), courseJson)
         val plannedList = course.plannedPerItem()
         val itemsJson = course.allItems().mapIndexed { idx, item ->
             val planned = plannedList.getOrElse(idx) { 1 to "组" }.first

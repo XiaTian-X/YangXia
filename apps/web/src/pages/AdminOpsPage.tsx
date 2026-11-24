@@ -111,11 +111,11 @@ export function AdminOpsPage({ onRefreshProfiles }: { onRefreshProfiles: () => v
     setError(null);
     setNotice(null);
     try {
-      const res = await apiRequest<{ version: string; invalidatedCount: number }>("/api/admin/templates/reload", {
+      const res = await apiRequest<{ version: string; coursesInvalidated: number }>("/api/admin/templates/reload", {
         method: "POST",
         body: {},
       });
-      setNotice(`已原子热重载模板至版本 ${res.version}，受影响旧课程已自动作废 ${res.invalidatedCount} 节`);
+      setNotice(`已原子热重载模板至版本 ${res.version}，受影响旧课程已自动作废 ${res.coursesInvalidated ?? 0} 节`);
       await load();
       onRefreshProfiles();
     } catch (err) {
@@ -175,7 +175,8 @@ export function AdminOpsPage({ onRefreshProfiles }: { onRefreshProfiles: () => v
       a.href = url;
       a.download = `yangxia-backup-${new Date().toISOString().slice(0, 10)}.yxbackup`;
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setExportPass("");
       setNotice("已生成并下载换机可用加密备份（已自动物理剥离外部模型 API Key）");
     } catch (err) {
       setError(formatApiError(err));
@@ -218,6 +219,7 @@ export function AdminOpsPage({ onRefreshProfiles }: { onRefreshProfiles: () => v
         method: "POST",
         formData: fd,
       });
+      setRestorePass("");
       setNotice(`已恢复自 ${res.restoredFrom} 的备份。${res.notice}`);
       await load();
       onRefreshProfiles();

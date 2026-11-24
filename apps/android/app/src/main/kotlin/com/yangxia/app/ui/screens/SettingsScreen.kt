@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -18,6 +19,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,14 +32,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yangxia.app.storage.DevicePrefs
 import com.yangxia.app.ui.theme.YangXiaColors
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.math.roundToInt
 
 @Composable
 fun SettingsScreen(
     serverUrl: String,
     profileCode: String?,
+    profilePlaybackJson: String?,
+    pendingSessionCount: Int,
     allowTailscale: Boolean,
     devicePrefs: DevicePrefs,
     busy: Boolean,
@@ -51,9 +58,19 @@ fun SettingsScreen(
     onOpenBatterySettings: () -> Unit,
     onLogout: () -> Unit,
 ) {
-    var breathAfter by remember { mutableStateOf("pluck") }
-    var countTiming by remember { mutableStateOf("on-rep") }
-    var breathLeadAll by remember { mutableStateOf(false) }
+    val parsedPb = remember(profilePlaybackJson) {
+        profilePlaybackJson?.let { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() }
+    }
+    var breathAfter by remember(profileCode, profilePlaybackJson) {
+        mutableStateOf(parsedPb?.get("breathAfter")?.jsonPrimitive?.content ?: "pluck")
+    }
+    var countTiming by remember(profileCode, profilePlaybackJson) {
+        mutableStateOf(parsedPb?.get("countTiming")?.jsonPrimitive?.content ?: "on-up")
+    }
+    var breathLeadAll by remember(profileCode, profilePlaybackJson) {
+        mutableStateOf(parsedPb?.get("breathLead")?.jsonPrimitive?.content == "all")
+    }
+    var confirmLogoutOpen by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -105,6 +122,16 @@ fun SettingsScreen(
                     onValueChange = { v -> onUpdateDevicePrefs { it.copy(breathVol = v.roundToInt()) } },
                     valueRange = 0f..100f,
                 )
+                Text("打点音色", fontSize = 13.sp, color = YangXiaColors.Ink2)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("woodblock" to "木鱼/钟", "marimba" to "马林巴", "perc" to "打击").forEach { (id, label) ->
+                        FilterChip(
+                            selected = devicePrefs.soundStyle == id,
+                            onClick = { onUpdateDevicePrefs { it.copy(soundStyle = id) } },
+                            label = { Text(label) },
+                        )
+                    }
+                }
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("强制使用内置 27 词元离线语音兜底", fontSize = 13.sp, modifier = Modifier.weight(1f))
@@ -182,10 +209,36 @@ fun SettingsScreen(
                 OutlinedButton(onClick = onOpenBatterySettings, modifier = Modifier.fillMaxWidth()) {
                     Text("MIUI / 系统省电白名单设置（防息屏杀后台）")
                 }
-                OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = {
+                        if (pendingSessionCount > 0) confirmLogoutOpen = true else onLogout()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     Text("退出登录 / 解绑设备", color = YangXiaColors.Danger)
                 }
             }
         }
+    }
+
+    if (confirmLogoutOpen) {
+        AlertDialog(
+            onDismissRequest = { confirmLogoutOpen = false },
+            title = { Text("存在未同步的离线练习记录") },
+            text = { Text("当前本机还有 $pendingSessionCount 条未上传的练习记录。退出登录将清空本机缓存与待传队列，建议先联网补传后再退出。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmLogoutOpen = false
+                    onLogout()
+                }) {
+                    Text("仍要退出并清空", color = YangXiaColors.Danger)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmLogoutOpen = false }) {
+                    Text("取消")
+                }
+            },
+        )
     }
 }

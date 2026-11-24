@@ -360,13 +360,23 @@ export function SchedulePage({
                   {c.envelope.follow.length > 0 && (
                     <div class="muted">
                       <strong>配套有氧/习惯：</strong>
-                      {c.envelope.follow.join("；")}
+                      {c.envelope.follow
+                        .map((item: any) =>
+                          typeof item === "string" ? item : [item?.name, item?.reason ?? item?.text].filter(Boolean).join("："),
+                        )
+                        .filter(Boolean)
+                        .join("；")}
                     </div>
                   )}
                   {c.envelope.notes.length > 0 && (
                     <div class="muted">
                       <strong>注意事项：</strong>
-                      {c.envelope.notes.join("；")}
+                      {c.envelope.notes
+                        .map((item: any) =>
+                          typeof item === "string" ? item : [item?.name, item?.reason ?? item?.text].filter(Boolean).join("："),
+                        )
+                        .filter(Boolean)
+                        .join("；")}
                     </div>
                   )}
                 </div>

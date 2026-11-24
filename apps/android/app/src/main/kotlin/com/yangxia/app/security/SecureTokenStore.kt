@@ -27,6 +27,7 @@ class SecureTokenStore(context: Context) {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    @Synchronized
     private fun getOrCreateSecretKey(): SecretKey {
         val ks = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
         val existing = ks.getKey(KEY_ALIAS, null) as? SecretKey

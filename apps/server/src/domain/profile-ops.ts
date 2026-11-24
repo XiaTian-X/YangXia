@@ -1362,6 +1362,11 @@ export function submitMobileSessionOp(
 /** 构造交付信封对象（从 courses 表读出还原）。 */
 export function courseRowToEnvelope(row: CourseDbRow): {
   id: string;
+  courseId: string;
+  segment: number;
+  week: number;
+  day: string;
+  half: boolean;
   status: CourseDbRow["status"];
   invalidatedReason: string | null;
   snapshotHash: string;
@@ -1371,6 +1376,11 @@ export function courseRowToEnvelope(row: CourseDbRow): {
 } {
   return {
     id: row.id,
+    courseId: row.course_id,
+    segment: row.segment,
+    week: row.week,
+    day: row.day,
+    half: row.half === 1,
     status: row.status,
     invalidatedReason: row.invalidated_reason,
     snapshotHash: row.snapshot_hash,

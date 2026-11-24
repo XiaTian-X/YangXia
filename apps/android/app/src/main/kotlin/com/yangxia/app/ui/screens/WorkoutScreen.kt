@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -350,23 +351,26 @@ private fun WorkoutControlsBar(
         OutlinedButton(
             onClick = { onSeekDelta(-10.0) },
             modifier = Modifier.weight(1f).height(48.dp),
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = YangXiaColors.WorkoutInk),
         ) {
-            Text("-10秒", fontSize = 14.sp)
+            Text("-10秒", fontSize = 14.sp, maxLines = 1, softWrap = false)
         }
         Button(
             onClick = onTogglePause,
-            modifier = Modifier.weight(1.6f).height(50.dp),
+            modifier = Modifier.weight(1.5f).height(50.dp),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
             colors = ButtonDefaults.buttonColors(containerColor = YangXiaColors.Accent),
         ) {
-            Text(if (isPaused) "继续" else "暂停", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(if (isPaused) "继续" else "暂停", fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
         }
         OutlinedButton(
             onClick = { onSeekDelta(10.0) },
             modifier = Modifier.weight(1f).height(48.dp),
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = YangXiaColors.WorkoutInk),
         ) {
-            Text("+10秒", fontSize = 14.sp)
+            Text("+10秒", fontSize = 14.sp, maxLines = 1, softWrap = false)
         }
     }
 }

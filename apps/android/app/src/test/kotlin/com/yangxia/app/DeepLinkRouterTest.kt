@@ -34,8 +34,12 @@ class DeepLinkRouterTest {
         assertEquals(DeepLinkParseResult.Valid(DeepLinkTarget.Profile(pidA)), DeepLinkRouter.parse("yangxia://profile/$pidA"))
         assertEquals(DeepLinkParseResult.Valid(DeepLinkTarget.Course(cidOk)), DeepLinkRouter.parse("yangxia://course/$cidOk"))
 
-        // 拒绝任何携带查询参数、非 UUID 代号、或错误协议的链接
+        // 拒绝任何携带查询参数、锚点、用户信息、端口、非 UUID 代号、或错误协议的链接
         assertTrue(DeepLinkRouter.parse("yangxia://today?weight=75") is DeepLinkParseResult.Rejected)
+        assertTrue(DeepLinkRouter.parse("yangxia://today?") is DeepLinkParseResult.Rejected)
+        assertTrue(DeepLinkRouter.parse("yangxia://today#sec") is DeepLinkParseResult.Rejected)
+        assertTrue(DeepLinkRouter.parse("yangxia://weight=75@today") is DeepLinkParseResult.Rejected)
+        assertTrue(DeepLinkRouter.parse("yangxia://today:1234") is DeepLinkParseResult.Rejected)
         assertTrue(DeepLinkRouter.parse("yangxia://profile/小夏") is DeepLinkParseResult.Rejected)
         assertTrue(DeepLinkRouter.parse("yangxia://course/not-a-uuid") is DeepLinkParseResult.Rejected)
         assertTrue(DeepLinkRouter.parse("https://yangxia.local/today") is DeepLinkParseResult.Rejected)

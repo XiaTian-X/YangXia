@@ -68,9 +68,9 @@ object DeepLinkRouter {
         if (!uri.scheme.equals("yangxia", ignoreCase = true)) {
             return DeepLinkParseResult.Rejected("不支持的协议：${uri.scheme}")
         }
-        // 安全约束：严禁通过 query/fragment 传入任何健康参数或敏感数据
-        if (!uri.rawQuery.isNullOrEmpty() || !uri.rawFragment.isNullOrEmpty()) {
-            return DeepLinkParseResult.Rejected("出于隐私安全，外部拉起链接不允许附带查询参数")
+        // 安全约束：严禁通过 query/fragment/userInfo/port 传入任何健康参数或隐蔽字段
+        if (uri.rawQuery != null || uri.rawFragment != null || uri.rawUserInfo != null || uri.port != -1) {
+            return DeepLinkParseResult.Rejected("出于隐私安全，外部拉起链接不允许附带查询参数、锚点、用户信息或端口")
         }
         val host = uri.host?.lowercase() ?: return DeepLinkParseResult.Rejected("缺少目标路径")
         val segments = (uri.path ?: "").split("/").filter { it.isNotBlank() }

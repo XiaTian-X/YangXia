@@ -20,6 +20,8 @@ import java.io.Closeable
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
 import kotlin.math.max
 import kotlin.math.min
@@ -58,12 +60,15 @@ class AudioFocusHelper(context: Context) {
         .build()
 
     private val releaseRunnable = Runnable {
-        if (holdingFocus) {
-            runCatching { audioManager.abandonAudioFocusRequest(focusRequest) }
-            holdingFocus = false
+        synchronized(this) {
+            if (holdingFocus) {
+                runCatching { audioManager.abandonAudioFocusRequest(focusRequest) }
+                holdingFocus = false
+            }
         }
     }
 
+    @Synchronized
     fun requestDuckFor(durationMs: Long) {
         handler.removeCallbacks(releaseRunnable)
         if (!holdingFocus) {
@@ -74,6 +79,7 @@ class AudioFocusHelper(context: Context) {
         handler.postDelayed(releaseRunnable, max(200L, durationMs) + 350L)
     }
 
+    @Synchronized
     fun abandonNow() {
         handler.removeCallbacks(releaseRunnable)
         if (holdingFocus) {
@@ -89,12 +95,15 @@ class AudioFocusHelper(context: Context) {
  * - 离线兜底采用 12ms 余弦交叉淡化拼接与高 BPM 采样率倍率加速，新语音到达立即打断旧语音防叠音；
  * - 系统 TTS 播报前强制 `text.replace("，", "")`，自动检测中文发音人并支持错误/超时降级与手动切换离线兜底。
  */
-class AndroidAudioEngine(context: Context) : Closeable {
+class AndroidAudioEngine(context: Context, enableTts: Boolean = true) : Closeable {
 
     private val appContext = context.applicationContext
     private val focusHelper = AudioFocusHelper(appContext)
     private val voiceExecutor = Executors.newSingleThreadExecutor { r -> Thread(r, "yangxia-voice").apply { isDaemon = true } }
     private val cueExecutor = Executors.newSingleThreadExecutor { r -> Thread(r, "yangxia-cue").apply { isDaemon = true } }
+    private val releaseScheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "yangxia-audio-reap").apply { isDaemon = true }
+    }
 
     @Volatile private var sampleRate = OfflineAudioMixer.DEFAULT_SAMPLE_RATE
     @Volatile private var clips: Map<String, ShortArray> = emptyMap()
@@ -117,7 +126,7 @@ class AndroidAudioEngine(context: Context) : Closeable {
 
     init {
         loadAudioAssets()
-        initTts()
+        if (enableTts) initTts()
     }
 
     private fun loadAudioAssets() {
@@ -326,15 +335,20 @@ class AndroidAudioEngine(context: Context) : Closeable {
                 track.setVolume(min(1f, max(0f, gain)))
                 track.write(pcm, 0, pcm.size)
                 track.play()
-                // MODE_STATIC 播完后回收，避免占用 AudioFlinger Track 槽位
-                Thread.sleep(durationMs + 40L)
-                if (!interruptVoice || activeVoiceTrack === track) {
-                    runCatching {
-                        if (track.playState == AudioTrack.PLAYSTATE_PLAYING) track.stop()
-                        track.release()
-                    }
-                    if (activeVoiceTrack === track) activeVoiceTrack = null
-                }
+                // 非阻塞延时回收 AudioTrack，避免阻塞同一拍的提示音与换气音并发触发
+                releaseScheduler.schedule(
+                    {
+                        if (!interruptVoice || activeVoiceTrack === track) {
+                            runCatching {
+                                if (track.playState == AudioTrack.PLAYSTATE_PLAYING) track.stop()
+                                track.release()
+                            }
+                            if (activeVoiceTrack === track) activeVoiceTrack = null
+                        }
+                    },
+                    durationMs + 45L,
+                    TimeUnit.MILLISECONDS,
+                )
             }
         }
     }
@@ -344,5 +358,6 @@ class AndroidAudioEngine(context: Context) : Closeable {
         runCatching { tts?.shutdown() }
         voiceExecutor.shutdownNow()
         cueExecutor.shutdownNow()
+        releaseScheduler.shutdownNow()
     }
 }
