@@ -1069,7 +1069,175 @@
     "note": "设计值 A65_SWITCH",
     "number": 28
    }
-  ]
+  ],
+  "mastery": {
+   "kind": "培训",
+   "results": [
+    "掌握",
+    "没掌握"
+   ],
+   "next": {
+    "mastered": "week2",
+    "notMastered": "repeatWeek1",
+    "maxReached": "week2KeepTraining"
+   },
+   "feel": {
+    "blocks": "form"
+   },
+   "record": {
+    "tests": {
+     "id": "自查项 ID",
+     "value": {
+      "0": "否",
+      "1": "是"
+     }
+    },
+    "companion": [
+     "a65·chair"
+    ]
+   },
+   "items": [
+    {
+     "id": "covered",
+     "products": [
+      "a18·bw",
+      "a40·bw",
+      "a18·home",
+      "a40·home",
+      "a18·gym",
+      "a40·gym",
+      "a13·bw"
+     ],
+     "must": true,
+     "text": "这一周排的跟练课程都练过，课程里每个动作都听过讲解",
+     "note": "设计值 MASTERY_ITEMS：按这一段的段型排的训练日；不在跟练课程里的动作、当天照成品去掉的不算没练"
+    },
+    {
+     "id": "covered",
+     "products": [
+      "a65·chair"
+     ],
+     "must": true,
+     "text": "这一周练了 2 次以上",
+     "note": "设计值 MASTERY_ITEMS、TRAINING_A65：三次练同一套，练过 2 次（周达标线）"
+    },
+    {
+     "id": "breath",
+     "products": [
+      "a18·bw",
+      "a40·bw",
+      "a18·home",
+      "a40·home",
+      "a18·gym",
+      "a40·gym"
+     ],
+     "must": true,
+     "text": "每一组都跟上了呼吸：发力时呼气、还原时吸气，撑住时照常呼吸、能小声数数，一次也没憋气",
+     "note": "培训三样之一（呼吸）"
+    },
+    {
+     "id": "breath",
+     "products": [
+      "a13·bw"
+     ],
+     "must": true,
+     "text": "每一组都跟上了呼吸：发力时呼气、还原时吸气，撑住时照常呼吸、能小声数数，一次也没把气停住",
+     "note": "同上"
+    },
+    {
+     "id": "breath",
+     "products": [
+      "a65·chair"
+     ],
+     "must": true,
+     "text": "每一组都跟上了呼吸：用力时呼气、还原时吸气，站住不动时照常呼吸、能数出声，一次也没把气停住",
+     "note": "同上"
+    },
+    {
+     "id": "form",
+     "products": [
+      "a18·bw",
+      "a40·bw",
+      "a18·home",
+      "a40·home",
+      "a18·gym",
+      "a40·gym",
+      "a13·bw",
+      "a65·chair"
+     ],
+     "must": true,
+     "text": "对照要领卡，每个动作的要点都做到了，常见错误一条也没有",
+     "note": "培训三样之一（动作要领）；练习记录的感受见参数\"掌握评估·练习记录\""
+    },
+    {
+     "id": "force",
+     "products": [
+      "a18·bw",
+      "a40·bw",
+      "a18·home",
+      "a40·home",
+      "a18·gym",
+      "a40·gym",
+      "a13·bw"
+     ],
+     "must": true,
+     "text": "每个动作都知道哪里发力，做的时候用对了地方",
+     "note": "培训三样之一（发力方式）"
+    },
+    {
+     "id": "force",
+     "products": [
+      "a65·chair"
+     ],
+     "must": true,
+     "text": "每个动作都知道哪里用力，做的时候用对了地方",
+     "note": "同上"
+    }
+   ],
+   "byProduct": {
+    "a18·bw": {
+     "when": "week1Review",
+     "line": "allMust",
+     "feel": "做不到下限或后面几下变形"
+    },
+    "a40·bw": {
+     "when": "week1Review",
+     "line": "allMust",
+     "feel": "做不到下限或后面几下变形"
+    },
+    "a18·home": {
+     "when": "week1Review",
+     "line": "allMust",
+     "feel": "做不到下限或后面几下变形"
+    },
+    "a40·home": {
+     "when": "week1Review",
+     "line": "allMust",
+     "feel": "做不到下限或后面几下变形"
+    },
+    "a18·gym": {
+     "when": "week1Review",
+     "line": "allMust",
+     "feel": "做不到下限或后面几下变形"
+    },
+    "a40·gym": {
+     "when": "week1Review",
+     "line": "allMust",
+     "feel": "做不到下限或后面几下变形"
+    },
+    "a13·bw": {
+     "when": "week1Review",
+     "line": "allMust",
+     "feel": "做不到下限或后面几下变形"
+    },
+    "a65·chair": {
+     "when": "week1Review",
+     "line": "allMust",
+     "feel": "做不到下限或后面几下变形",
+     "companion": true
+    }
+   }
+  }
  },
  "nextRound": [
   {
@@ -5257,6 +5425,1710 @@
    {
     "family": "a13·bw",
     "exercise": "table-row"
+   }
+  ]
+ },
+ "training": {
+  "products": [
+   "a18·bw",
+   "a40·bw",
+   "a18·home",
+   "a40·home",
+   "a18·gym",
+   "a40·gym",
+   "a13·bw",
+   "a65·chair"
+  ],
+  "order": [
+   "none",
+   "firstInFamily",
+   "seniorNewSegment",
+   "unfinished",
+   "choose"
+  ],
+  "who": [
+   {
+    "id": "none",
+    "result": "none",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw"
+    ],
+    "quotes": [
+     {
+      "section": "培训期给谁",
+      "text": "稳定期的每一周"
+     },
+     {
+      "section": "培训期给谁",
+      "text": "第 1 周排的训练日都没有跟练课程的一段"
+     }
+    ],
+    "note": "设计值 TRAINING_WHO、TRAINING_COURSE_DAYS：稳定期的段（包括直接从稳定期开始的那一段）；第 1 周排的训练日都没有跟练课程的一段（健身房减量段）；6–12 岁；不在这张表里的成品（上级方案第十节第 6 条 A）；这一段开始时档案还没有培训期这一项的旧档案（上级方案第十节第 2 条\"已经在练的人默认不补\"）。什么时候判定见参数\"判定时机\""
+   },
+   {
+    "id": "none",
+    "result": "none",
+    "products": [
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期给谁",
+      "text": "稳定期的每一周"
+     }
+    ],
+    "note": "设计值 TRAINING_WHO：稳定期的段；不在这张表里的成品；这一段开始时档案还没有培训期这一项的旧档案（65 岁以上每一天都有跟练课程，没有\"整周没有课程\"这一条）"
+   },
+   {
+    "id": "firstInFamily",
+    "result": "required",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym"
+    ],
+    "quotes": [
+     {
+      "section": "培训期给谁",
+      "text": "第一次练这份计划、以前没怎么练过力量的"
+     },
+     {
+      "section": "培训期给谁",
+      "text": "以前没练过这一版、从别的版本换过来的"
+     }
+    ],
+    "note": "设计值 TRAINING_WHO：起始期的段里，这个人在这个家族（年龄段·场地；起始期、稳定期都算）第一次练——建档的第一段（入门评估 `base` 不是 2），或者换到以前没练过的家族的第一段（换场地、满 40 岁、满 18 岁换版）；上级方案第十节第 2 条 A\"从起始期第 1 周开始的新手必须\""
+   },
+   {
+    "id": "firstInFamily",
+    "result": "required",
+    "products": [
+     "a13·bw"
+    ],
+    "quotes": [
+     {
+      "section": "培训期给谁",
+      "text": "第一次练这份计划、以前没怎么练过力量的"
+     }
+    ],
+    "note": "设计值 TRAINING_WHO：建档的第一段（入门评估 `base` 不是 2）；从 6–12 岁版升上来的也是第一次练这个家族"
+   },
+   {
+    "id": "firstInFamily",
+    "result": "required",
+    "products": [
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期给谁",
+      "text": "第一次练这份计划的"
+     }
+    ],
+    "note": "设计值 TRAINING_WHO、TRAINING_A65：65 岁以上不分有没有基础"
+   },
+   {
+    "id": "seniorNewSegment",
+    "result": "required",
+    "products": [
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期给谁",
+      "text": "65 岁以上起始期每新开一段，第 1 周都是培训期"
+     }
+    ],
+    "note": "设计值 TRAINING_A65：段末接着开的、减量的、生病住院回来重来的、稳定期回起始期的、长时间中断回来的都算"
+   },
+   {
+    "id": "unfinished",
+    "result": "required",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw"
+    ],
+    "quotes": [
+     {
+      "section": "培训期给谁",
+      "text": "上一次培训期没掌握"
+     }
+    ],
+    "note": "设计值 TRAINING_WHO：这个家族最近一次培训期不是\"掌握了、进了第 2 周\"结束的（没练完、没做评估就断了；掌握了但还没进第 2 周就断了；用完次数进的第 2 周），又新开一段起始期；从来没有过培训期的不算"
+   },
+   {
+    "id": "choose",
+    "result": "choose",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw"
+    ],
+    "quotes": [
+     {
+      "section": "培训期给谁",
+      "text": "建档时最近 3 个月平均每周练力量 2 天以上的"
+     },
+     {
+      "section": "培训期给谁",
+      "text": "开始之前问一句\"这一段的第 1 周要不要培训期\"，选了就有，没问、没选的按不要"
+     },
+     {
+      "section": "培训期给谁",
+      "text": "一段开始以后不补、不撤"
+     }
+    ],
+    "note": "上级方案第十节第 2 条 A；设计值 TRAINING_CHOOSE：建档时 `base` 是 2 的，和其他起始期新开一段的第 1 周（段末接着开、减量段、周期末回起始期、长时间中断回来），开始之前问；选择记进档案（只记要不要和日期），没记的按不要"
+   }
+  ],
+  "byProduct": {
+   "a18·bw": {
+    "explain": {
+     "order": [
+      "breathing",
+      "how",
+      "points",
+      "errors",
+      "force"
+     ],
+     "firstSetOnly": true,
+     "circuit": "beforeBlock",
+     "breathingSource": "item",
+     "charsPerSecond": 4
+    },
+    "week": 1,
+    "decideAt": "segmentStart",
+    "chooseDefault": "none",
+    "plainDay": "plain",
+    "maxRepeats": 2,
+    "missingAssessment": "notMastered",
+    "repeatWeek": "week1",
+    "countRepeats": false,
+    "afterMax": {
+     "next": 2,
+     "keep": [
+      "breathing",
+      "cue",
+      "explain"
+     ],
+     "assess": false
+    },
+    "symptomWeek": {
+     "advance": false,
+     "countsAsRepeat": true
+    },
+    "refer": "康复治疗师或有资质的教练",
+    "warmupSet": "asWritten",
+    "split": {
+     "maxMinutes": 38,
+     "scope": "training",
+     "at": "betweenItems",
+     "eachPart": [
+      "warmup",
+      "course",
+      "stretch"
+     ],
+     "outside": "inOrder",
+     "cut": "asWritten",
+     "breathingEachPart": true,
+     "count": "sameDayOnce",
+     "acrossDays": false,
+     "half": "halveFirst",
+     "rotation": "samePick"
+    },
+    "breathing": {
+     "text": "用鼻子慢慢吸气 4 秒，再慢慢呼气 6 秒，吸完接着呼、呼完接着吸，中间不停住，做 6 次。记住三句：发力时呼气、还原时吸气；撑住不动时照常呼吸，能小声数数就对了；任何时候都别把气停住。",
+     "inhale": 4,
+     "exhale": 6,
+     "count": 6,
+     "seconds": 60,
+     "posture": "坐着或站着都行"
+    }
+   },
+   "a40·bw": {
+    "explain": {
+     "order": [
+      "breathing",
+      "how",
+      "points",
+      "errors",
+      "force"
+     ],
+     "firstSetOnly": true,
+     "circuit": "beforeBlock",
+     "breathingSource": "item",
+     "charsPerSecond": 4
+    },
+    "week": 1,
+    "decideAt": "segmentStart",
+    "chooseDefault": "none",
+    "plainDay": "plain",
+    "maxRepeats": 2,
+    "missingAssessment": "notMastered",
+    "repeatWeek": "week1",
+    "countRepeats": false,
+    "afterMax": {
+     "next": 2,
+     "keep": [
+      "breathing",
+      "cue",
+      "explain"
+     ],
+     "assess": false
+    },
+    "symptomWeek": {
+     "advance": false,
+     "countsAsRepeat": true
+    },
+    "refer": "康复治疗师或有资质的教练",
+    "warmupSet": "asWritten",
+    "split": {
+     "maxMinutes": 38,
+     "scope": "training",
+     "at": "betweenItems",
+     "eachPart": [
+      "warmup",
+      "course",
+      "stretch"
+     ],
+     "outside": "inOrder",
+     "cut": "asWritten",
+     "breathingEachPart": true,
+     "count": "sameDayOnce",
+     "acrossDays": false,
+     "half": "halveFirst",
+     "rotation": "samePick"
+    },
+    "breathing": {
+     "text": "用鼻子慢慢吸气 4 秒，再慢慢呼气 6 秒，吸完接着呼、呼完接着吸，中间不停住，做 6 次。记住三句：发力时呼气、还原时吸气；撑住不动时照常呼吸，能小声数数就对了；任何时候都别把气停住。",
+     "inhale": 4,
+     "exhale": 6,
+     "count": 6,
+     "seconds": 60,
+     "posture": "坐着或站着都行"
+    }
+   },
+   "a18·home": {
+    "explain": {
+     "order": [
+      "breathing",
+      "how",
+      "points",
+      "errors",
+      "force"
+     ],
+     "firstSetOnly": true,
+     "circuit": "beforeBlock",
+     "breathingSource": "item",
+     "charsPerSecond": 4
+    },
+    "week": 1,
+    "decideAt": "segmentStart",
+    "chooseDefault": "none",
+    "plainDay": "plain",
+    "maxRepeats": 2,
+    "missingAssessment": "notMastered",
+    "repeatWeek": "week1",
+    "countRepeats": false,
+    "afterMax": {
+     "next": 2,
+     "keep": [
+      "breathing",
+      "cue",
+      "explain"
+     ],
+     "assess": false
+    },
+    "symptomWeek": {
+     "advance": false,
+     "countsAsRepeat": true
+    },
+    "refer": "康复治疗师或有资质的教练",
+    "warmupSet": "asWritten",
+    "split": {
+     "maxMinutes": 38,
+     "scope": "training",
+     "at": "betweenItems",
+     "eachPart": [
+      "warmup",
+      "course",
+      "stretch"
+     ],
+     "outside": "inOrder",
+     "cut": "asWritten",
+     "breathingEachPart": true,
+     "count": "sameDayOnce",
+     "acrossDays": false,
+     "half": "halveFirst",
+     "rotation": "samePick"
+    },
+    "breathing": {
+     "text": "用鼻子慢慢吸气 4 秒，再慢慢呼气 6 秒，吸完接着呼、呼完接着吸，中间不停住，做 6 次。记住三句：发力时呼气、还原时吸气；撑住不动时照常呼吸，能小声数数就对了；任何时候都别把气停住。",
+     "inhale": 4,
+     "exhale": 6,
+     "count": 6,
+     "seconds": 60,
+     "posture": "坐着或站着都行"
+    }
+   },
+   "a40·home": {
+    "explain": {
+     "order": [
+      "breathing",
+      "how",
+      "points",
+      "errors",
+      "force"
+     ],
+     "firstSetOnly": true,
+     "circuit": "beforeBlock",
+     "breathingSource": "item",
+     "charsPerSecond": 4
+    },
+    "week": 1,
+    "decideAt": "segmentStart",
+    "chooseDefault": "none",
+    "plainDay": "plain",
+    "maxRepeats": 2,
+    "missingAssessment": "notMastered",
+    "repeatWeek": "week1",
+    "countRepeats": false,
+    "afterMax": {
+     "next": 2,
+     "keep": [
+      "breathing",
+      "cue",
+      "explain"
+     ],
+     "assess": false
+    },
+    "symptomWeek": {
+     "advance": false,
+     "countsAsRepeat": true
+    },
+    "refer": "康复治疗师或有资质的教练",
+    "warmupSet": "asWritten",
+    "split": {
+     "maxMinutes": 38,
+     "scope": "training",
+     "at": "betweenItems",
+     "eachPart": [
+      "warmup",
+      "course",
+      "stretch"
+     ],
+     "outside": "inOrder",
+     "cut": "asWritten",
+     "breathingEachPart": true,
+     "count": "sameDayOnce",
+     "acrossDays": false,
+     "half": "halveFirst",
+     "rotation": "samePick"
+    },
+    "breathing": {
+     "text": "用鼻子慢慢吸气 4 秒，再慢慢呼气 6 秒，吸完接着呼、呼完接着吸，中间不停住，做 6 次。记住三句：发力时呼气、还原时吸气；撑住不动时照常呼吸，能小声数数就对了；任何时候都别把气停住。",
+     "inhale": 4,
+     "exhale": 6,
+     "count": 6,
+     "seconds": 60,
+     "posture": "坐着或站着都行"
+    }
+   },
+   "a18·gym": {
+    "explain": {
+     "order": [
+      "breathing",
+      "how",
+      "points",
+      "errors",
+      "force"
+     ],
+     "firstSetOnly": true,
+     "circuit": "beforeBlock",
+     "breathingSource": "item",
+     "charsPerSecond": 4
+    },
+    "week": 1,
+    "decideAt": "segmentStart",
+    "chooseDefault": "none",
+    "plainDay": "plain",
+    "maxRepeats": 2,
+    "missingAssessment": "notMastered",
+    "repeatWeek": "week1",
+    "countRepeats": false,
+    "afterMax": {
+     "next": 2,
+     "keep": [
+      "breathing",
+      "cue",
+      "explain"
+     ],
+     "assess": false
+    },
+    "symptomWeek": {
+     "advance": false,
+     "countsAsRepeat": true
+    },
+    "refer": "康复治疗师或有资质的教练",
+    "warmupSet": "asWritten",
+    "split": {
+     "maxMinutes": 33,
+     "scope": "training",
+     "at": "betweenItems",
+     "eachPart": [
+      "warmup",
+      "course",
+      "stretch"
+     ],
+     "outside": "inOrder",
+     "cut": "asWritten",
+     "breathingEachPart": true,
+     "count": "sameDayOnce",
+     "acrossDays": false,
+     "half": "halveFirst",
+     "rotation": "samePick"
+    },
+    "breathing": {
+     "text": "用鼻子慢慢吸气 4 秒，再慢慢呼气 6 秒，吸完接着呼、呼完接着吸，中间不停住，做 6 次。记住三句：发力时呼气、还原时吸气；撑住不动时照常呼吸，能小声数数就对了；任何时候都别把气停住。",
+     "inhale": 4,
+     "exhale": 6,
+     "count": 6,
+     "seconds": 60,
+     "posture": "坐着或站着都行"
+    }
+   },
+   "a40·gym": {
+    "explain": {
+     "order": [
+      "breathing",
+      "how",
+      "points",
+      "errors",
+      "force"
+     ],
+     "firstSetOnly": true,
+     "circuit": "beforeBlock",
+     "breathingSource": "item",
+     "charsPerSecond": 4
+    },
+    "week": 1,
+    "decideAt": "segmentStart",
+    "chooseDefault": "none",
+    "plainDay": "plain",
+    "maxRepeats": 2,
+    "missingAssessment": "notMastered",
+    "repeatWeek": "week1",
+    "countRepeats": false,
+    "afterMax": {
+     "next": 2,
+     "keep": [
+      "breathing",
+      "cue",
+      "explain"
+     ],
+     "assess": false
+    },
+    "symptomWeek": {
+     "advance": false,
+     "countsAsRepeat": true
+    },
+    "refer": "康复治疗师或有资质的教练",
+    "warmupSet": "asWritten",
+    "split": {
+     "maxMinutes": 33,
+     "scope": "training",
+     "at": "betweenItems",
+     "eachPart": [
+      "warmup",
+      "course",
+      "stretch"
+     ],
+     "outside": "inOrder",
+     "cut": "asWritten",
+     "breathingEachPart": true,
+     "count": "sameDayOnce",
+     "acrossDays": false,
+     "half": "halveFirst",
+     "rotation": "samePick"
+    },
+    "breathing": {
+     "text": "用鼻子慢慢吸气 4 秒，再慢慢呼气 6 秒，吸完接着呼、呼完接着吸，中间不停住，做 6 次。记住三句：发力时呼气、还原时吸气；撑住不动时照常呼吸，能小声数数就对了；任何时候都别把气停住。",
+     "inhale": 4,
+     "exhale": 6,
+     "count": 6,
+     "seconds": 60,
+     "posture": "坐着或站着都行"
+    }
+   },
+   "a13·bw": {
+    "explain": {
+     "order": [
+      "breathing",
+      "how",
+      "points",
+      "errors",
+      "force"
+     ],
+     "firstSetOnly": true,
+     "circuit": "beforeBlock",
+     "breathingSource": "item",
+     "charsPerSecond": 4
+    },
+    "week": 1,
+    "decideAt": "segmentStart",
+    "chooseDefault": "none",
+    "plainDay": "plain",
+    "maxRepeats": 2,
+    "missingAssessment": "notMastered",
+    "repeatWeek": "week1",
+    "countRepeats": false,
+    "afterMax": {
+     "next": 2,
+     "keep": [
+      "breathing",
+      "cue",
+      "explain"
+     ],
+     "assess": false
+    },
+    "symptomWeek": {
+     "advance": false,
+     "countsAsRepeat": true
+    },
+    "refer": "告诉家长，请体育老师看",
+    "split": {
+     "maxMinutes": 30,
+     "scope": "training",
+     "at": "betweenItems",
+     "eachPart": [
+      "warmup",
+      "course",
+      "stretch"
+     ],
+     "outside": "inOrder",
+     "cut": "asWritten",
+     "breathingEachPart": true,
+     "count": "sameDayOnce",
+     "acrossDays": false,
+     "half": "halveFirst",
+     "rotation": "samePick"
+    },
+    "breathing": {
+     "text": "用鼻子慢慢吸气 4 秒，再慢慢呼气 6 秒，吸完接着呼、呼完接着吸，中间不停住，做 6 次。记住三句：发力时呼气、还原时吸气；撑住不动时照常呼吸，能小声数数就对了；任何时候都别把气停住。",
+     "inhale": 4,
+     "exhale": 6,
+     "count": 6,
+     "seconds": 60,
+     "posture": "坐着或站着都行"
+    }
+   },
+   "a65·chair": {
+    "explain": {
+     "order": [
+      "breathing",
+      "how",
+      "points",
+      "errors",
+      "force"
+     ],
+     "firstSetOnly": true,
+     "circuit": "beforeBlock",
+     "breathingSource": "item",
+     "charsPerSecond": 4
+    },
+    "week": 1,
+    "decideAt": "segmentStart",
+    "maxRepeats": 2,
+    "missingAssessment": "notMastered",
+    "repeatWeek": "week1",
+    "countRepeats": false,
+    "afterMax": {
+     "next": 2,
+     "keep": [
+      "breathing",
+      "cue",
+      "explain"
+     ],
+     "assess": false
+    },
+    "symptomWeek": {
+     "advance": false,
+     "countsAsRepeat": true
+    },
+    "refer": "告诉医生，请医生或康复治疗师看",
+    "split": {
+     "maxMinutes": 18,
+     "scope": "training",
+     "at": "betweenItems",
+     "outside": "inOrder",
+     "cut": "asWritten",
+     "eachPart": [
+      "warmup",
+      "course",
+      "cooldown"
+     ],
+     "breathingEachPart": true,
+     "count": "sameDayOnce",
+     "acrossDays": false,
+     "half": "halveFirst"
+    },
+    "breathing": {
+     "text": "用鼻子慢慢吸气 4 秒，再慢慢呼气 6 秒，吸完接着呼、呼完接着吸，中间不停住，做 6 次。记住三句：用力时呼气、还原时吸气；站住不动时照常呼吸，能数出声就对了；任何时候都别把气停住。",
+     "inhale": 4,
+     "exhale": 6,
+     "count": 6,
+     "seconds": 60,
+     "posture": "坐在 B 椅上，双脚踩实，手扶着椅子坐稳"
+    }
+   }
+  },
+  "params": [
+   {
+    "name": "培训周",
+    "value": 1,
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw"
+    ],
+    "quotes": [
+     {
+      "section": "培训期：第 1 周怎么练",
+      "text": "第 1 周就是培训期"
+     }
+    ],
+    "note": "上级方案第十节第 1 条 A"
+   },
+   {
+    "name": "培训周",
+    "value": 1,
+    "products": [
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期：第 1 周怎么练",
+      "text": "第 1 周都是培训期"
+     }
+    ],
+    "note": "同上"
+   },
+   {
+    "name": "判定时机",
+    "value": "一段开始之前",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期给谁",
+      "text": "一段开始以后不补、不撤"
+     }
+    ],
+    "note": "设计值 TRAINING_WHO：只在一段开始之前判定一次，结果记进这一段，之后不再判定"
+   },
+   {
+    "name": "没问没记",
+    "value": "按不要",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw"
+    ],
+    "quotes": [
+     {
+      "section": "培训期给谁",
+      "text": "没问、没选的按不要"
+     }
+    ],
+    "note": "设计值 TRAINING_CHOOSE"
+   },
+   {
+    "name": "没有课程的日子",
+    "value": "不做呼吸练习和讲解",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw"
+    ],
+    "quotes": [
+     {
+      "section": "培训期每次训练怎么练",
+      "text": "没有跟练课程的日子（这一天的动作都照成品做），照第五章练，不做呼吸练习和讲解"
+     }
+    ],
+    "note": "设计值 TRAINING_COURSE_DAYS"
+   },
+   {
+    "name": "最多重复次数",
+    "value": 2,
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期重复第 1 周",
+      "text": "最多再练 2 遍（第 1 周最多练 3 遍）"
+     }
+    ],
+    "note": "设计值 TRAINING_REPEAT_MAX"
+   },
+   {
+    "name": "没做评估",
+    "value": "没掌握",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的掌握评估",
+      "text": "这一周没做评估，也按没掌握算"
+     }
+    ],
+    "note": "设计值 MASTERY_LINE：判断不准时偏向重复；算进重复次数"
+   },
+   {
+    "name": "重复周照",
+    "value": "第 1 周",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期重复第 1 周",
+      "text": "再练的那一周全照第 1 周"
+     }
+    ],
+    "note": "设计值 TRAINING_REPEAT_WEEK：处方、找级、有氧、习惯目标、打卡、作息饮食都照第 1 周"
+   },
+   {
+    "name": "重复周算进段末统计",
+    "value": false,
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期重复第 1 周",
+      "text": "第 1 周只算最后练的那一遍，再练的那几遍不另外加"
+     }
+    ],
+    "note": "设计值 TRAINING_REPEAT_COUNT：段末统计每个周次只取最后一份复盘（含 13–17 岁、65 岁以上\"完成 ≥ 10 练\"）；周复盘、周达标照常"
+   },
+   {
+    "name": "用完次数以后",
+    "value": "进第 2 周、保留培训期提示",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期重复第 1 周",
+      "text": "照常进第 2 周（那一周有不适的，等没有不适的那一周再进），这一段剩下的课保留培训期的提示：开头的呼吸练习、每一次都领\"呼、吸\"、每个动作第一组之前照样讲解，不再做掌握评估"
+     }
+    ],
+    "note": "设计值 TRAINING_AFTER_MAX"
+   },
+   {
+    "name": "有不适的那一周",
+    "value": "不往第 2 周走、算进重复次数",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的掌握评估",
+      "text": "下周不往第 2 周走，掌握了、再练够了次数都一样；这一周算进再练的次数"
+     }
+    ],
+    "note": "设计值 TRAINING_SYMPTOM：不适优先，照主仓库现有规矩（有疼痛、头晕、胸闷的那一周，下一周周次不往上走；65 岁以上加摔倒、差点摔倒）"
+   },
+   {
+    "name": "建议找谁",
+    "value": "康复治疗师或有资质的教练",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym"
+    ],
+    "quotes": [
+     {
+      "section": "培训期重复第 1 周",
+      "text": "请康复治疗师或有资质的教练看一次你的动作"
+     }
+    ],
+    "note": "设计值 TRAINING_AFTER_MAX"
+   },
+   {
+    "name": "建议找谁",
+    "value": "告诉家长，请体育老师看",
+    "products": [
+     "a13·bw"
+    ],
+    "quotes": [
+     {
+      "section": "培训期重复第 1 周",
+      "text": "告诉家长，请体育老师看一次你的动作"
+     }
+    ],
+    "note": "设计值 TRAINING_AFTER_MAX"
+   },
+   {
+    "name": "建议找谁",
+    "value": "告诉医生，请医生或康复治疗师看",
+    "products": [
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期重复第 1 周",
+      "text": "告诉医生，请医生或康复治疗师看一次动作"
+     }
+    ],
+    "note": "设计值 TRAINING_AFTER_MAX"
+   },
+   {
+    "name": "专项热身",
+    "value": "照原文",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym"
+    ],
+    "quotes": [
+     {
+      "section": "培训期每次训练怎么练",
+      "text": "专项热身照原文，第 1 周可以省略"
+     }
+    ],
+    "note": "设计值 TRAINING_WARMUP_SET"
+   },
+   {
+    "name": "讲解每秒字数",
+    "value": 4,
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [],
+    "note": "设计值 CUE_CHARS_PER_SEC"
+   },
+   {
+    "name": "课程最长分钟",
+    "value": 38,
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "超过 38 分钟"
+     },
+     {
+      "section": "每次训练的固定流程",
+      "text": "正式训练｜38 分钟"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_MAX"
+   },
+   {
+    "name": "课程最长分钟",
+    "value": 33,
+    "products": [
+     "a18·gym",
+     "a40·gym"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "超过 33 分钟"
+     },
+     {
+      "section": "每次训练的固定流程",
+      "text": "正式训练｜最多 33 分钟"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_MAX"
+   },
+   {
+    "name": "课程最长分钟",
+    "value": 30,
+    "products": [
+     "a13·bw"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "超过 30 分钟"
+     },
+     {
+      "section": "每次训练的流程",
+      "text": "正式训练｜30 分钟"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_MAX"
+   },
+   {
+    "name": "课程最长分钟",
+    "value": 18,
+    "products": [
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "超过 18 分钟"
+     },
+     {
+      "section": "每次训练的流程",
+      "text": "力量｜10 分钟｜18 分钟"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_MAX：课程里只有力量动作，取力量部分最长的那一周"
+   },
+   {
+    "name": "拆分·用在",
+    "value": "培训期",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "培训期的课太长怎么拆"
+     }
+    ],
+    "note": "上级方案第十节第 4 条 A：先只用于培训期"
+   },
+   {
+    "name": "拆分·在哪拆",
+    "value": "动作之间",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "就在两个动作之间拆成几部分"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_RULES：按顺序装，下一个动作装不下就开新的一部分；循环块整块在一部分里"
+   },
+   {
+    "name": "拆分·每部分",
+    "value": "热身、课程、拉伸",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "每一部分都照常热身、跟课程（开头都有呼吸练习）、拉伸"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_RULES"
+   },
+   {
+    "name": "拆分·不在课程里的",
+    "value": "照原来的顺序",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "不在课程里的（有氧、照成品做的动作）只做一次，照成品原来的顺序，放进它前后动作所在的那一部分"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_RULES"
+   },
+   {
+    "name": "拆分·不在课程里的",
+    "value": "照原来的顺序",
+    "products": [
+     "a13·bw"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "不在课程里的（跳跃组、照成品做的动作）只做一次，照成品原来的顺序，放进它前后动作所在的那一部分"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_RULES：跳跃组放第一部分开头"
+   },
+   {
+    "name": "拆分·不在课程里的",
+    "value": "照原来的顺序",
+    "products": [
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "不在课程里的平衡动作只做一次，照成品原来的顺序排在力量后面，放在最后一部分"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_RULES"
+   },
+   {
+    "name": "拆分·超时先砍",
+    "value": "照常由本人定",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "按课程里的全部动作算要不要拆"
+     },
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "要不要砍动作照第五章，还是你当天定"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_RULES"
+   },
+   {
+    "name": "拆分·超时先砍",
+    "value": "照常由本人定",
+    "products": [
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "按课程里的全部动作算要不要拆"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_RULES：65 岁以上的课程里没有超时先砍的动作"
+   },
+   {
+    "name": "拆分·每部分",
+    "value": "热身、课程、整理",
+    "products": [
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "每一部分都照常热身、跟课程（开头都有呼吸练习）、整理"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_RULES"
+   },
+   {
+    "name": "拆分·每部分呼吸练习",
+    "value": true,
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "开头都有呼吸练习"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_RULES"
+   },
+   {
+    "name": "拆分·几部分算几次",
+    "value": "同一天算一次",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "同一天做完，几部分合起来算一次训练"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_RULES：复盘的训练次数、轮换计数、段末统计都按一次"
+   },
+   {
+    "name": "拆分·隔天",
+    "value": false,
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "当天只做了一部分也算这一次，剩下的不挪到别的日子"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_RULES"
+   },
+   {
+    "name": "拆分·半量课",
+    "value": "先减半再拆",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "先减半再看要不要拆"
+     }
+    ],
+    "note": "设计值 HALF、TRAINING_SPLIT_RULES：中断、生病回来的第一次（主仓库按中断提醒天数、生病判定）；呼吸练习、讲解不减"
+   },
+   {
+    "name": "拆分·轮换",
+    "value": "用同一个选择",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的课太长怎么拆",
+      "text": "要轮换的动作，几部分用同一个选择"
+     }
+    ],
+    "note": "设计值 TRAINING_SPLIT_RULES：65 岁以上没有轮换"
+   },
+   {
+    "name": "掌握评估·什么时候",
+    "value": "第 1 周的周末复盘",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的掌握评估",
+      "text": "第 1 周（再练的也一样）最后一天复盘时做"
+     }
+    ],
+    "note": "上级方案第十节第 3 条 A；65 岁以上也是每周（设计值 TRAINING_A65）"
+   },
+   {
+    "name": "掌握评估·判定线",
+    "value": "必做项全是是",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的掌握评估",
+      "text": "四项都是\"是\"才算掌握"
+     }
+    ],
+    "note": "设计值 MASTERY_LINE"
+   },
+   {
+    "name": "掌握评估·练习记录",
+    "value": "做不到下限或后面几下变形",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的掌握评估",
+      "text": "这一周某个动作最后一次记的是\"做不到下限或后面几下变形\"，第三项就答\"否\""
+     }
+    ],
+    "note": "设计值 MASTERY_FEEL：用练习记录现有的取值"
+   },
+   {
+    "name": "掌握评估·家人在场",
+    "value": true,
+    "products": [
+     "a65·chair"
+    ],
+    "quotes": [
+     {
+      "section": "培训期的掌握评估",
+      "text": "家人在场：请家人看您做一组"
+     },
+     {
+      "section": "培训期的掌握评估",
+      "text": "家人那天不在，就约这一周家人在的那天做"
+     }
+    ],
+    "note": "现有规矩：65 岁以上的测试家人在场、医生同意之后（设计值 TRAINING_A65）"
+   }
+  ]
+ },
+ "breathCue": {
+  "byProduct": {
+   "a18·bw": {
+    "training": {
+     "breathLead": "all",
+     "breathAfter": "pluck"
+    },
+    "after": {
+     "breathLead": 2,
+     "breathAfter": "quiet"
+    },
+    "untrained": {
+     "breathLead": 2,
+     "breathAfter": "pluck"
+    }
+   },
+   "a40·bw": {
+    "training": {
+     "breathLead": "all",
+     "breathAfter": "pluck"
+    },
+    "after": {
+     "breathLead": 2,
+     "breathAfter": "quiet"
+    },
+    "untrained": {
+     "breathLead": 2,
+     "breathAfter": "pluck"
+    }
+   },
+   "a18·home": {
+    "training": {
+     "breathLead": "all",
+     "breathAfter": "pluck"
+    },
+    "after": {
+     "breathLead": 2,
+     "breathAfter": "quiet"
+    },
+    "untrained": {
+     "breathLead": 2,
+     "breathAfter": "pluck"
+    }
+   },
+   "a40·home": {
+    "training": {
+     "breathLead": "all",
+     "breathAfter": "pluck"
+    },
+    "after": {
+     "breathLead": 2,
+     "breathAfter": "quiet"
+    },
+    "untrained": {
+     "breathLead": 2,
+     "breathAfter": "pluck"
+    }
+   },
+   "a18·gym": {
+    "training": {
+     "breathLead": "all",
+     "breathAfter": "pluck"
+    },
+    "after": {
+     "breathLead": 2,
+     "breathAfter": "quiet"
+    },
+    "untrained": {
+     "breathLead": 2,
+     "breathAfter": "pluck"
+    }
+   },
+   "a40·gym": {
+    "training": {
+     "breathLead": "all",
+     "breathAfter": "pluck"
+    },
+    "after": {
+     "breathLead": 2,
+     "breathAfter": "quiet"
+    },
+    "untrained": {
+     "breathLead": 2,
+     "breathAfter": "pluck"
+    }
+   },
+   "a13·bw": {
+    "training": {
+     "breathLead": "all",
+     "breathAfter": "pluck"
+    },
+    "after": {
+     "breathLead": 2,
+     "breathAfter": "quiet"
+    },
+    "untrained": {
+     "breathLead": 2,
+     "breathAfter": "pluck"
+    }
+   },
+   "a65·chair": {
+    "training": {
+     "breathLead": "all",
+     "breathAfter": "pluck"
+    },
+    "after": {
+     "breathLead": 2,
+     "breathAfter": "quiet"
+    },
+    "untrained": {
+     "breathLead": 2,
+     "breathAfter": "pluck"
+    }
+   }
+  },
+  "floor": [
+   {
+    "who": "age",
+    "label": "65 岁以上",
+    "products": [
+     "a65·chair"
+    ],
+    "scope": "course",
+    "floor": "pluck",
+    "age": "a65",
+    "quotes": [
+     {
+      "section": "培训期之后的呼吸提示",
+      "text": "之后保留提示音，整节课都有，关不掉"
+     }
+    ],
+    "note": "上级方案第十节第 9 条 A"
+   },
+   {
+    "who": "condition",
+    "label": "高血压",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym"
+    ],
+    "scope": "course",
+    "floor": "pluck",
+    "condition": "高血压",
+    "when": "notFalse",
+    "quotes": [
+     {
+      "section": "培训期之后的呼吸提示",
+      "text": "有高血压（包括吃药控制住的）或者不确定有没有的：整节课领完以后都有提示音"
+     }
+    ],
+    "note": "上级方案第十节第 9 条 A：档案 `conditions.高血压` 不是 false（没确认的也算）；用在条件.md「高血压」写了的家族"
+   },
+   {
+    "who": "mode",
+    "label": "撑住类",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym"
+    ],
+    "scope": "item",
+    "floor": "pluck",
+    "mode": "timed",
+    "quotes": [
+     {
+      "section": "培训期之后的呼吸提示",
+      "text": "按秒数做的动作，每个人都保留提示音"
+     },
+     {
+      "section": "动作库",
+      "text": "不要长时间憋气"
+     }
+    ],
+    "note": "设计值 HOLD_FLOOR"
+   },
+   {
+    "who": "mode",
+    "label": "撑住类",
+    "products": [
+     "a13·bw"
+    ],
+    "scope": "item",
+    "floor": "pluck",
+    "mode": "timed",
+    "quotes": [
+     {
+      "section": "培训期之后的呼吸提示",
+      "text": "按秒数做的动作，领完以后保留提示音"
+     },
+     {
+      "section": "动作库",
+      "text": "平板支撑这类静止动作也要正常呼吸"
+     }
+    ],
+    "note": "设计值 HOLD_FLOOR"
+   },
+   {
+    "who": "mode",
+    "label": "撑住类",
+    "products": [
+     "a65·chair"
+    ],
+    "scope": "item",
+    "floor": "pluck",
+    "mode": "timed",
+    "quotes": [
+     {
+      "section": "培训期之后的呼吸提示",
+      "text": "以后加进跟练的按秒数做的动作，也一样保留提示音"
+     }
+    ],
+    "note": "设计值 HOLD_FLOOR：65 岁以上现在没有进跟练的计时动作"
+   }
+  ],
+  "rows": [
+   {
+    "when": "training",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "breathLead": "all",
+    "breathAfter": "pluck",
+    "quotes": [
+     {
+      "section": "培训期每次训练怎么练",
+      "text": "呼吸提示每一次都领\"呼、吸\""
+     }
+    ],
+    "note": "设计值 TRAINING_CUE；到了次数还没掌握、保留培训期提示的那一段也用这一行"
+   },
+   {
+    "when": "after",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw",
+     "a65·chair"
+    ],
+    "breathLead": 2,
+    "breathAfter": "quiet",
+    "quotes": [
+     {
+      "section": "培训期之后的呼吸提示",
+      "text": "第 2 周起，跟练课程每组只领前 2 次\"呼、吸\""
+     }
+    ],
+    "note": "设计值 TRAINING_CUE_AFTER：用户 2026-11-20 定（上级方案第十节第 9 条 A）；这个人有过一次有结论的培训期（掌握或用完次数）以后的课"
+   },
+   {
+    "when": "untrained",
+    "products": [
+     "a18·bw",
+     "a40·bw",
+     "a18·home",
+     "a40·home",
+     "a18·gym",
+     "a40·gym",
+     "a13·bw"
+    ],
+    "breathLead": 2,
+    "breathAfter": "pluck",
+    "quotes": [
+     {
+      "section": "培训期之后的呼吸提示",
+      "text": "还没经过培训期的人（比如这份计划加上培训期之前就开始练的），照旧每组领前 2 次、之后提示音"
+     }
+    ],
+    "note": "设计值 TRAINING_CUE_UNTRAINED"
+   },
+   {
+    "when": "untrained",
+    "products": [
+     "a65·chair"
+    ],
+    "breathLead": 2,
+    "breathAfter": "pluck",
+    "quotes": [
+     {
+      "section": "培训期之后的呼吸提示",
+      "text": "没经过培训期的也一样"
+     }
+    ],
+    "note": "设计值 TRAINING_CUE_UNTRAINED"
    }
   ]
  }
