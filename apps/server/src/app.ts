@@ -6,6 +6,7 @@ import { createAuthMiddleware } from "./auth/middleware.ts";
 import type { AuthActor } from "./auth/permissions.ts";
 import type { ServerContext } from "./context.ts";
 import { AppError } from "./db/lock.ts";
+import { registerAgentRoutes } from "./routes/agent.ts";
 import { registerProtectedAuthRoutes, registerPublicAuthRoutes } from "./routes/auth.ts";
 import { registerMobileRoutes } from "./routes/mobile.ts";
 import { registerOpsRoutes } from "./routes/ops.ts";
@@ -68,6 +69,7 @@ export function createApp(ctx: ServerContext): Hono {
   registerMobileRoutes(dynamicAuthed, ctx);
   registerTemplateRoutes(dynamicAuthed, ctx);
   registerOpsRoutes(dynamicAuthed, ctx);
+  registerAgentRoutes(dynamicAuthed, ctx);
 
   app.route("/", dynamicAuthed);
 

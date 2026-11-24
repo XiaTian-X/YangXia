@@ -5,6 +5,7 @@ export interface Migration {
   version: number;
   name: string;
   sql: string;
+  disableForeignKeys?: boolean;
 }
 
 export const MIGRATIONS: Migration[] = [
@@ -210,6 +211,43 @@ CREATE TABLE app_settings (
   is_secret INTEGER NOT NULL DEFAULT 0 CHECK (is_secret IN (0, 1)),
   updated_at TEXT NOT NULL
 );
+`,
+  },
+  {
+    version: 2,
+    name: "002_agent_nullable_profile_and_confirmations",
+    disableForeignKeys: true,
+    sql: `
+CREATE TABLE agent_threads_new (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  profile_id TEXT REFERENCES profiles(id) ON DELETE CASCADE,
+  skill TEXT NOT NULL DEFAULT 'general',
+  title TEXT NOT NULL DEFAULT '新对话',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+INSERT INTO agent_threads_new (id, user_id, profile_id, skill, title, created_at, updated_at)
+  SELECT id, user_id, profile_id, 'general', title, created_at, updated_at FROM agent_threads;
+DROP TABLE agent_threads;
+ALTER TABLE agent_threads_new RENAME TO agent_threads;
+CREATE INDEX idx_agent_threads_user_profile ON agent_threads(user_id, profile_id, updated_at);
+
+CREATE TABLE agent_pending_confirmations (
+  id TEXT PRIMARY KEY,
+  thread_id TEXT NOT NULL REFERENCES agent_threads(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  profile_id TEXT REFERENCES profiles(id) ON DELETE CASCADE,
+  expected_version INTEGER,
+  tool_name TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  preview_json TEXT,
+  payload_json TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'confirmed', 'cancelled', 'expired')),
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX idx_agent_confirmations_thread ON agent_pending_confirmations(thread_id, status);
 `,
   },
 ];

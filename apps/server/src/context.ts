@@ -6,6 +6,7 @@ import { atomicStageRestoreSqliteFile } from "./backup/backup.ts";
 import { DEFAULT_SCRYPT, type ScryptOptions } from "./crypto/password.ts";
 import { openDatabase } from "./db/database.ts";
 import { AppError } from "./db/lock.ts";
+import type { AgentRuntime } from "./agent/runtime/interface.ts";
 import type { TemplatesManager } from "./templates/manager.ts";
 
 export interface ServerContext {
@@ -17,6 +18,8 @@ export interface ServerContext {
   authLimiter: RateLimiter;
   pairLimiter: RateLimiter;
   setupLimiter: RateLimiter;
+  /** 可选注入自定义 AgentRuntime（如测试中的 Mock LLM 或未来切换 dsh）。 */
+  agentRuntimeFactory?: () => AgentRuntime;
   getDb(): DatabaseSync;
   restoreSqliteBytes(sqliteBytes: Buffer): void;
   close(): void;
@@ -29,6 +32,7 @@ export interface CreateServerContextOptions {
   masterKey: Buffer;
   scrypt?: ScryptOptions;
   now?: () => Date;
+  agentRuntimeFactory?: () => AgentRuntime;
   /** 测试用自定义恢复回调（例如使用内存库时替换成临时文件库）。 */
   onRestoreDb?: (sqliteBytes: Buffer, currentDb: DatabaseSync) => DatabaseSync;
 }
@@ -46,6 +50,7 @@ export function createServerContext(opts: CreateServerContextOptions): ServerCon
     authLimiter: new RateLimiter(AUTH_LIMIT_POLICY),
     pairLimiter: new RateLimiter(PAIR_LIMIT_POLICY),
     setupLimiter: new RateLimiter(AUTH_LIMIT_POLICY),
+    agentRuntimeFactory: opts.agentRuntimeFactory,
     getDb() {
       return currentDb;
     },

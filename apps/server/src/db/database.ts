@@ -31,22 +31,38 @@ export function runMigrations(db: DatabaseSync): void {
   );
   for (const m of MIGRATIONS) {
     if (applied.has(m.version)) continue;
-    db.exec("BEGIN IMMEDIATE;");
+    // 按 SQLite 官方 12-step 规范：涉及重建表的迁移须在事务外部临时关闭 foreign_keys，防止 DROP TABLE 级联删历史子表
+    if (m.disableForeignKeys) {
+      db.exec("PRAGMA foreign_keys = OFF;");
+    }
     try {
-      db.exec(m.sql);
-      db.prepare("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
-        m.version,
-        m.name,
-        new Date().toISOString(),
-      );
-      db.exec("COMMIT;");
-    } catch (err) {
+      db.exec("BEGIN IMMEDIATE;");
       try {
-        db.exec("ROLLBACK;");
-      } catch {
-        /* ignore rollback failure */
+        db.exec(m.sql);
+        db.prepare("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
+          m.version,
+          m.name,
+          new Date().toISOString(),
+        );
+        db.exec("COMMIT;");
+      } catch (err) {
+        try {
+          db.exec("ROLLBACK;");
+        } catch {
+          /* ignore rollback failure */
+        }
+        throw err;
       }
-      throw err;
+      if (m.disableForeignKeys) {
+        const violations = db.prepare("PRAGMA foreign_key_check;").all();
+        if (violations.length > 0) {
+          throw new Error(`数据库迁移 ${m.name} 后存在外键完整性错误`);
+        }
+      }
+    } finally {
+      if (m.disableForeignKeys) {
+        db.exec("PRAGMA foreign_keys = ON;");
+      }
     }
   }
 }

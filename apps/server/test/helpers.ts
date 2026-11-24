@@ -11,6 +11,7 @@ import {
   type RulesData,
 } from "@yangxia/course-core";
 import { templatesDir } from "@yangxia/course-core/node";
+import type { AgentRuntime } from "../src/agent/runtime/interface.ts";
 import { createApp } from "../src/app.ts";
 import { createTrustedProxyMatcher, type ServerConfig } from "../src/config.ts";
 import { createServerContext, type ServerContext } from "../src/context.ts";
@@ -82,6 +83,7 @@ export async function createTestServer(opts: {
   fileBackedDb?: boolean;
   masterKey?: Buffer;
   customReloadLoader?: () => Promise<TemplatesSnapshot>;
+  agentRuntimeFactory?: () => AgentRuntime;
 } = {}): Promise<TestServerHandle> {
   const tempDir = mkdtempSync(join(tmpdir(), "yangxia-srv-test-"));
   const dbPath = opts.fileBackedDb ? join(tempDir, "yangxia.sqlite") : ":memory:";
@@ -111,6 +113,7 @@ export async function createTestServer(opts: {
     masterKey: opts.masterKey ?? randomBytes(32),
     scrypt: FAST_SCRYPT,
     now: () => curNow,
+    agentRuntimeFactory: opts.agentRuntimeFactory,
   });
 
   const app = createApp(ctx);

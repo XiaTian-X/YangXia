@@ -4,7 +4,6 @@ import type { DatabaseSync } from "node:sqlite";
 import {
   ASSESS_FORMAT,
   auditProfileBundle,
-  checkProfileWithTemplates,
   collectProgressIssues,
   currentSegment,
   DECLARATION,
@@ -173,24 +172,19 @@ export function createProfileOp(
     extraAssessments.push({ name: initialAssessPath, raw: initialAssessRecord });
   }
 
-  const auditIssues = input.initialAssessment
-    ? auditProfileBundle(
-        {
-          profile,
-          timeZone: tz,
-          sessions: [],
-          reviewData: {},
-          courses: [],
-          assessments: extraAssessments,
-          docs: [],
-        },
-        templates,
-        { now },
-      )
-    : [
-        ...validateProfile(profile, { now, timeZone: tz }),
-        ...checkProfileWithTemplates(profile, templates.manifest),
-      ];
+  const auditIssues = auditProfileForMutation(
+    {
+      profile,
+      timeZone: tz,
+      sessions: [],
+      reviewData: {},
+      courses: [],
+      assessments: extraAssessments,
+      docs: [],
+    },
+    templates,
+    now,
+  );
   const errs = onlyErrors(auditIssues);
   if (errs.length) {
     throw new AppError(422, "PROFILE_VALIDATION_FAILED", "档案未通过规则校验", { issues: auditIssues });
@@ -264,6 +258,41 @@ export function createProfileOp(
   });
 }
 
+function isPreEntryOnboarding(bundle: {
+  profile: Obj;
+  assessments: unknown[];
+  sessions: unknown[];
+  courses: unknown[];
+  reviewData: Record<string, unknown>;
+}): boolean {
+  const segs = bundle.profile.segments;
+  return (
+    bundle.assessments.length === 0 &&
+    bundle.sessions.length === 0 &&
+    bundle.courses.length === 0 &&
+    Object.keys(bundle.reviewData).length === 0 &&
+    Array.isArray(segs) &&
+    segs.length === 1 &&
+    segs[0]?.n === 1 &&
+    segs[0]?.week === 1 &&
+    segs[0]?.phase !== "稳定"
+  );
+}
+
+export function auditProfileForMutation(
+  bundle: Parameters<typeof auditProfileBundle>[0],
+  templates: TemplatesSnapshot,
+  now: Date,
+): Issue[] {
+  const issues = auditProfileBundle(
+    { ...bundle, courses: bundle.courses.filter((c) => c.archived) },
+    templates,
+    { now },
+  );
+  if (!isPreEntryOnboarding(bundle)) return issues;
+  return issues.filter((i) => !(i.level === "error" && i.path === "评估/" && i.message.includes("之前要有入门评估")));
+}
+
 export interface UpdateProfileInput {
   expectedVersion?: number;
   patch?: Obj;
@@ -319,12 +348,9 @@ export function updateProfileOp(
     const state = loadProfileState(db, profileId, { profile: candidate });
     state.bundle.timeZone = nextTz;
     // 在改档案本身的门禁中，旧活跃课程（如刚刚降级或改筛查导致的过重旧课）将由下方 detectInvalidatedCourses 自动作废，
-    // 因此此处先对非活跃课程外的所有档案/进度/复盘/评估/文档做 0 错误校验。
-    const auditIssues = auditProfileBundle(
-      { ...state.bundle, courses: state.bundle.courses.filter((c) => c.archived) },
-      templates,
-      { now },
-    );
+    // 建档后、做入门评估前的初始周允许更新筛查/医生同意/条件，避免 65+ 等需先获医生同意再测入门的死锁；
+    // 其余全部规则（格式、条件、医生同意日期结构、进度、文档红线等）仍 100% 强制执行。
+    const auditIssues = auditProfileForMutation(state.bundle, templates, now);
     const errs = onlyErrors(auditIssues);
     if (errs.length) {
       throw new AppError(422, "PROFILE_VALIDATION_FAILED", "档案更新未通过规则校验", { issues: auditIssues });
