@@ -16,7 +16,6 @@ import {
   inspectEndSummary,
   isValidTimeZone,
   PROFILE_FORMAT,
-  progressOn,
   resolveTimeZone,
   REVIEW_FORMAT,
   screeningFor,
@@ -26,6 +25,7 @@ import { assertProfileAccess, canPerformOnProfile } from "../../auth/permissions
 import { loadProfileState } from "../../db/bundle.ts";
 import { AppError } from "../../db/lock.ts";
 import {
+  appendProgressLogOp,
   archiveSegmentOp,
   auditProfileForMutation,
   createProfileOp,
@@ -581,23 +581,9 @@ const updateProgressLogTool: BusinessToolDef<{
       const pid = requireBoundProfileId(tctx);
       const db = tctx.ctx.getDb();
       const meta = assertProfileAccess(db, tctx.actor, pid, "manage");
-      const before = JSON.parse(meta.profile_json) as Obj;
-      const snap = tctx.ctx.templates.current();
-      const now = tctx.ctx.now();
-      const nextLog = [...(Array.isArray(before.progressLog) ? before.progressLog : []), ...args.entries];
-      const nextProgress =
-        snap.plans && snap.rules
-          ? progressOn({ ...before, progressLog: nextLog }, snap.plans, snap.rules, "9999-12-31", now, meta.timezone)
-          : {};
-      const res = updateProfileOp(
-        db,
-        snap,
-        tctx.actor,
-        pid,
-        { expectedVersion: meta.version, patch: { progressLog: nextLog, progress: nextProgress } },
-        now,
-      );
-      return { ok: true, data: { version: res.version, progress: nextProgress, invalidatedCourses: res.invalidatedCourses } };
+      // 和网页的个人进度入口共用同一个写入操作（规则同源）
+      const res = appendProgressLogOp(db, tctx.ctx.templates.current(), tctx.actor, pid, { expectedVersion: meta.version, entries: args.entries }, tctx.ctx.now());
+      return { ok: true, data: { version: res.version, progress: res.progress, invalidatedCourses: res.invalidatedCourses } };
     } catch (err) {
       return wrapToolError(err);
     }

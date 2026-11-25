@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError } from "zod";
+import { presentPayload } from "./api/present.ts";
 import { createAuthMiddleware } from "./auth/middleware.ts";
 import type { AuthActor } from "./auth/permissions.ts";
 import type { ServerContext } from "./context.ts";
@@ -77,7 +78,7 @@ export function createApp(ctx: ServerContext): Hono {
           ok: false,
           code: err.code,
           message: err.message,
-          ...(err.details !== undefined ? { details: err.details } : {}),
+          ...(err.details !== undefined ? { details: presentPayload(err.details) } : {}),
         },
         err.status as ContentfulStatusCode,
       );
@@ -108,6 +109,22 @@ export function createApp(ctx: ServerContext): Hono {
   dynamicAuthed.use("/api/*", async (c, next) => {
     const mw = createAuthMiddleware(ctx.getDb(), ctx.config, ctx.now);
     return mw(c, next);
+  });
+  // 返回给网页、手机的 issues / warnings 换成界面说法（不出现命令、档案文件名）
+  dynamicAuthed.use("/api/*", async (c, next) => {
+    await next();
+    if (!(c.res.headers.get("content-type") ?? "").includes("application/json")) return;
+    const text = await c.res.clone().text();
+    if (!/"(issues|warnings|conflictIssues)"/.test(text)) return;
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      return;
+    }
+    const headers = new Headers(c.res.headers);
+    headers.delete("content-length");
+    c.res = new Response(JSON.stringify(presentPayload(body)), { status: c.res.status, headers });
   });
 
   registerProtectedAuthRoutes(dynamicAuthed, ctx);

@@ -166,7 +166,7 @@ export function AssessReviewPage({
         if ((assessKind === "段末" || assessKind === "周期末") && Number.isInteger(curSegN)) {
           record.segment = curSegN;
         }
-        if (assessKind === "入门" && ["a18", "a40", "a13"].includes(profile.age)) {
+        if (assessKind === "入门" && ["a18", "a40", "a13"].includes(profile.age ?? "")) {
           record.base = Number(baseDays);
         }
         if (assessKind === "触发") {
@@ -209,15 +209,6 @@ export function AssessReviewPage({
       const curSeg = profileDetail?.profile?.segments?.[profileDetail.profile.segments.length - 1];
       const maxWeek = curSeg?.phase === "稳定" ? 12 : 4;
       const canAdvance = advanceNextWeek && !symptomsChecked && curSeg && revWeek < maxWeek;
-      // habitTargets、restart 只写在一段的第一项，推到下一周时不能抄过去
-      const { habitTargets: _ht, restart: _rs, ...segBase } = curSeg ?? {};
-      const nextSegmentEntry = canAdvance
-        ? {
-            ...segBase,
-            week: revWeek + 1,
-            start: addDaysStr(revStart, 7),
-          }
-        : undefined;
 
       await apiRequest(`/api/profiles/${profile.id}/reviews`, {
         method: "POST",
@@ -235,12 +226,13 @@ export function AssessReviewPage({
             moves: [],
           },
           reviewMd: revMd,
-          ...(nextSegmentEntry ? { nextSegmentEntry } : {}),
+          // 下一周由服务端照规则拼（网页不自己拼 segments）
+          ...(canAdvance ? { next: "advance" } : {}),
         },
       });
       setNotice(
-        nextSegmentEntry
-          ? `已保存第 ${revWeek} 周复盘，并同事务推进至第 ${nextSegmentEntry.week} 周（${nextSegmentEntry.start} 起）`
+        canAdvance
+          ? `已保存第 ${revWeek} 周复盘，并推进到第 ${revWeek + 1} 周（${addDaysStr(revStart, 7)} 起）`
           : `已保存第 ${revWeek} 周复盘`,
       );
       onRefreshProfiles();
@@ -338,7 +330,7 @@ export function AssessReviewPage({
             </label>
           ) : (
             <div class="stack">
-              {assessKind === "入门" && ["a18", "a40", "a13"].includes(profile.age) && (
+              {assessKind === "入门" && ["a18", "a40", "a13"].includes(profile.age ?? "") && (
                 <label class="field">
                   <span>近 3 个月每周规律力量练习天数（0–7）</span>
                   <input type="number" min={0} max={7} required value={baseDays} onInput={(e) => setBaseDays((e.target as HTMLInputElement).value)} />

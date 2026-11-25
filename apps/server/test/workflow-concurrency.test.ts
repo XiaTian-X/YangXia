@@ -339,7 +339,7 @@ describe("核心业务闭环、并发乐观锁、迟到不适冲突、旧课作�
           moves: [],
         },
         reviewMd: `${DECLARATION}\n\n第 1 周完成 1 次训练，无不适，下周继续。`,
-        nextSegmentEntry: { n: 1, type: "标准", week: 2, start: "2026-11-09", product: "18-39岁-居家版" },
+        next: "advance",
       }),
     });
     expect(rev1.status).toBe(201);

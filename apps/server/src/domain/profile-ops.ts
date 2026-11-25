@@ -12,12 +12,16 @@ import {
   exportProfileCourse,
   generateProfileSheet,
   isValidTimeZone,
+  nextWeekEntry,
   prepareSessionImport,
   PROFILE_FORMAT,
+  progressOn,
   REVIEW_FORMAT,
   reviewDataName,
+  reviewForm,
   reviewName,
   validateProfile,
+  type NextChoice,
   type CourseDeliveryEnvelope,
   type InvalidatedCourse,
   type Issue,
@@ -290,7 +294,8 @@ export function auditProfileForMutation(
     { now },
   );
   if (!isPreEntryOnboarding(bundle)) return issues;
-  return issues.filter((i) => !(i.level === "error" && i.path === "评估/" && i.message.includes("之前要有入门评估")));
+  // 建档那一刻还没有入门评估：按报错代号放过这一条（不再按报错文字过滤）
+  return issues.filter((i) => !(i.level === "error" && i.code === "ENTRY_ASSESSMENT_MISSING"));
 }
 
 export interface UpdateProfileInput {
@@ -532,6 +537,9 @@ export interface SubmitReviewInput {
   week: number;
   reviewJson: Obj;
   reviewMd: string;
+  /** 下一周怎么走（网页用）：服务端照核心 nextWeekEntry 拼下一周的 segments 项，不信客户端拼的。 */
+  next?: NextChoice;
+  /** Agent 工具用：直接给下一周的 segments 项（同样过整档核对和这一周的核对）。 */
   nextSegmentEntry?: Obj;
   profilePatch?: Obj;
 }
@@ -552,9 +560,19 @@ export function submitReviewOp(
     delete safePatch.code;
     delete safePatch.timezone;
     const candidateProfile: Obj = { ...beforeProfile, ...safePatch, schema: PROFILE_FORMAT };
-    if (input.nextSegmentEntry) {
+    if (input.next && input.nextSegmentEntry) {
+      throw new AppError(400, "INVALID_INPUT", "next 和 nextSegmentEntry 只能给一个");
+    }
+    const beforeSegs: Obj[] = Array.isArray(beforeProfile.segments) ? beforeProfile.segments : [];
+    const last = beforeSegs[beforeSegs.length - 1];
+    const isCurrentWeek = !!last && last.start === input.startDate && last.week === input.week;
+    if (input.next && !isCurrentWeek) {
+      throw new AppError(422, "REVIEW_NOT_CURRENT_WEEK", "只有现在这一周的复盘才能决定下一周怎么走");
+    }
+    const nextEntry = input.next ? nextWeekEntry(beforeProfile, input.next) : input.nextSegmentEntry ?? null;
+    if (nextEntry) {
       const baseSegs = Array.isArray(candidateProfile.segments) ? candidateProfile.segments : [];
-      candidateProfile.segments = [...baseSegs, input.nextSegmentEntry];
+      candidateProfile.segments = [...baseSegs, nextEntry];
     }
 
     const segMatch = (Array.isArray(beforeProfile.segments) ? beforeProfile.segments : []).find(
@@ -568,6 +586,22 @@ export function submitReviewOp(
       start: input.startDate,
       week: input.week,
     };
+    // 这一周单独核对（整档核对会跳过最后一周）：训练次数不少于练习记录数；记录里有不适，复盘也要写有不适；有不适不往上推
+    if (isCurrentWeek) {
+      const cur = loadProfileState(db, profileId, { profile: beforeProfile });
+      const rf = reviewForm(cur.bundle, templates, { symptoms: reviewJson.symptoms === true });
+      if (!("error" in rf)) {
+        if (!(Number.isInteger(reviewJson.trainings) && reviewJson.trainings >= rf.minTrainings)) {
+          throw new AppError(422, "REVIEW_TRAININGS_TOO_FEW", `这一周手机回传了 ${rf.minTrainings} 条练习记录：训练次数不能少于它`);
+        }
+        if (rf.symptomsLocked && reviewJson.symptoms !== true) {
+          throw new AppError(422, "REVIEW_SYMPTOMS_MISMATCH", "这一周的练习记录里有疼痛、头晕或胸闷：复盘要写有不适");
+        }
+      }
+    }
+    if (nextEntry && reviewJson.symptoms === true && last && nextEntry.n === last.n && Number(nextEntry.week) > Number(last.week)) {
+      throw new AppError(422, "REVIEW_ADVANCE_BLOCKED", "这一周有疼痛、头晕或胸闷：不能推到下一周，先重来这一周，按成品\"疼了怎么办\"处理");
+    }
     const segRef = { start: input.startDate, week: input.week };
     const legacyJsonPath = `复盘/${reviewDataName(segRef)}`;
     const legacyMdPath = `复盘/${reviewName(segRef)}`;
@@ -636,8 +670,8 @@ export function submitReviewOp(
       actorUserId: actor.userId,
       actorSessionId: actor.sessionId,
       profileId,
-      action: input.nextSegmentEntry ? "review.submit_and_advance" : "review.submit",
-      fields: input.nextSegmentEntry ? ["reviews", "segments"] : ["reviews"],
+      action: nextEntry ? "review.submit_and_advance" : "review.submit",
+      fields: nextEntry ? ["reviews", "segments"] : ["reviews"],
       ruleOrReason: `seg${segmentNum}-w${input.week}`,
       now,
     });
@@ -651,6 +685,47 @@ export function submitReviewOp(
       warnings: onlyWarnings(auditIssues),
     };
   });
+}
+
+export interface ProgressLogEntry {
+  date: string;
+  move: string;
+  field: "level" | "reps" | "weight";
+  to: number;
+  rule: string;
+  evidence?: string;
+}
+
+/**
+ * 按成品规则往 progressLog 追加个人进度调整（网页和 Agent 共用）：写入后由 checkProgressLog 重放核对，
+ * 不合规则的整批拒；进度往下调时作废过重的旧课。
+ */
+export function appendProgressLogOp(
+  db: DatabaseSync,
+  templates: TemplatesSnapshot,
+  actor: AuthActor,
+  profileId: string,
+  input: { expectedVersion?: number; entries: ProgressLogEntry[] },
+  now = new Date(),
+) {
+  const meta = db.prepare("SELECT profile_json, version, timezone FROM profiles WHERE id = ?").get(profileId) as
+    | { profile_json: string; version: number; timezone: string }
+    | undefined;
+  if (!meta) throw new AppError(404, "PROFILE_NOT_FOUND", "档案不存在");
+  const before = JSON.parse(meta.profile_json) as Obj;
+  const nextLog = [...(Array.isArray(before.progressLog) ? before.progressLog : []), ...input.entries];
+  const nextProgress = templates.plans && templates.rules
+    ? progressOn({ ...before, progressLog: nextLog }, templates.plans, templates.rules, "9999-12-31", now, meta.timezone)
+    : {};
+  const res = updateProfileOp(
+    db,
+    templates,
+    actor,
+    profileId,
+    { expectedVersion: input.expectedVersion ?? meta.version, patch: { progressLog: nextLog, progress: nextProgress }, ruleOrReason: input.entries.map((e) => e.rule).join("、") },
+    now,
+  );
+  return { ...res, progress: nextProgress };
 }
 
 export function generatePlanSheetOp(

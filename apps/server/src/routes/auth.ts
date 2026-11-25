@@ -1,4 +1,5 @@
 // 健康检查、首次初始化、账密登录、扫码绑定兑换、滑动续期、设备吊销与管理员用户管理。
+import type { AuthMeResponse, SetupStatusResponse } from "../api/contracts.ts";
 import { Hono, type Context } from "hono";
 import { getCookie } from "hono/cookie";
 import { z } from "zod";
@@ -63,7 +64,7 @@ export function registerPublicAuthRoutes(app: Hono, ctx: ServerContext): void {
   app.get("/api/setup/status", (c) => {
     const db = ctx.getDb();
     const row = db.prepare("SELECT COUNT(*) AS n FROM users").get() as { n: number };
-    return c.json({ needsSetup: row.n === 0 });
+    return c.json({ needsSetup: row.n === 0 } satisfies SetupStatusResponse);
   });
 
   app.post("/api/setup/init", async (c) => {
@@ -298,7 +299,7 @@ export function registerProtectedAuthRoutes(
         boundProfileId: actor.boundProfileId,
       },
       isTeen: actor.sessionKind !== "mobile_bound" && isTeenMemberAccount(db, actor),
-    });
+    } satisfies AuthMeResponse);
   });
 
   app.post("/api/auth/refresh", (c) => {

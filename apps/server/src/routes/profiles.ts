@@ -2,6 +2,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import {
+  assessmentForm,
   assessRules,
   auditProfileBundle,
   bedtimeFor,
@@ -9,7 +10,11 @@ import {
   currentSegment,
   dayRows,
   DECLARATION,
+  conclusionLines,
   inspectEndSummary,
+  intakeForm,
+  progressForm,
+  reviewForm,
   screeningFor,
 } from "@yangxia/course-core";
 import {
@@ -18,12 +23,22 @@ import {
   listAccessibleProfiles,
   type AuthActor,
 } from "../auth/permissions.ts";
+import type {
+  AssessmentFormResponse,
+  AssessmentListItem,
+  IntakeFormResponse,
+  ProfilesResponse,
+  ProgressFormResponse,
+  ProgressLogResponse,
+  ReviewFormResponse,
+} from "../api/contracts.ts";
 import type { ServerContext } from "../context.ts";
 import { generatePairingCode, newId, sha256Hex } from "../crypto/tokens.ts";
 import { writeAuditLog } from "../db/audit.ts";
 import { loadProfileState, type CourseDbRow, type DocumentDbRow } from "../db/bundle.ts";
 import { AppError } from "../db/lock.ts";
 import {
+  appendProgressLogOp,
   archiveSegmentOp,
   courseRowToEnvelope,
   createProfileOp,
@@ -64,8 +79,37 @@ const SubmitReviewSchema = z.object({
   week: z.number().int().min(1).max(12),
   reviewJson: z.record(z.string(), z.unknown()),
   reviewMd: z.string().min(1).max(200_000),
-  nextSegmentEntry: z.record(z.string(), z.unknown()).optional(),
+  /** 下一周怎么走：服务端照规则拼下一周（网页不自己拼 segments）。 */
+  next: z.enum(["advance", "repeat", "end"]).optional(),
   profilePatch: z.record(z.string(), z.unknown()).optional(),
+});
+
+const IntakeAnswersSchema = z.object({
+  stage: z.string().max(40).optional(),
+  venue: z.string().max(10).optional(),
+  product: z.string().max(60).optional(),
+  direct: z.boolean().optional(),
+  screening: z.record(z.string().max(300), z.enum(["是", "否"])).optional(),
+  conditions: z.record(z.string().max(40), z.boolean()).optional(),
+});
+
+const ReviewFormSchema = z.object({ symptoms: z.boolean().optional() });
+
+const ProgressLogSchema = z.object({
+  expectedVersion: z.number().int().positive().optional(),
+  entries: z
+    .array(
+      z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        move: z.string().min(1).max(60),
+        field: z.enum(["level", "reps", "weight"]),
+        to: z.number().positive(),
+        rule: z.string().min(1).max(20),
+        evidence: z.string().max(200).optional(),
+      }),
+    )
+    .min(1)
+    .max(20),
 });
 
 const SaveDocSchema = z.object({
@@ -121,6 +165,14 @@ export function registerProfileRoutes(
     return c.json({ product, groups: snap.plans ? choiceGroups(snap.plans, snap.manifest, product) : [] });
   });
 
+  // 建档向导：带上已答的，照入口问卷、规则层、训练单算下一步要问什么（筛查答案走请求体，不进网址）
+  app.post("/api/intake/form", async (c) => {
+    const answers = IntakeAnswersSchema.parse(await c.req.json());
+    const snap = ctx.templates.current();
+    if (!snap.plans || !snap.rules) throw new AppError(500, "TEMPLATE_INVALID", "模板缺训练单或规则层");
+    return c.json({ declaration: DECLARATION, form: intakeForm({ manifest: snap.manifest, plans: snap.plans, rules: snap.rules }, answers) } satisfies IntakeFormResponse);
+  });
+
   app.get("/api/bedtime", (c) => {
     const stage = c.req.query("stage") || "";
     const wake = c.req.query("wake") || "";
@@ -156,7 +208,7 @@ export function registerProfileRoutes(
           createdAt: r.created_at,
         };
       }),
-    });
+    } satisfies ProfilesResponse);
   });
 
   app.post("/api/profiles", async (c) => {
@@ -293,6 +345,22 @@ export function registerProfileRoutes(
     );
   });
 
+  // 评估表单：这一种评估要问、要测什么（和 course assess 同一份）
+  app.get("/api/profiles/:id/assessments/form", (c) => {
+    const actor = c.get("actor");
+    const db = ctx.getDb();
+    const id = c.req.param("id");
+    assertProfileAccess(db, actor, id, "manage");
+    const state = loadProfileState(db, id);
+    const form = assessmentForm(state.bundle, ctx.templates.current(), c.req.query("kind") ?? "", {
+      product: c.req.query("product") || undefined,
+      now: ctx.now(),
+    });
+    if ("error" in form) throw new AppError(422, "ASSESSMENT_FORM_UNAVAILABLE", form.error);
+    const { lines: _lines, ...rest } = form;
+    return c.json({ declaration: DECLARATION, form: rest } satisfies AssessmentFormResponse);
+  });
+
   app.get("/api/profiles/:id/assessments", (c) => {
     const actor = c.get("actor");
     const db = ctx.getDb();
@@ -318,8 +386,9 @@ export function registerProfileRoutes(
         logicalPath: r.logical_path,
         archivedSegment: r.archived_segment,
         record: JSON.parse(String(r.assessment_json)),
+        conclusionText: conclusionLines(JSON.parse(String(r.assessment_json))?.conclusion),
         createdAt: r.created_at,
-      })),
+      }) satisfies AssessmentListItem),
       assessRules: snap.rules ? assessRules(snap.rules) : null,
       endSummary,
     });
@@ -371,6 +440,42 @@ export function registerProfileRoutes(
         record: JSON.parse(String(s.session_json)),
       })),
     });
+  });
+
+  // 周复盘表单：这一周的记录、要填的项、下一周可选怎么走（symptoms 走请求体，不进网址）
+  app.post("/api/profiles/:id/reviews/form", async (c) => {
+    const actor = c.get("actor");
+    const db = ctx.getDb();
+    const id = c.req.param("id");
+    assertProfileAccess(db, actor, id, "manage");
+    const body = ReviewFormSchema.parse(await c.req.json().catch(() => ({})));
+    const state = loadProfileState(db, id);
+    const form = reviewForm(state.bundle, ctx.templates.current(), { symptoms: body.symptoms });
+    if ("error" in form) throw new AppError(422, "REVIEW_FORM_UNAVAILABLE", form.error);
+    return c.json({ declaration: DECLARATION, form } satisfies ReviewFormResponse);
+  });
+
+  // 个人进度：能改哪些动作、哪条规则、依据可选哪几份记录
+  app.get("/api/profiles/:id/progress/form", (c) => {
+    const actor = c.get("actor");
+    const db = ctx.getDb();
+    const id = c.req.param("id");
+    assertProfileAccess(db, actor, id, "manage");
+    const state = loadProfileState(db, id);
+    const form = progressForm(state.bundle, ctx.templates.current(), { now: ctx.now() });
+    if ("error" in form) throw new AppError(422, "PROGRESS_FORM_UNAVAILABLE", form.error);
+    return c.json({ declaration: DECLARATION, form, version: state.meta?.version } satisfies ProgressFormResponse);
+  });
+
+  // 个人进度调整：和 Agent 工具同一个写入操作，重放核对不合规则的整批拒
+  app.post("/api/profiles/:id/progress-log", async (c) => {
+    const actor = c.get("actor");
+    const id = c.req.param("id");
+    const body = ProgressLogSchema.parse(await c.req.json());
+    const db = ctx.getDb();
+    assertProfileAccess(db, actor, id, "manage");
+    const res = appendProgressLogOp(db, ctx.templates.current(), actor, id, body, ctx.now());
+    return c.json({ ok: true, version: res.version, progress: res.progress, invalidatedCourses: res.invalidatedCourses, warnings: res.warnings } satisfies ProgressLogResponse);
   });
 
   app.post("/api/profiles/:id/reviews", async (c) => {

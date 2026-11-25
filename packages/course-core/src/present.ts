@@ -40,6 +40,40 @@ export function cleanText(s: string): string {
     .trim();
 }
 
+/**
+ * 评估结论（evaluateAssessment 重算的 conclusion）换成几句人话，界面不显示原始 JSON。
+ * 只翻译结论里已有的项，不另下判断。
+ */
+export function conclusionLines(c: Record<string, any> | null | undefined): string[] {
+  if (!c || typeof c !== "object") return [];
+  const out: string[] = [];
+  if (c.needDoctor === true) out.push("开工前提有\"否\"：先去体检、问医生，拿到结果再开始");
+  else if (c.needDoctor === false) out.push("开工前提都满足");
+  if (typeof c.bmi === "number") out.push(`BMI ${c.bmi}（${c.bmiClass ?? "未分档"}）`);
+  const fr = c.fallRisk;
+  if (fr && typeof fr === "object") {
+    out.push(`跌倒风险自查：${fr.level === "未定" ? `还定不了（最高可能是${fr.worst ?? "高"}）` : fr.level}；处理按${fr.effective}`);
+    if (fr.doctorFirst) out.push("先带着结果问医生，医生同意之前不出课程");
+    if (fr.officialNeeded) out.push("要先去医院或社区卫生服务中心做一次正式的跌倒风险评估");
+    if (fr.gaitIncomplete) out.push("步态没测完：结论按没测的那几项最坏的情况算");
+    if (fr.reassessBy) out.push(`${fr.reassessBy} 之前再自查一次`);
+  }
+  if (typeof c.result === "string") out.push(`结论：${c.result}${c.downgraded ? "（这一段有过不适，往上的结论降为原样）" : ""}`);
+  if (typeof c.next === "string") out.push(`下一段：${c.next}`);
+  else if (c.next && typeof c.next === "object") {
+    const n = c.next;
+    out.push(n.phase === "稳定" ? `下一周期继续稳定期${n.hold ? "（第一轮不升级、不加量）" : ""}` : n.phase === "不开" ? "先不开下一段：看完医生、做\"看完医生回来\"的触发评估以后再定" : `回起始期${n.type ?? ""}段`);
+  }
+  if (Array.isArray(c.extras) && c.extras.length) out.push(`另外：${c.extras.join("、")}`);
+  if (c.habitTargets && typeof c.habitTargets === "object" && Object.keys(c.habitTargets).length) {
+    out.push(`习惯目标调整：${Object.entries(c.habitTargets as Record<string, Record<string, number>>)
+      .map(([h, v]) => `${h} ${v.days !== undefined ? `每周 ${v.days} 天` : v.minutes !== undefined ? `${v.minutes} 分钟` : v.line !== undefined ? `达标线 ${v.line}` : ""}`).join("、")}`);
+  }
+  if (Array.isArray(c.goals) && c.goals.length) out.push(`下一周期能选的目标：${c.goals.join("、")}`);
+  if (!out.length) out.push("已按规则记下，这一种评估没有要另外处理的结论");
+  return out;
+}
+
 /** 一条检查结果换成界面说法（path 也去掉文件名）；不改 level。 */
 export function presentIssue(issue: Issue): Issue {
   const f = issue.code ? BY_CODE[issue.code] : undefined;

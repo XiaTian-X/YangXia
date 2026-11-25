@@ -253,7 +253,7 @@ export function SchedulePage({
           <strong>6–12 岁户外与游戏版（家长版）不导出手机跟练课程</strong>
           <span>该年龄段以亲子户外活动与游戏引导为主，请直接阅读家长指导文档。</span>
           <div>
-            <button class="btn small primary" onClick={() => onNavigate("docs", profile.product)}>
+            <button class="btn small primary" onClick={() => onNavigate("docs", profile.product ?? undefined)}>
               打开《{profile.product}》阅读
             </button>
           </div>

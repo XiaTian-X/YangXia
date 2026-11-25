@@ -686,7 +686,7 @@ export function FamilyProfilesPage({
                   <button
                     type="button"
                     class="btn small"
-                    onClick={() => void calcBedtime(selectedProfile.stage, editWake || "07:00", setEditBedtime)}
+                    onClick={() => void calcBedtime(selectedProfile.stage ?? "", editWake || "07:00", setEditBedtime)}
                   >
                     重算
                   </button>

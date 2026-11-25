@@ -7,7 +7,7 @@ import { DocsMealPage } from "./pages/DocsMealPage.tsx";
 import { FamilyProfilesPage } from "./pages/FamilyProfilesPage.tsx";
 import { SchedulePage } from "./pages/SchedulePage.tsx";
 import { SetupLoginView } from "./pages/SetupLoginView.tsx";
-import { DECLARATION_TEXT, type AuthMe, type ProfileSummary, type TabId } from "./types.ts";
+import { DECLARATION_TEXT, type AuthMe, type ProfileSummary, type SetupStatusResponse, type TabId } from "./types.ts";
 
 const NAV_ITEMS: { id: TabId; label: string; adminOnly?: boolean }[] = [
   { id: "schedule", label: "排课中心" },
@@ -44,7 +44,7 @@ export function App() {
   const boot = async () => {
     setBooting(true);
     try {
-      const status = await apiRequest<{ needsSetup: boolean }>("/api/setup/status");
+      const status = await apiRequest<SetupStatusResponse>("/api/setup/status");
       setInitialized(!status.needsSetup);
       if (status.needsSetup) {
         setMe(null);
