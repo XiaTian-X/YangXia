@@ -88,10 +88,12 @@ fun TodayScreen(
     onSyncPending: () -> Unit,
     onStartCourse: (CachedCourseEntity) -> Unit,
     onOpenSettings: () -> Unit,
+    /** 外部链接指到的课：先选中它，练前确认照样要答。 */
+    focusCourseId: String? = null,
 ) {
     val activeCourses = courses.filter { it.status == "active" }
     val invalidatedCourses = courses.filter { it.status != "active" }
-    var selectedId by remember { mutableStateOf<String?>(null) }
+    var selectedId by remember(focusCourseId) { mutableStateOf(focusCourseId) }
     val selected = activeCourses.firstOrNull { it.courseRecordId == selectedId } ?: activeCourses.firstOrNull()
     val env = remember(selected?.courseRecordId, selected?.envelopeJson) {
         selected?.let { c -> runCatching { todayJson.decodeFromString(DeliveryEnvelopeDto.serializer(), c.envelopeJson) }.getOrNull() }
@@ -99,9 +101,14 @@ fun TodayScreen(
     val minutes = remember(selected?.courseRecordId, selected?.precomputedPlanJson, env?.minutes) { env?.minutes ?: selected?.let(::minutesOf) }
     // 练前确认的回答只用来决定能不能开练，不存、不传
     val answers = remember(selected?.courseRecordId) { mutableStateMapOf<Int, Boolean>() }
-    val checks = env?.checks.orEmpty()
-    val fallStop = checks.withIndex().any { (i, c) -> c.kind == "fall" && answers[i] == true }
+    // 65 岁以上一律每次问摔倒：信封里没带的（迁移之前发的课）用同一句兜底
+    val a65 = env?.course?.age == "a65" || activeProfile?.age == "a65"
+    val checks = env?.checks.orEmpty().let { cs ->
+        if (a65 && cs.none { it.kind == "fall" }) listOf(PreSessionCheckDto.FALL_FALLBACK) + cs else cs
+    }
+    val stopCheck = checks.withIndex().firstOrNull { (i, c) -> c.blocks(answers[i]) }?.value
     val unanswered = checks.indices.any { answers[it] == null }
+    val unreadable = selected != null && env == null
     val canWorkout = activeProfile?.supportedForWorkout != false
 
     Box(modifier = Modifier.fillMaxSize().background(YangXiaColors.Ground)) {
@@ -221,9 +228,10 @@ fun TodayScreen(
         if (selected != null && canWorkout) {
             StartBar(
                 modifier = Modifier.align(Alignment.BottomCenter),
-                enabled = !busy && !unanswered && !fallStop,
+                enabled = !busy && !unreadable && !unanswered && stopCheck == null,
                 label = when {
-                    fallStop -> "今天先不跟练"
+                    unreadable -> "这节课读不出来：点「刷新」重新同步"
+                    stopCheck != null -> "今天先不跟练"
                     unanswered -> "先回答上面的练前确认"
                     else -> "开始跟练"
                 },
@@ -324,6 +332,16 @@ private fun ChecksCard(checks: List<PreSessionCheckDto>, answers: Map<Int, Boole
                         fontWeight = if (differs) FontWeight.Bold else FontWeight.Normal,
                         color = YangXiaColors.WarnInk,
                     )
+                    if (c.blocks(a)) {
+                        Text(
+                            c.stop ?: "今天和档案记的不一样，这节课是照档案排的：先在网页上改训练条件、重新发课，再来练",
+                            modifier = Modifier.fillMaxWidth().background(YangXiaColors.DangerSoft, RoundedCornerShape(12.dp)).padding(12.dp),
+                            fontSize = 14.sp,
+                            lineHeight = 22.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = YangXiaColors.Danger,
+                        )
+                    }
                 }
             }
         }

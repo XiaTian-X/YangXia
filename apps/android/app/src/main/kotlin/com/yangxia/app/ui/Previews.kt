@@ -100,7 +100,7 @@ private val sampleSeniorEnvelope = """
            {"name":"扶台面侧向走","reason":"平衡动作按每侧几次、来回几次和这一周的扶法做，看计划单上的原文"}],
  "notes":["本周不做：脚跟脚尖走"],
  "checks":[{"kind":"fall","ask":"上次练完以后，有没有摔倒、差点摔倒、头晕","stop":"今天先不跟练：告诉家人，先问医生。"},
-           {"kind":"condition","condition":"家里没有别人","ask":"训练的时候，是不是家里只有你一个人","recorded":false,"hint":"和档案记的不一样时，照成品原文换做法（扶台面侧向走那一项）"}]}
+           {"kind":"condition","condition":"家里没有别人","ask":"训练的时候，是不是家里只有你一个人","recorded":false,"conservative":true,"hint":"和档案记的不一样时，照成品原文换做法（扶台面侧向走那一项）","stop":"今天和档案记的不一样，这节课是照档案排的：先在网页上的「家庭与档案」把「家里没有别人」改成今天的情况、重新发课，再来练"}]}
 """.trimIndent()
 
 private val sampleSeniorCourse = CachedCourseEntity(
@@ -175,6 +175,7 @@ fun PreviewMi6Summary() {
             course = sampleCourse,
             initialSetsDone = listOf(2),
             busy = false,
+            elapsedSec = 485.0,
             onSubmit = { _, _, _, _ -> },
             onDiscard = {},
         )

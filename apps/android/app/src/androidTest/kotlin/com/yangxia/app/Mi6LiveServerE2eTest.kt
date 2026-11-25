@@ -41,8 +41,14 @@ class Mi6LiveServerE2eTest {
     @Test
     fun fullLiveServerWorkoutSyncAndDeepLinkFlowOnMi6() = runBlocking {
         val repo = YangXiaRepository(context)
-        val serverReachable = runCatching { repo.api.health(baseUrl).initialized }.getOrDefault(false)
+        // 服务端在不在：健康检查只回 ok；有没有初始化看 /api/setup/status
+        val serverReachable = runCatching { repo.api.health(baseUrl).ok }.getOrDefault(false)
         assumeTrue("未检测到运行在 127.0.0.1:8787 的本地测试服务端（需 adb reverse tcp:8787 tcp:8787），跳过联调 E2E", serverReachable)
+        val initialized = runCatching { !repo.api.setupStatus(baseUrl).needsSetup }.getOrDefault(false)
+        assertTrue(
+            "服务端还没初始化：先用启动日志（或数据目录 setup-code.txt）里的一次性初始化口令在网页上建管理员 admin，再建成人档案「小夏」、儿童档案「小宝」并发第 1 周 A 日的课",
+            initialized,
+        )
 
         try {
             repo.logout()

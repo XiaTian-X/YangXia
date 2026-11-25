@@ -75,6 +75,8 @@ fun SummaryScreen(
     /** 照实际播放过的拍子算出的完成组数（只读）。 */
     initialSetsDone: List<Int>,
     busy: Boolean,
+    /** 实际跟练的时长（秒，暂停的时间不算）；0 不显示。 */
+    elapsedSec: Double = 0.0,
     onSubmit: (symptoms: List<String>, feel: String, note: String, perItem: Map<Int, ItemNote>) -> Unit,
     onDiscard: () -> Unit,
 ) {
@@ -103,6 +105,10 @@ fun SummaryScreen(
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (elapsedSec >= 1) {
+                    val t = elapsedSec.toInt()
+                    Stat("%02d:%02d".format(t / 60, t % 60), "用时", Modifier.weight(1f))
+                }
                 Stat("$doneSets / $totalSets", "组做完", Modifier.weight(1f))
                 Stat("${items.size}", "个动作", Modifier.weight(1f))
             }

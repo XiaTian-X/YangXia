@@ -81,6 +81,7 @@ class MainActivity : ComponentActivity() {
                 val error by vm.error.collectAsState()
                 val message by vm.message.collectAsState()
                 val dlDialog by vm.deepLinkDialog.collectAsState()
+                val focusCourseId by vm.focusCourseId.collectAsState()
 
                 // 跟练界面保持屏幕常亮并切深色状态栏图标，离开后恢复浅色暖纸状态栏图标
                 LaunchedEffect(screen) {
@@ -138,6 +139,7 @@ class MainActivity : ComponentActivity() {
                             onSyncPending = { vm.syncPendingNow() },
                             onStartCourse = { vm.startCourse(it) },
                             onOpenSettings = { vm.openSettings() },
+                            focusCourseId = focusCourseId,
                         )
 
                         AppScreen.WORKOUT -> WorkoutScreen(
@@ -158,6 +160,7 @@ class MainActivity : ComponentActivity() {
                                     course = c,
                                     initialSetsDone = summarySets,
                                     busy = busy,
+                                    elapsedSec = workoutState.elapsedSec,
                                     onSubmit = { syms, feel, note, perItem -> vm.submitSummary(syms, feel, note, perItem) },
                                     onDiscard = {
                                         WorkoutPlaybackBus.resetToIdle()

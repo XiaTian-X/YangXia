@@ -248,8 +248,25 @@ data class PreSessionCheckDto(
     val stop: String? = null,
     val condition: String? = null,
     val recorded: Boolean? = null,
+    /** 没确认时按哪一边（保守的一边）。档案记的是另一边、当天答成这一边：这节课是照不保守的版本排的，不开练，照 stop 做。 */
+    val conservative: Boolean? = null,
     val hint: String? = null,
-)
+) {
+    /** 这个回答下能不能照这节课练。 */
+    fun blocks(answer: Boolean?): Boolean = when (kind) {
+        "fall" -> answer == true
+        else -> answer != null && recorded != null && conservative != null && recorded != conservative && answer != recorded
+    }
+
+    companion object {
+        /** 迁移之前发的课没带练前确认：65 岁以上照样每次问摔倒（和核心库 FALL_CHECK 同一句）。 */
+        val FALL_FALLBACK = PreSessionCheckDto(
+            kind = "fall",
+            ask = "上次练完以后，有没有摔倒、差点摔倒、头晕",
+            stop = "今天先不跟练：告诉家人，先问医生。照成品第十二章，摔倒过的先暂停平衡练习，医生同意再练，力量动作也先问医生；差点摔倒、头晕的记进周复盘，告诉医生。",
+        )
+    }
+}
 
 @Serializable
 data class DeliveryEnvelopeDto(

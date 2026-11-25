@@ -65,6 +65,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _deferredDeepLink = MutableStateFlow<DeepLinkTarget?>(null)
 
+    /** 外部链接指到的那节课："今天"页选中它，练前确认照样要答完才能开练（不从链接直接开练）。 */
+    private val _focusCourseId = MutableStateFlow<String?>(null)
+    val focusCourseId: StateFlow<String?> = _focusCourseId.asStateFlow()
+
     private val _motionRawMap = MutableStateFlow<Map<String, String>>(emptyMap())
     val motionRawMap: StateFlow<Map<String, String>> = _motionRawMap.asStateFlow()
 
@@ -474,7 +478,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val c = repo.db.courseDao().getByRecordId(target.courseRecordId)
                 if (c != null && c.status == "active") {
                     repo.prefsStore.setActiveProfileId(c.profileId)
-                    startCourse(c)
+                    _focusCourseId.value = c.courseRecordId
+                    _screen.value = AppScreen.TODAY
                 } else {
                     _deepLinkDialog.value = DeepLinkDialogState("课程不可用", "该课程已过期或尚未同步，请下拉刷新。")
                 }

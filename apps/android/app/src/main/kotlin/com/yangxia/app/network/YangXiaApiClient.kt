@@ -33,11 +33,16 @@ class ApiHttpException(
     override val message: String,
 ) : IOException(message)
 
+/** 健康检查只回 ok（不透露有没有初始化、模板版本）。 */
 @Serializable
 data class HealthResponse(
     val ok: Boolean = false,
-    val initialized: Boolean = false,
-    val templateVersion: String? = null,
+)
+
+/** 有没有初始化：needsSetup = true 表示还没有管理员（要用启动日志里的一次性初始化口令在网页上建）。 */
+@Serializable
+data class SetupStatusResponse(
+    val needsSetup: Boolean = true,
 )
 
 @Serializable
@@ -227,6 +232,11 @@ class YangXiaApiClient(
     suspend fun health(serverUrl: String): HealthResponse {
         val raw = executeJson(serverUrl, listOf("api", "health"))
         return json.decodeFromString(HealthResponse.serializer(), raw)
+    }
+
+    suspend fun setupStatus(serverUrl: String): SetupStatusResponse {
+        val raw = executeJson(serverUrl, listOf("api", "setup", "status"))
+        return json.decodeFromString(SetupStatusResponse.serializer(), raw)
     }
 
     suspend fun login(serverUrl: String, username: String, password: String, deviceName: String): LoginResponse {
