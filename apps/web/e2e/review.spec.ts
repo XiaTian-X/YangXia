@@ -152,7 +152,7 @@ test("周复盘有不适锁定、个人进度照规则写；65 岁以上入门�
     await page.getByLabel("差点摔倒几次").fill("0");
     await page.getByLabel("头晕几次").fill("1");
     await expect(page.getByRole("button", { name: /推到第 2 周/ })).toBeDisabled();
-    await expect(page.getByText(/有头晕、摔倒或差点摔倒：不能往上走/)).toBeVisible();
+    await expect(page.getByText(/有摔倒、差点摔倒或头晕：不能推到下一周/)).toBeVisible();
     expect(await page.locator("main").innerText()).not.toMatch(CLI);
   } finally {
     await srv.close();

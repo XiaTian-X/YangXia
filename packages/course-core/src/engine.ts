@@ -303,6 +303,8 @@ export function collectCourseIssues(bundle: ProfileBundle, templates: TemplateBu
     plans: templates.plans,
     rules: templates.rules,
     addOns,
+    now,
+    timeZone: tz,
   });
   for (const c of bundle.courses) {
     const tag = (xs: Issue[]) => xs.map((i) => ({ ...i, path: `${c.name}${i.path ? " " + i.path : ""}` }));
@@ -460,6 +462,8 @@ export function exportProfileCourse(
     plans: templates.plans,
     rules: templates.rules,
     addOns,
+    now,
+    timeZone: tz,
   });
   const allIssues = [...r.issues, ...checkIssues];
   if (checkIssues.some((i) => i.level === "error")) {
@@ -542,6 +546,8 @@ export function detectInvalidatedCourses(
     plans: templates.plans,
     rules: templates.rules,
     addOns,
+    now,
+    timeZone: tz,
   };
 
   for (const c of activeCourses) {

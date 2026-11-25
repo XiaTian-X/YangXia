@@ -49,6 +49,10 @@ const FIELD_NAMES: Record<string, string> = {
   eventDates: "摔倒的日期",
   reasons: "原因",
   prereqs: "开工前提",
+  dietByPro: "医生、营养师给的减重方案",
+  weightClear: "减重的医生同意",
+  cardioClear: "有氧加量的医生同意",
+  addClear: "加项的医生同意",
 };
 const FIELD_RE = new RegExp(`(?<![A-Za-z.])(${Object.keys(FIELD_NAMES).map((k) => k.replace(/\./g, "\\.")).join("|")})(?![A-Za-z])`, "g");
 

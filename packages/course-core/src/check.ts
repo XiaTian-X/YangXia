@@ -28,6 +28,9 @@ export interface CheckContext {
   rules?: RulesData | null;
   /** 65 岁以上稳定期这一周有效的加项（命令按档案和评估记录算好传进来，和导出时一样；不传的只按 addOnLog 重放）。 */
   addOns?: string[];
+  /** 档案校验按哪一天算"今天"（服务端用自己的时钟；不传用本机时间）和哪个时区。 */
+  now?: Date;
+  timeZone?: string;
 }
 
 const REST = /休息|歇/;
@@ -204,7 +207,7 @@ function ownTexts(ex: Manifest["exercises"][number], product: string): { texts: 
   };
 }
 
-function checkProfile(course: Course, profile: unknown, m: Manifest, issues: Issue[]) {
+function checkProfile(course: Course, profile: unknown, m: Manifest, issues: Issue[], clock: { now?: Date; timeZone?: string } = {}) {
   const err = (path: string, message: string) => issues.push({ level: "error", path: `profile${path ? "." + path : ""}`, message });
   if (typeof profile !== "object" || profile === null) return err("", "档案要是 JSON 对象");
   const p = profile as Record<string, any>;
@@ -215,7 +218,7 @@ function checkProfile(course: Course, profile: unknown, m: Manifest, issues: Iss
   if (course.source.week > week) {
     err("week", `档案现在是第 ${week} 周，课程是第 ${course.source.week} 周：下一周要等周复盘按成品规则放行（weekly-review）后再导出`);
   }
-  for (const i of [...validateProfile(p), ...checkProfileWithTemplates(p, m)]) {
+  for (const i of [...validateProfile(p, clock), ...checkProfileWithTemplates(p, m)]) {
     if (i.level === "error") issues.push({ ...i, path: `profile.${i.path}` });
   }
   const sc = p.screening;
@@ -422,6 +425,6 @@ export function checkCourse(raw: unknown, ctx: CheckContext): Issue[] {
   for (const ev of tl.events) {
     if (ev.voice && !canSpeak(ev.voice)) err("", `内置语音说不出「${ev.voice}」`);
   }
-  if (ctx.profile !== undefined) checkProfile(course, ctx.profile, m, issues);
+  if (ctx.profile !== undefined) checkProfile(course, ctx.profile, m, issues, { now: ctx.now, timeZone: ctx.timeZone });
   return issues;
 }

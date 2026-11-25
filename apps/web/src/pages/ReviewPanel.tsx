@@ -1,7 +1,7 @@
 // 周复盘与个人进度（设计稿"网页 · 周复盘与个人进度"）：要填什么、下一周能怎么走由核心 reviewForm 给；
 // 训练次数、不适从这一周的练习记录带入，有不适锁定、不能推周；下一周由服务端排。
 // 个人进度照核心 progressForm 选动作、规则、依据，写入后服务端重放核对，不合规则的拒。
-import { buildReviewRecord, partialMoveFields, type NextChoice, type ProgressForm, type ReviewForm } from "@yangxia/course-core";
+import { advanceBlockedBy, buildReviewRecord, partialMoveFields, type NextChoice, type ProgressForm, type ReviewForm } from "@yangxia/course-core";
 import { useEffect, useState } from "preact/hooks";
 import { FormRenderer, type FormValues } from "../components/FormRenderer.tsx";
 import { Pills } from "../components/Pills.tsx";
@@ -43,7 +43,8 @@ export function ReviewPanel({ profile, onChanged, onGoAssess }: {
   const [pNotice, setPNotice] = useState<string | null>(null);
 
   // 65 岁以上填了头晕、摔倒、差点摔倒（成品"不适优先"）：这一周不能往上推
-  const eventSym = ["dizzy", "falls", "nearFalls"].some((k) => typeof values[k] === "number" && (values[k] as number) > 0);
+  const eventBlock = advanceBlockedBy({ falls: values.falls, nearFalls: values.nearFalls, dizzy: values.dizzy });
+  const eventSym = eventBlock !== null;
   const symptoms = !!form?.symptomsLocked || selfSymptoms === "有";
   const noAdvance = symptoms || eventSym;
 
@@ -240,7 +241,7 @@ export function ReviewPanel({ profile, onChanged, onGoAssess }: {
                   <span class="t">{o.label}</span>
                   <span class="s">{!o.allowed ? o.reason ?? "这一周有不适：不能往上走"
                     : o.value === "advance" && symptoms ? "这一周有不适：不能往上走"
-                    : o.value === "advance" && eventSym ? "这一周有头晕、摔倒或差点摔倒：不能往上走，告诉医生；摔倒的要做一次触发评估"
+                    : o.value === "advance" && eventBlock ? eventBlock
                     : o.value === "repeat" ? "照这一周的量再练一周" : o.value === "advance" ? "这一周没有不适" : "复盘存好以后接着做"}</span>
                 </button>
               ))}

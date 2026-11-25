@@ -64,6 +64,11 @@ export function AssessPanel({ profile, isAdmin, initialKind, onChanged }: {
     setValues({});
     setResult(null);
   }, [profile.id, kind]);
+  // 换了档案：上一份档案选的新成品不带过来
+  useEffect(() => {
+    setProduct("");
+    setSwitchList([]);
+  }, [profile.id]);
   useEffect(() => {
     void load();
   }, [profile.id, kind, product]);

@@ -3,6 +3,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import {
   ASSESS_FORMAT,
+  advanceBlockedBy,
   auditProfileBundle,
   buildAssessContext,
   cleanText,
@@ -603,8 +604,10 @@ export function submitReviewOp(
         }
       }
     }
-    if (nextEntry && reviewJson.symptoms === true && last && nextEntry.n === last.n && Number(nextEntry.week) > Number(last.week)) {
-      throw new AppError(422, "REVIEW_ADVANCE_BLOCKED", "这一周有疼痛、头晕或胸闷：不能推到下一周，先重来这一周，按成品\"疼了怎么办\"处理");
+    // 成品"不适优先"：疼痛、头晕、胸闷、摔倒、差点摔倒的那一周，下周不往上走（网页和 Agent 走同一道）
+    const blocked = advanceBlockedBy(reviewJson);
+    if (nextEntry && blocked && last && nextEntry.n === last.n && Number(nextEntry.week) > Number(last.week)) {
+      throw new AppError(422, "REVIEW_ADVANCE_BLOCKED", blocked);
     }
     const segRef = { start: input.startDate, week: input.week };
     const legacyJsonPath = `复盘/${reviewDataName(segRef)}`;

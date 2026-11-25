@@ -214,6 +214,17 @@ export function nextWeekGoalRevert(ctx: AssessContext): string | null {
   return hit ? hit.message : null;
 }
 
+/**
+ * 这一周的复盘数据挡不挡往上推（成品"不适优先"：这一周有疼痛、头晕、胸闷、摔倒、差点摔倒的，下周不往上走）。
+ * 挡的返回原因，网页和服务端用同一句。
+ */
+export function advanceBlockedBy(rec: Record<string, unknown>): string | null {
+  if (rec.symptoms === true) return "这一周有疼痛、头晕或胸闷：不能推到下一周，先重来这一周，按成品\"疼了怎么办\"处理";
+  const n = (k: string) => (typeof rec[k] === "number" ? (rec[k] as number) : 0);
+  if (n("falls") > 0 || n("nearFalls") > 0 || n("dizzy") > 0) return "这一周有摔倒、差点摔倒或头晕：不能推到下一周，告诉医生；摔倒的要做一次触发评估";
+  return null;
+}
+
 /** 下一周的 segments 项：habitTargets、restart 只写在一段的第一项，不抄过去。 */
 export function nextWeekEntry(profile: Obj, choice: NextChoice): Obj | null {
   const ss = (profile.segments ?? []) as Obj[];

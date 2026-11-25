@@ -1,6 +1,6 @@
 // 第一轮审查修复（F2）：表单接口、复盘这一周的核对、不适不能推周、网页写个人进度、返回的报错不露命令行字样。
 import { afterEach, describe, expect, it } from "vitest";
-import { ASSESS_FORMAT, buildAssessmentRecord, DECLARATION, REVIEW_FORMAT, SESSION_FORMAT, type AssessmentForm } from "@yangxia/course-core";
+import { ASSESS_FORMAT, buildAssessmentRecord, buildReviewRecord, DECLARATION, REVIEW_FORMAT, SESSION_FORMAT, type AssessmentForm, type ReviewForm } from "@yangxia/course-core";
 import { createTestServer, makeA18HomeProfile, TEST_SETUP_CODE, type TestServerHandle } from "./helpers.ts";
 
 let srv: TestServerHandle | null = null;
@@ -18,7 +18,17 @@ async function setup() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username: "admin", password: "AdminPassword123", setupCode: TEST_SETUP_CODE }),
   });
-  const cookie = (res.headers.get("set-cookie") ?? "").split(";")[0];
+  let cookie = (res.headers.get("set-cookie") ?? "").split(";")[0];
+  // 拨了好几周的钟，登录会过期：重新登录换一个
+  const relogin = async () => {
+    const r = await s.req("/api/auth/login", {
+      method: "POST",
+      origin: "http://localhost",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "admin", password: "AdminPassword123" }),
+    });
+    cookie = (r.headers.get("set-cookie") ?? "").split(";")[0];
+  };
   const call = async (path: string, method = "GET", body?: unknown) =>
     s.req(path, {
       method,
@@ -27,7 +37,7 @@ async function setup() {
       origin: "http://localhost",
       ...(body !== undefined ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
     });
-  return { s, call };
+  return { s, call, relogin };
 }
 
 describe("表单接口：建档、评估、复盘、个人进度都由服务端照规则算", () => {
@@ -168,6 +178,53 @@ describe("表单接口：建档、评估、复盘、个人进度都由服务端�
     const down = await call(`/api/profiles/${pid}/progress-log`, "POST", { entries: [{ date: "2026-11-05", move, field: "level", to: 1, rule: "退回", evidence: ev2 }] });
     expect(down.status).toBe(200);
     expect((await down.json()).progress[move].level).toBe(1);
+  });
+
+  it("减脂的人这一周称的 BMI 不到 18.5：推到下一周时目标照规则改回保持，返回原因，整档核对通过", async () => {
+    const { s, call, relogin } = await setup();
+    srv = s;
+    const manifest = s.ctx.templates.current().manifest;
+    const product = "18-39岁-居家版（稳定期）";
+    const created = await call("/api/profiles", "POST", {
+      profile: makeA18HomeProfile(manifest, "减脂甲", {
+        product, body: "记", focus: { areas: ["训练"] }, bodyLog: [{ date: "2026-11-02", body: "记" }],
+        segments: [{ n: 1, type: "标准", phase: "稳定", week: 1, start: "2026-11-02", product, goal: "减脂" }],
+      }),
+      initialAssessment: {
+        schema: ASSESS_FORMAT, date: "2026-11-02", kind: "入门", base: 2, goal: "减脂", eatingCheck: "问过",
+        body: { height: 175, weight: 80, waist: 95 }, tests: [{ id: "pushup-test", level: 3, value: 10 }], conclusion: {},
+      },
+    });
+    expect(created.status).toBe(201);
+    const pid = (await created.json()).id as string;
+    // 直接进稳定期的第 1 轮按保持算；第 2 轮（第 5 周）称的体重 BMI 不到 18.5，下一周起退回保持
+    const day = (n: number) => new Date(Date.UTC(2026, 10, 2 + n)).toISOString().slice(0, 10);
+    let body: any = null;
+    for (let w = 1; w <= 5; w++) {
+      const start = day(7 * (w - 1));
+      s.setNow(new Date(`${day(7 * w)}T02:00:00.000Z`));
+      await relogin();
+      const rfr = await (await call(`/api/profiles/${pid}/reviews/form`, "POST", { symptoms: false })).json();
+      const rf = rfr.form as ReviewForm;
+      // 必填的照最小值填（测试里只为走到"推到下一周"）；第 5 周体重 55 公斤，BMI 约 18.0
+      const values: Record<string, unknown> = { trainings: 3, symptoms: false, ...(w === 5 ? { weight: 55, cardioMinutes: 100, tired: false } : {}) };
+      for (const f of rf.sections.flatMap((x) => x.fields)) {
+        if (!f.required || f.readonly || values[f.key] !== undefined) continue;
+        const inp = f.input as { type: string; min?: number; options?: { value: unknown }[] };
+        values[f.key] = inp.type === "yesno" ? false : inp.type === "enum" ? inp.options![0].value : inp.min ?? 0;
+      }
+      const reviewJson = buildReviewRecord(rf, values);
+      const r = await call(`/api/profiles/${pid}/reviews`, "POST", { startDate: start, week: w, reviewJson, reviewMd: `${DECLARATION}\n\n第 ${w} 周`, next: "advance" });
+      body = await r.json();
+      expect(r.status).toBe(201);
+      if (w < 5) expect(body.goalReverted).toBeNull();
+    }
+    expect(body.goalReverted).toMatch(/下一周起目标改回保持/);
+    expect(body.goalReverted).not.toMatch(CLI);
+    const segs = body.profile.segments;
+    expect(segs[segs.length - 1]).toMatchObject({ week: 6, goal: "保持" });
+    const audit = await (await call(`/api/profiles/${pid}/audit`)).json();
+    expect(audit.issues.filter((i: { level: string; path: string }) => i.level === "error" && /goal/.test(i.path))).toEqual([]);
   });
 
   it("档案设置里的训练条件：列这份成品要问的条件和档案记的值；服务端自己的报错也换成界面说法", async () => {

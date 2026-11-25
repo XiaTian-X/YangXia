@@ -203,7 +203,9 @@ export function assessmentForm(bundle: ProfileBundle, t: TemplateBundle, kind: s
       const prog = (profile.progress ?? {}) as Obj;
       for (const [move, v] of Object.entries(prog)) {
         if (typeof (v as Obj)?.weight !== "number") continue;
-        tests.fields.push({ key: `tests.gym-weights.${move}`, label: `${move}：现在的重量（公斤，取自个人进度）`, required: false, readonly: true, value: (v as Obj).weight, input: { type: "decimal", min: 0, max: 500, step: 0.5 } });
+        // 问法用动作的中文名（个人进度的键是动作编号）
+        const ex = t.manifest.exercises.find((e) => e.id === move);
+        tests.fields.push({ key: `tests.gym-weights.${move}`, label: `${ex?.short || ex?.name || move}：现在的重量（公斤，取自个人进度）`, required: false, readonly: true, value: (v as Obj).weight, input: { type: "decimal", min: 0, max: 500, step: 0.5 } });
       }
       tests.notes.push(`${x.id}：${x.note}`);
       continue;
