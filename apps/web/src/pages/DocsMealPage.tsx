@@ -112,7 +112,7 @@ export function DocsMealPage({
               <input type="text" required value={menuTitle} onInput={(e) => setMenuTitle((e.target as HTMLInputElement).value)} />
             </label>
             <label class="field">
-              <span>菜单与采购清单正文（Markdown）</span>
+              <span>菜单与采购清单正文</span>
               <textarea value={menuMd} onInput={(e) => setMenuMd((e.target as HTMLTextAreaElement).value)} required />
             </label>
             <button class="btn primary" type="submit" disabled={busy}>
@@ -145,7 +145,7 @@ export function DocsMealPage({
       <div class="card">
         <div class="row-between">
           <div>
-            <h2 class="h2">模板文档与图解只读阅读器（版本 {meta?.version ?? "-"}）</h2>
+            <h2 class="h2">计划模板原文（只读 · 版本 {meta?.version ?? "-"}）</h2>
             <div class="muted">支持阅读 6–12 岁家长版、热身/放松、超重与肥胖附册、官方食养指南与全家餐饮模板。</div>
           </div>
           <select

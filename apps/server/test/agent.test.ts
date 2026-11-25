@@ -120,7 +120,7 @@ describe("阶段 3：SDK 隔离与 Agent 元信息/加密配置", () => {
     expect(j1.configured).toBe(false);
     expect(j1.declaration).toBe(DECLARATION);
     expect(j1.disclosure).toContain("外部模型");
-    expect(j1.minModelRequirement).toContain("最低推荐模型规格");
+    expect(j1.minModelRequirement).toContain("对模型的要求");
 
     const tRes = await srv.req("/api/agent/threads", {
       method: "POST",

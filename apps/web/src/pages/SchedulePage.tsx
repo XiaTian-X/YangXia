@@ -177,16 +177,22 @@ export function SchedulePage({
     }
   };
 
-  const handleInvalidate = async (courseRecordId: string) => {
+  const handleInvalidate = async (courseRecordId: string, name: string) => {
+    const reason = window.prompt(`作废「${name}」？手机下次同步时会撤回这节课，作废后不能恢复。\n写一句原因：`, "");
+    if (reason === null) return;
+    if (!reason.trim()) {
+      setError("作废要写一句原因");
+      return;
+    }
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
       await apiRequest(`/api/profiles/${profile.id}/courses/${courseRecordId}/invalidate`, {
         method: "POST",
-        body: { expectedVersion: data?.version, reason: "由排课台手动撤回作废" },
+        body: { expectedVersion: data?.version, reason: reason.trim().slice(0, 200) },
       });
-      setNotice("已作废该课程，手机端下次同步将自动锁定移除");
+      setNotice("已作废这节课：手机下次同步时会撤回");
       await load();
     } catch (err) {
       setError(formatApiError(err));
@@ -351,7 +357,7 @@ export function SchedulePage({
                     <div class="row">
                       <span class="tag ok">第 {c.week} 周 · {c.day} 日{c.half ? " · 半量" : ""}</span>
                       {canManage && (
-                        <button class="btn small danger" onClick={() => void handleInvalidate(c.id)} disabled={busy}>
+                        <button class="btn small danger" onClick={() => void handleInvalidate(c.id, c.envelope.course.name)} disabled={busy}>
                           作废
                         </button>
                       )}
@@ -359,7 +365,7 @@ export function SchedulePage({
                   </div>
                   {c.envelope.follow.length > 0 && (
                     <div class="muted">
-                      <strong>配套有氧/习惯：</strong>
+                      <strong>照成品做（不在跟练里）：</strong>
                       {c.envelope.follow
                         .map((item: any) =>
                           typeof item === "string" ? item : [item?.name, item?.reason ?? item?.text].filter(Boolean).join("："),
@@ -386,7 +392,7 @@ export function SchedulePage({
 
           {data && data.invalidatedCourses.length > 0 && (
             <div class="stack" style={{ marginTop: "8px" }}>
-              <h3 class="h3">已作废旧课（手机同步时强制撤回）</h3>
+              <h3 class="h3">作废了的课（手机同步时会撤回）</h3>
               {data.invalidatedCourses.map((ic) => (
                 <div class="banner warn" key={ic.id}>
                   <span>

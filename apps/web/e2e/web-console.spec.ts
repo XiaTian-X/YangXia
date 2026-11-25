@@ -118,12 +118,34 @@ test("桌面 1440×900 与平板 820×1180：无大模型全闭环 + Agent SSE �
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.yxbackup$/);
 
-    // 8. 平板 820×1180 断点适配验证（无水平溢出，导航可用）
-    await page.setViewportSize({ width: 820, height: 1180 });
-    await page.getByRole("button", { name: "排课中心" }).click();
-    await expect(page.getByRole("heading", { name: /小夏E2E/ })).toBeVisible();
-    const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
-    expect(hasOverflow).toBe(false);
+    // 8. 三种宽度：没有横向滚动；页面上不出现命令行和内部术语；手机宽度用底部 4 项加"更多"
+    const JARGON = /--half|Skill|Tool Calling|JSON Schema|npm run|档案\.json|\.json \+ \.md/;
+    const overflow = () => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    for (const [w, h] of [[1440, 900], [820, 1180]] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      for (const tab of ["排课中心", "评估与复盘", "家庭与档案", "饮食与模板", "养夏助手"]) {
+        await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: tab }).click();
+        await expect(page.locator("main")).toBeVisible();
+        expect(await overflow(), `${w}×${h} ${tab}`).toBe(false);
+        expect(await page.locator("main").innerText(), `${w}×${h} ${tab}`).not.toMatch(JARGON);
+      }
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    const phoneNav = page.getByRole("navigation", { name: "手机导航" });
+    await expect(page.getByRole("navigation", { name: "主导航" })).toBeHidden();
+    await expect(phoneNav.getByRole("button")).toHaveCount(4);
+    for (const tab of ["排课", "评估复盘", "档案"]) {
+      await phoneNav.getByRole("button", { name: tab }).click();
+      expect(await overflow(), `390 ${tab}`).toBe(false);
+      await expect(phoneNav.getByRole("button", { name: tab })).toBeInViewport();
+    }
+    await phoneNav.getByRole("button", { name: "更多" }).click();
+    const sheet = page.getByRole("dialog", { name: "更多" });
+    await expect(sheet.getByRole("button", { name: "饮食与模板" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "退出登录" })).toBeVisible();
+    await sheet.getByRole("button", { name: "饮食与模板" }).click();
+    await expect(sheet).toBeHidden();
+    expect(await overflow(), "390 饮食与模板").toBe(false);
 
     // 强断言：全程 0 个外部网络请求！
     expect(externalRequests).toEqual([]);

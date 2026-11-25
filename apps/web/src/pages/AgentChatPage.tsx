@@ -215,7 +215,7 @@ export function AgentChatPage({
     <div class="stack" style={{ gap: "16px" }}>
       <div class="row-between">
         <div>
-          <div class="eyebrow">受控业务工具 · 高危双阶段确认 · 3 次失败熔断</div>
+          <div class="eyebrow">改档案的事都要你点确认才写进去</div>
           <h1 class="h1">养夏助手</h1>
         </div>
         <div class="row">
@@ -269,7 +269,7 @@ export function AgentChatPage({
         {/* 左侧对话列表 */}
         <div class="card">
           <label class="field">
-            <span>场景模式（Skill）</span>
+            <span>这次要做什么</span>
             <select value={skill} onChange={(e) => setSkill((e.target as HTMLSelectElement).value)}>
               {Object.entries(SKILL_LABELS).map(([k, label]) => (
                 <option key={k} value={k}>
@@ -361,7 +361,7 @@ export function AgentChatPage({
               value={inputText}
               disabled={streaming}
               onInput={(e) => setInputText((e.target as HTMLInputElement).value)}
-              placeholder={info?.configured ? "输入问题或指令，如：帮我生成本周计划单并发布 A 日课程..." : "请先配置外部模型 API Key，或使用上方网页可视表单"}
+              placeholder={info?.configured ? "输入问题或指令，如：帮我生成本周计划单并发布 A 日课程..." : "还没配置大模型：管理员在\"系统管理\"里配置；不配也能用各页的表单完成所有操作"}
             />
             {streaming ? (
               <button type="button" class="btn danger" onClick={() => abortRef.current?.abort()}>

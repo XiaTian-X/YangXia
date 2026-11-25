@@ -444,11 +444,22 @@ export function exportProfileCourse(
       if (templates.motionHashes[id]) motionHashes[id] = templates.motionHashes[id];
     }
   }
+  // 交给网页、手机的信封：动作编号换成中文名，命令行说法换成界面说法（命令行导出照旧）
+  const ids = templates.manifest.exercises.map((e) => e.id).sort((a, b) => b.length - a.length);
+  const named = (s: string) => {
+    let out = s;
+    for (const id of ids) {
+      if (!out.includes(id)) continue;
+      const ex = templates.manifest.exercises.find((e) => e.id === id)!;
+      out = out.split(id).join(ex.short || ex.name);
+    }
+    return out.replace(/加 --half 重新导出半量课/g, "发布时勾上\"半量课\"");
+  };
   const envelope: CourseDeliveryEnvelope = {
     schema: DELIVERY_FORMAT,
     course: r.course,
-    follow: r.follow,
-    notes: r.notes,
+    follow: r.follow.map((f) => ({ ...f, name: named(f.name), reason: named(f.reason) })),
+    notes: r.notes.map(named),
     declaration: DECLARATION,
     templateVersion: templates.plans.version,
     templateHash: templates.templateHash ?? "",

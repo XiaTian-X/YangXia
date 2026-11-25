@@ -39,63 +39,42 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 a { color: var(--accent); }
 :focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 2px; }
 
-/* 布局骨架：移动底栏 / 平板顶栏 / 桌面左侧栏 */
-.app-shell { min-height: 100vh; display: grid; grid-template-columns: 1fr; align-content: start; }
-.nav {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-  display: flex; background: var(--surface); border-top: 1px solid var(--line);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-.nav .brand-box, .nav .nav-foot { display: none; }
-.nav-list { display: flex; flex: 1; overflow-x: auto; }
-.nav-btn {
-  flex: 1 0 auto; border: 0; background: none; color: var(--ink-2);
-  min-height: 54px; padding: 6px 10px; font-size: 13px;
-  display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;
-}
-.nav-btn.on { color: var(--accent); font-weight: 700; }
-
-.main-wrap { min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
-.topbar {
-  position: sticky; top: 0; z-index: 20;
-  background: color-mix(in srgb, var(--ground) 92%, transparent);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--line);
-  padding: 10px 18px;
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
-}
-.disclaimer-bar {
-  background: var(--surface-2); border-bottom: 1px solid var(--line);
-  padding: 6px 18px; font-size: 13px; color: var(--ink-2);
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-}
-.page { width: 100%; max-width: 1180px; margin: 0 auto; padding: 18px 18px 90px; display: flex; flex-direction: column; gap: 18px; }
+/* 布局骨架（设计稿"养夏自托管版 · 第一轮修复设计"）：顶部导航；手机宽度时导航收到底部 4 项加"更多" */
+.app-shell { min-height: 100vh; display: flex; flex-direction: column; }
+.appbar { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 30; }
+.appbar-in { max-width: 1200px; margin: 0 auto; padding: 10px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; }
+.brand { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; }
+.topnav { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+.nav-btn { border: 0; background: none; color: var(--ink-2); min-height: 44px; padding: 8px 14px; border-radius: 12px; font-size: 15px; white-space: nowrap; }
+.nav-btn[aria-current="page"] { background: var(--accent-soft); color: var(--accent-strong); font-weight: 700; }
+.appbar-right { display: flex; align-items: center; gap: 10px; }
+.appbar-right select { max-width: 260px; min-height: 40px; }
+.declbar { background: var(--surface-2); border-top: 1px solid var(--line); }
+.declbar-in { max-width: 1200px; margin: 0 auto; padding: 7px 24px; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--ink-2); }
+.declbar-in strong { color: var(--warn-ink); }
+.page { width: 100%; max-width: 1200px; margin: 0 auto; padding: 26px 24px 56px; display: flex; flex-direction: column; gap: 18px; }
 .page > *, .card { min-width: 0; }
+.bottomnav { display: none; }
+.sheet-mask { position: fixed; inset: 0; z-index: 50; background: rgba(29, 43, 36, 0.35); display: flex; flex-direction: column; justify-content: flex-end; }
+.sheet { background: var(--surface); border-radius: 22px 22px 0 0; padding: 16px 16px 96px; display: flex; flex-direction: column; gap: 4px; }
+.sheet .sheet-item { min-height: 52px; display: flex; align-items: center; padding: 0 8px; border-radius: 12px; border: 0; background: none; text-align: left; font-size: 16px; color: var(--ink); }
+.sheet .sheet-item.danger { color: var(--danger); }
 
-@media (min-width: 680px) {
-  .nav {
-    position: sticky; top: 0; bottom: auto;
-    border-top: 0; border-bottom: 1px solid var(--line);
-    padding: 8px 18px; align-items: center; gap: 10px;
+@media (max-width: 679px) {
+  .appbar-in { padding: 10px 14px; gap: 8px; }
+  .topnav, .appbar-right .who, .appbar-right .logout { display: none; }
+  .appbar-right { margin-left: auto; }
+  .appbar-right select { max-width: 160px; }
+  .declbar-in { padding: 6px 14px; }
+  .declbar-in span { display: none; }
+  .page { padding: 16px 14px 104px; }
+  .bottomnav {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    background: var(--surface); border-top: 1px solid var(--line); padding: 6px 8px calc(10px + env(safe-area-inset-bottom));
   }
-  .nav .brand-box { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; margin-right: 6px; }
-  .nav-list { gap: 4px; }
-  .nav-btn { flex: 0 0 auto; min-height: 40px; padding: 6px 12px; border-radius: 12px; font-size: 14px; }
-  .nav-btn.on { background: var(--accent-soft); color: var(--accent-strong); }
-  .page { padding: 22px 26px 48px; }
-}
-
-@media (min-width: 1040px) {
-  .app-shell { grid-template-columns: 236px minmax(0, 1fr); }
-  .nav {
-    position: sticky; top: 0; height: 100vh; flex-direction: column; align-items: stretch;
-    justify-content: flex-start; border-bottom: 0; border-right: 1px solid var(--line);
-    padding: 20px 14px; gap: 12px;
-  }
-  .nav .brand-box { padding: 4px 10px 10px; border-bottom: 1px solid var(--line-2); margin-right: 0; }
-  .nav-list { flex-direction: column; overflow-x: visible; gap: 4px; }
-  .nav-btn { justify-content: flex-start; min-height: 44px; padding: 8px 12px; }
-  .nav .nav-foot { display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line-2); font-size: 13px; color: var(--ink-2); }
+  .bottomnav button { min-height: 56px; border: 0; border-radius: 12px; background: none; color: var(--ink-2); font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+  .bottomnav button[aria-current="page"] { background: var(--accent-soft); color: var(--accent-strong); font-weight: 700; }
 }
 
 /* 通用组件 */

@@ -74,6 +74,11 @@ export function OnboardWizard({ isAdmin, members, onCreated, onCancel }: {
       .then((r) => setBedtime(r.bedtime)).catch(() => setBedtime(null));
   }, [answers.stage, wake]);
 
+  // 手机宽度时步骤条横向滚动：把当前这一步滚进视野
+  useEffect(() => {
+    document.querySelector('.stepper [aria-current="step"]')?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [step]);
+
   const set = (patch: Partial<IntakeAnswers>) => setAnswers((a) => ({ ...a, ...patch }));
   const direct = !!(answers.direct && form?.direct);
   const uncovered = form ? uncoveredChoiceGroups(form.choiceGroups, choices) : [];
