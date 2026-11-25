@@ -1073,6 +1073,7 @@ const publishCourseTool: BusinessToolDef<{
             declaration: res.envelope.declaration,
             follow: res.envelope.follow,
             notes: res.envelope.notes,
+            checks: res.envelope.checks,
             warnings: res.warnings,
           },
         };

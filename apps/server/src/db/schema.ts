@@ -250,4 +250,12 @@ CREATE TABLE agent_pending_confirmations (
 CREATE INDEX idx_agent_confirmations_thread ON agent_pending_confirmations(thread_id, status);
 `,
   },
+  {
+    // 交付信封的练前确认（核心库 PreSessionCheck：65 岁以上的摔倒一问、训练单"每次练之前确认"的条件）
+    version: 3,
+    name: "003_course_checks",
+    sql: `
+ALTER TABLE courses ADD COLUMN checks_json TEXT NOT NULL DEFAULT '[]';
+`,
+  },
 ];

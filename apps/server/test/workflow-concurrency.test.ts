@@ -169,6 +169,16 @@ describe("核心业务闭环、并发乐观锁、迟到不适冲突、旧课作�
       body: JSON.stringify({ week: 1, day: "A", confirmedNoFall: true }),
     });
     expect(ok65.status).toBe(201);
+    // 手机"今天"页的练前确认：65 岁以上每次问摔倒；训练单"每次练之前确认"的条件带档案记的值；不在 notes 里重复；带约几分钟
+    const today65 = await (await srv.req(`/api/mobile/today?profileId=${p65.id}`, { cookie })).json();
+    const env65 = today65.activeCourses[0].envelope;
+    expect(env65.checks[0]).toMatchObject({ kind: "fall", ask: expect.stringContaining("摔倒") });
+    const cond65 = env65.checks.filter((k: any) => k.kind === "condition");
+    for (const k of cond65) expect(k).toMatchObject({ condition: "家里没有别人", recorded: false, hint: expect.stringContaining("照成品原文换做法") });
+    expect(env65.notes.some((n: string) => n.startsWith("每次练之前确认"))).toBe(false);
+    expect(env65.minutes).toBeGreaterThan(0);
+    // 存进库里的是给人看的那一份：没有动作编号、没有命令行说法
+    expect(JSON.stringify([env65.follow, env65.notes])).not.toMatch(/--half|a65-/);
 
     // 6–12 岁家长版在移动端明确返回 supported: false
     const p06 = await (

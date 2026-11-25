@@ -127,7 +127,18 @@ export function registerMobileRoutes(
       supported: true,
       declaration: DECLARATION,
       playback: profile.playback ?? {},
-      activeCourses: activeRows.map(courseRowToEnvelope),
+      // 每节课带上约几分钟（照本人的播放偏好排出的时间轴总长，向上取整），手机"今天"页显示
+      activeCourses: activeRows.map((r) => {
+        const entry = courseRowToEnvelope(r);
+        let minutes: number | null = null;
+        try {
+          const plan = buildPlayerPlan(entry.envelope.course, undefined, profile.playback as Parameters<typeof buildPlayerPlan>[2]);
+          minutes = plan.timeline.totalDuration > 0 ? Math.ceil(plan.timeline.totalDuration / 60) : null;
+        } catch {
+          minutes = null;
+        }
+        return { ...entry, envelope: { ...entry.envelope, minutes } };
+      }),
       invalidatedCourses: invalidatedRows.map((r) => ({
         id: r.id,
         courseId: r.course_id,

@@ -25,6 +25,7 @@ interface ScheduleData {
       course: { name: string };
       follow: string[];
       notes: string[];
+      checks?: ({ kind: "fall"; ask: string; stop: string } | { kind: "condition"; ask: string; recorded: boolean | null; hint: string })[];
       templateVersion: string;
     };
     updatedAt: string;
@@ -371,6 +372,18 @@ export function SchedulePage({
                           typeof item === "string" ? item : [item?.name, item?.reason ?? item?.text].filter(Boolean).join("："),
                         )
                         .filter(Boolean)
+                        .join("；")}
+                    </div>
+                  )}
+                  {(c.envelope.checks ?? []).length > 0 && (
+                    <div class="muted">
+                      <strong>每次练之前确认（手机上开练前问）：</strong>
+                      {(c.envelope.checks ?? [])
+                        .map((k) =>
+                          k.kind === "fall"
+                            ? `${k.ask}？`
+                            : `${k.ask}？档案记的是${k.recorded === null ? "没确认（按保守版本）" : k.recorded ? "是" : "否"}`,
+                        )
                         .join("；")}
                     </div>
                   )}

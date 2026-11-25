@@ -971,9 +971,9 @@ export function publishCourseOp(
 
     db.prepare(
       `INSERT INTO courses
-        (id, profile_id, course_id, segment, week, day, half, status, legacy_path, course_json, follow_json, notes_json,
+        (id, profile_id, course_id, segment, week, day, half, status, legacy_path, course_json, follow_json, notes_json, checks_json,
          template_version, template_hash, motion_hashes_json, snapshot_hash, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       recordId,
       profileId,
@@ -984,8 +984,10 @@ export function publishCourseOp(
       halfInt,
       legacyPath,
       JSON.stringify(exp.course),
-      JSON.stringify(exp.follow),
-      JSON.stringify(exp.notes),
+      // 存信封里给人看的那一份（动作编号换成中文名、命令行说法换成界面说法），网页和手机读的都是这一份
+      JSON.stringify(exp.envelope.follow),
+      JSON.stringify(exp.envelope.notes),
+      JSON.stringify(exp.envelope.checks),
       exp.envelope.templateVersion,
       exp.envelope.templateHash,
       JSON.stringify(exp.envelope.motionHashes),
@@ -1466,6 +1468,7 @@ export function courseRowToEnvelope(row: CourseDbRow): {
       course: JSON.parse(row.course_json),
       follow: JSON.parse(row.follow_json),
       notes: JSON.parse(row.notes_json),
+      checks: JSON.parse(row.checks_json ?? "[]"),
       declaration: DECLARATION,
       templateVersion: row.template_version,
       templateHash: row.template_hash,

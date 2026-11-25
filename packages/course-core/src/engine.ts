@@ -28,7 +28,7 @@ import { courseClips, type MotionsData } from "./figure-motion.ts";
 import { cycleGoals, goalCardioHint, goalIssues, severeObese } from "./goals.ts";
 import { checkProfileWithTemplates } from "./intake.ts";
 import type { Manifest } from "./manifest.ts";
-import { courseIdFor, currentSegment, exportCourse, type ExportResult, type PlansData, type RulesData } from "./plan.ts";
+import { checkNote, courseIdFor, currentSegment, exportCourse, type ExportResult, type PlansData, type RulesData } from "./plan.ts";
 import { checkDeclaration, checkNotes, DECLARATION, validateProfile, validateSession } from "./profile.ts";
 import { checkProgress, checkProgressLog, progressOn, REVIEW_FORMAT, type SessionFile, validateReview } from "./progress.ts";
 import { activeAddOns, addOnIssues } from "./senior.ts";
@@ -88,11 +88,28 @@ export interface ProfileBundle {
   extraIssues?: Issue[];
 }
 
+/**
+ * 手机"今天"页的练前确认（每次开练之前问）：
+ * - fall：65 岁以上每次问上次练完以后有没有摔倒、差点摔倒、头晕；答"有"就不开练，照 stop 的话做；
+ * - condition：训练单写了"每次练之前确认"的条件（规则层 per_session）；当天和档案记的不一样，照 hint 换做法。
+ */
+export type PreSessionCheck =
+  | { kind: "fall"; ask: string; stop: string }
+  | { kind: "condition"; condition: string; ask: string; recorded: boolean | null; hint: string };
+
+/** 65 岁以上每次练前问的话和答"有"时的做法（成品第十二章、"不适优先"、周复盘那一问的原意）。 */
+export const FALL_CHECK = {
+  ask: "上次练完以后，有没有摔倒、差点摔倒、头晕",
+  stop: "今天先不跟练：告诉家人，先问医生。照成品第十二章，摔倒过的先暂停平衡练习，医生同意再练，力量动作也先问医生；差点摔倒、头晕的记进周复盘，告诉医生。",
+} as const;
+
 export interface CourseDeliveryEnvelope {
   schema: typeof DELIVERY_FORMAT;
   course: Course;
   follow: ExportResult["follow"];
+  /** 给人看的提示；checks 里的确认不在这里重复。 */
   notes: string[];
+  checks: PreSessionCheck[];
   declaration: string;
   templateVersion: string;
   templateHash: string;
@@ -455,11 +472,25 @@ export function exportProfileCourse(
     }
     return out.replace(/加 --half 重新导出半量课/g, "发布时勾上\"半量课\"");
   };
+  const condChecks = r.checks ?? [];
+  const checkLines = new Set(condChecks.map(checkNote));
+  const a65 = info?.age === "a65" || ownA65Ages(bundle, templates, today).length > 0;
+  const checks: PreSessionCheck[] = [
+    ...(a65 ? [{ kind: "fall" as const, ...FALL_CHECK }] : []),
+    ...condChecks.map((c) => ({
+      kind: "condition" as const,
+      condition: c.condition,
+      ask: c.ask,
+      recorded: c.recorded,
+      hint: `和档案记的不一样时，照成品原文换做法（${named(c.move)}那一项）`,
+    })),
+  ];
   const envelope: CourseDeliveryEnvelope = {
     schema: DELIVERY_FORMAT,
     course: r.course,
     follow: r.follow.map((f) => ({ ...f, name: named(f.name), reason: named(f.reason) })),
-    notes: r.notes.map(named),
+    notes: r.notes.filter((n) => !checkLines.has(n)).map(named),
+    checks,
     declaration: DECLARATION,
     templateVersion: templates.plans.version,
     templateHash: templates.templateHash ?? "",

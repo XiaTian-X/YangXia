@@ -331,7 +331,23 @@ export interface ExportResult {
   follow: { name: string; reason: string }[];
   /** 本周不做、有时间可以加、时间不够先砍。 */
   notes: string[];
+  /** 每次练之前要确认的条件（规则层 per_session）；notes 里同时有一句给命令行看的话（checkNote）。 */
+  checks?: ConditionCheck[];
   issues: Issue[];
+}
+
+/** 每次练之前确认的一个条件：问句（规则层原话）、档案记的是什么、当天不一样时换哪一项的做法。 */
+export interface ConditionCheck {
+  condition: string;
+  ask: string;
+  /** 档案记的：true 是、false 否、null 没确认（按保守版本导出）。 */
+  recorded: boolean | null;
+  move: string;
+}
+
+/** 命令行导出时这一条确认写进 notes 的那句话。 */
+export function checkNote(c: ConditionCheck): string {
+  return `每次练之前确认：${c.ask}？档案记的是${c.recorded === null ? "没确认（按保守版本）" : c.recorded ? "是" : "否"}；当天不一样就照成品原文换做法（${c.move}）`;
 }
 
 /**
@@ -359,7 +375,7 @@ function exName(ex: ManifestExercise, lv: LadderLevel | null, ladder: LadderLeve
 /** 档案选的成品、最后一段的段型和周次，导出某一天。 */
 export function exportCourse(input: ExportInput): ExportResult {
   const { plans, rules, manifest, profile, week, day } = input;
-  const out: ExportResult = { course: null, follow: [], notes: [], issues: [] };
+  const out: ExportResult = { course: null, follow: [], notes: [], checks: [], issues: [] };
   const err = (path: string, message: string) => out.issues.push({ level: "error", path, message });
   if (plans.format !== PLANS_FORMAT || rules.format !== RULES_FORMAT) {
     err("", `模板的训练单格式不对（要 ${PLANS_FORMAT}、${RULES_FORMAT}）：先更新模板仓库`);
@@ -440,8 +456,10 @@ export function exportCourse(input: ExportInput): ExportResult {
     if (r.trim.kind === "cut-if-late") out.notes.push(`时间不够先砍：${move}（第 ${r.trim.n} 个砍）`);
     const cond = r.condition ? rules.conditions[r.condition.name] : null;
     if (r.condition && cond?.per_session) {
-      const v = conditionValue(rules, profile, r.condition.name);
-      out.notes.push(`每次练之前确认：${cond.ask}？档案记的是${typeof profile?.conditions?.[r.condition.name] === "boolean" ? (v ? "是" : "否") : "没确认（按保守版本）"}；当天不一样就照成品原文换做法（${move}）`);
+      const rec = profile?.conditions?.[r.condition.name];
+      const c: ConditionCheck = { condition: r.condition.name, ask: cond.ask, recorded: typeof rec === "boolean" ? rec : null, move };
+      out.checks!.push(c);
+      out.notes.push(checkNote(c));
     }
     if (move.startsWith("（")) {
       out.follow.push({ name: move.slice(1, -1), reason: r.export.ok ? "不在动作索引里" : r.export.reason });

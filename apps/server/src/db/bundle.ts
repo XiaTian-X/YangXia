@@ -28,6 +28,7 @@ export interface CourseDbRow {
   course_json: string;
   follow_json: string;
   notes_json: string;
+  checks_json: string;
   template_version: string;
   template_hash: string;
   motion_hashes_json: string;
