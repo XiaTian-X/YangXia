@@ -17,14 +17,11 @@ import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import {
   ASSESS_FORMAT,
   type AssessFile,
-  ageAt,
   assessRules,
-  cycleEnd,
   doctorNeed,
-  param,
   productInfo,
-  segmentEnd,
 } from "./assess.ts";
+import { assessmentForm } from "./assess-form.ts";
 import { checkCourse } from "./check.ts";
 import { dateInZone, resolveTimeZone } from "./date.ts";
 import {
@@ -42,8 +39,6 @@ import {
   sameJson,
   SYMPTOM_NAMES,
 } from "./engine.ts";
-import { fallRiskRules } from "./fallrisk.ts";
-import { cycleGoals } from "./goals.ts";
 import { bedtimeFor } from "./intake.ts";
 import { loadTemplates, PACKAGE_FORMAT, packageInfo, packCourse, requirePlans, sequencerPath, sequencerStamp, type Templates, unpackCourse } from "./node.ts";
 import { currentSegment, stableParam } from "./plan.ts";
@@ -371,6 +366,16 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
   const t = await loadTemplates();
   const profile = readJson(join(dir, "档案.json")) as Record<string, any>;
   const { bundle } = loadProfileBundle(dir, profile);
+  if (!file) {
+    // 列出要问、要测的项：和网页评估表单同一份（assess-form.ts）
+    const form = assessmentForm(bundle, t, kind, { product: productArg });
+    if ("error" in form) {
+      console.log(form.error);
+      return 2;
+    }
+    for (const line of form.lines) console.log(line);
+    return 0;
+  }
   const ar = assessRules(t.rules);
   if (!ar) {
     console.log("模板还没有评估规则（rules.json 的 assess）：先把模板仓库更新到 v4 阶段 2 之后");
@@ -385,87 +390,11 @@ async function assessCmd(dir: string, kind: string, args: string[]): Promise<num
     console.log("周期末评估只在稳定期第 12 周之后做；起始期每段第 4 周之后做的是段末评估");
     return 2;
   }
-  const product = productArg ?? (file ? (readJson(file) as Record<string, any>).product : undefined) ?? seg?.product ?? profile.product;
+  const product = productArg ?? (readJson(file) as Record<string, any>).product ?? seg?.product ?? profile.product;
   const info = productInfo(t.manifest, product);
   if (!info) {
     console.log(`模板里没有成品「${product}」`);
     return 2;
-  }
-  if (!file) {
-    const ctx = buildAssessContext(bundle, t);
-    const today = dateInZone(new Date(), bundle.timeZone);
-    console.log(`${kind}评估 · ${product}（未经专业审核，不是医学建议${info.age === "a65" ? "；65 岁以上的测试在医生同意以后、家人在场时做" : ""}）`);
-    if (kind === "触发") {
-      console.log(`原因（reasons）：跨段 / 满一年 / 身体变化 / 生病住院 / 生病 / 摔倒 / 换场地 / 中断 / 看完医生回来 / 回起始期（稳定期的人自己要求）；摔倒、生病住院写那天 eventDate；医生建议从头来的加 doctorRestart: true`);
-      console.log(`跨段、换场地：product 写新成品，带上新成品入门的项目（加 --product <新成品名> 列出来）${productArg ? "" : `；下面列的是「${product}」的`}`);
-      const at = ageAt(profile, today, ar.assess);
-      if (at.age && at.age !== info.age) console.log(`现在推算是${at.stage}（${at.age}），「${product}」是 ${info.age}：跨段要换到 ${at.age} 的成品，用 --product 列它的项目`);
-    }
-    const timing = kind === "段末" || kind === "周期末" ? "段末" : "入门";
-    for (const pr of ar.assess.prereqs.filter((x) => x.products.includes(info.code))) console.log(`开工前提 ${pr.id}：${pr.ask}（是 / 否；${pr.note}）`);
-    if (kind === "入门" && ["a18", "a40", "a13"].includes(info.age)) console.log("训练基础 base：最近 3 个月平均每周几天力量练习（0、1、2 及以上；18–64 岁徒手、居家是直接进稳定期的门槛之一，其余只记录）");
-    for (const x of ar.assess.tests.filter((x) => x.products.includes(info.code) && x.timing.includes(timing))) {
-      if (x.id === "body" && profile.body !== "记") continue;
-      console.log(`测试 ${x.id}：记 ${x.fields.join("、")}；${x.judge}（${x.note}）`);
-      const cap = param(ar.assess, "高血压静蹲上限", info.code)?.number;
-      if (x.id === "wallsit-test" && cap !== undefined && profile.conditions?.["高血压"] !== false) console.log(`  这个人有高血压或没确认：静蹲最多 ${cap} 秒`);
-    }
-    if (info.age === "a65" && kind === "段末") console.log("weightDrop：体重有没有明显下降（是 / 否，不记数字）");
-    const fr = fallRiskRules(t.rules);
-    if (fr && info.age === "a65" && kind !== "段末" && kind !== "周期末") {
-      console.log(`\n跌倒风险自查（fallRisk；照 WS/T 887—2026 第 5 章，不是正式评估；${kind === "触发" ? "跨段、满一年、摔倒、生病住院、身体变化、跌倒自查到期都要做" : "建档时要做"}）`);
-      console.log("第一部分 问卷（看医生之前可以做，原话照念）：");
-      for (const q of fr.questions) console.log(`  ${q.id}（${q.clause}，问${q.who}${q.part === "严重程度" ? "；一般性有\"是\"或说不清才问" : ""}）：${q.quotes.map((x) => x.text).join("")}`);
-      console.log(`  衰弱 5 条（${fr.frailMin} 条及以上算"是"）：${fr.frail.map((x) => `${x.id}「${x.quotes.map((q) => q.text).join("")}」`).join("；")}`);
-      console.log("  另问：needsSupport（在家走路也要扶墙或用助行器）、hardToStand（扶着椅子也很难自己站起来）、dizzy（经常头晕，或者站起来时眼前发黑）");
-      const dz = (profile.screening?.answers ?? []).find((x: any) => /经常头晕/.test(x?.item ?? ""));
-      if (dz) console.log(`  （档案现在的安全筛查"经常头晕"是"${dz.answer}"，${profile.screening?.date ?? "没写日期"} 做的：问卷要和它对得上，不一样的先照实重做筛查；测步态那天有效的筛查是"是"的不在家测）`);
-      console.log("第二部分 步态（医生同意以后、家人在场时做；过去 12 个月跌倒过、高风险（含正式评估说高风险）、走路要扶、站起困难、经常头晕的不在家测）：");
-      console.log("  测之前照成品第〇章《跌倒风险自查》\"测之前\"那几条做：一人护在身边、一人计时，只有一个家人的先护后计时，护不过来就不测；地面防滑、清空、光线够，终点线外留减速的地方；穿包脚防滑的鞋，平时用手杖的照用；不把判定线念给老人听；头晕、腿软、身体晃立刻停下坐好");
-      for (const g of fr.gait) console.log(`  ${g.id}：${g.id === "walk4m" ? `${g.distance} m，喊"开始"的同时按表、前脚脚跟超过终点线停表，用时超过 ${(g.distance ?? 4) / g.line} 秒阳性` : `背离开椅背时按表、背靠到椅背上时停表，超过 ${g.line} 秒阳性`}（按留余量的线 ${g.margin} 秒）；记 seconds（往大里取一位小数）、cane、siteOk${g.id === "tug" ? "、chairOk（有扶手和靠背、无轮子、约 46 cm）" : ""}、testedOn`);
-      console.log("  测不了写 { result: \"没测成\", reason }（中途停下的写 stopReason）；按规则不测写 { result: \"按规则不测\", reason }。");
-      console.log(`  看过结果的医生同意写 fallRiskSeen: true（同意的日期要在问卷之后 ${fr.askedValidDays} 天以内）；正式评估写 official { date, afterFall, level? }——自查前后 ${fr.officialRecentDays} 天以内的等级才并进结论`);
-    }
-    if (kind === "周期末") {
-      const segs = profile.segments as any[];
-      const stableNs = [...new Set(segs.filter((x) => x.phase === "稳定").map((x) => x.n))] as number[];
-      const done = stableNs.filter((n) => segs.some((x) => x.n === n && x.week === (t.rules?.stable?.cycleWeeks ?? 12)));
-      const n = done.length ? done[done.length - 1] : stableNs[stableNs.length - 1];
-      const end = done.length ? cycleEnd(ctx, n) : null;
-      if (!end) console.log(`周期末结论：现在是稳定期第 ${seg?.week} 周，第 ${t.rules?.stable?.cycleWeeks ?? 12} 周的周复盘做完才算`);
-      else if ("error" in end) console.log(`周期末结论：${end.error}`);
-      else {
-        console.log(`第 ${n} 段（稳定期）：12 周训练 ${end.trainings} 次；达标周数 ${Object.entries(end.habitWeeks).map(([h, w]) => `${h} ${w}`).join("、")}`);
-        const a65 = productInfo(t.manifest, (segs.find((x: any) => x.n === n) ?? {}).product)?.age === "a65";
-        console.log(`结论：${end.result}；下一段：${end.next.phase === "不开" ? "先不开：周期末以后看医生，做触发评估\"看完医生回来\"写明 doctorRestart（true 回起始期第 1 周；false 照后面几条再算一次）"
-          : end.next.phase === "稳定" ? `下一周期${end.next.hold ? (a65 ? "（第一轮不加项）" : "（第一轮不升级）") : ""}` : `回起始期${end.next.type}段`}`);
-        for (const q of end.quotes) console.log(`  原文：${q}`);
-        if (end.next.phase === "稳定") {
-          const cg = cycleGoals(ctx, n);
-          if (cg) console.log(`下一周期能选的目标（还没算周期末量的体重腰围；写好记录再跑一次，结论的 goals 照重算的写）：${cg.goals.join("、")}——${cg.why}。选减脂、增肌的，照第八章开头原话问一次进食困扰（eatingCheck），记 goal`);
-        }
-      }
-    }
-    if (kind === "段末" && seg) {
-      const n = seg.week === 4 || seg.n === 1 ? seg.n : seg.n - 1;
-      if (n !== seg.n) console.log(`（第 ${seg.n} 段已经开了，这里算的是第 ${n} 段的段末）`);
-      const end = segmentEnd(profile, n, bundle.reviewData, ar, info.code);
-      if ("error" in end) console.log(`段末结论：${end.error}`);
-      else {
-        const capW = param(ar.assess, seg.type === "减量" ? "减量段每周排的训练" : "每周排的训练", info.code)?.value;
-        const hab = Object.entries(end.numbers.habits).map(([h, xs]) => `${h} ${xs.map((x) => x.days).join("/")}`).join("；");
-        console.log([capW ? `四周训练 ${end.numbers.trainings}（每周最多算 ${capW} 次）` : "", hab ? `打卡：${hab}` : "",
-          end.numbers.sick ? `生病 ${end.numbers.sick} 天` : "", end.numbers.falls ? `摔倒、差点摔倒、头晕 ${end.numbers.falls} 次` : "",
-          end.numbers.symptoms ? "这一段有过不适" : ""].filter(Boolean).join("；"));
-        console.log(`结论：${end.result}${end.downgraded ? "（有不适，往上的结论降为原样）" : ""}；下一段：${end.next}${end.extras.length ? `；附加：${end.extras.join("、")}` : ""}${Object.keys(end.habitTargets).length ? `；习惯目标 ${JSON.stringify(end.habitTargets)}` : ""}`);
-        for (const q of end.quotes) console.log(`  原文：${q}`);
-        if (end.next === "不开") {
-          const after = segmentEnd(profile, n, bundle.reviewData, ar, info.code, { afterDoctor: true });
-          if (!("error" in after)) console.log(`医生同意、做了"看完医生回来"的触发评估以后：照后面几条走——${after.result}${after.downgraded ? "（往上的降级）" : ""}；下一段：${after.next}${Object.keys(after.habitTargets).length ? `；习惯目标 ${JSON.stringify(after.habitTargets)}` : ""}`);
-        }
-      }
-    }
-    return 0;
   }
   const raw = readJson(file) as Record<string, any>;
   const f: AssessFile = { name: relative(dir, file).split(sep).join("/"), raw };
