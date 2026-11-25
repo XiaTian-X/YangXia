@@ -123,6 +123,31 @@ describe("表单接口：建档、评估、复盘、个人进度都由服务端�
     expect((await ok.json()).progress.squat.level).toBe(1);
   });
 
+  it("按向导建档：服务端组装档案；有基础的人直接进稳定期，入门评估当场达线；不达线被拒", async () => {
+    const { s, call } = await setup();
+    srv = s;
+    const base = { stage: "18–39 岁", venue: "home", product: "18-39岁-居家版" };
+    const items = (await (await call("/api/intake/form", "POST", base)).json()).form.screening.items as string[];
+    const input = {
+      answers: { ...base, direct: true, screening: Object.fromEntries(items.map((x) => [x, "否"])), conditions: { 高血压: false } },
+      code: "直进甲", startDate: "2026-11-02", timezone: "Asia/Shanghai", wake: "07:00", birth: "1996-05", body: "不记", choices: ["table-row"], focus: ["训练"],
+    };
+    const ef = await call("/api/intake/entry-form", "POST", { input });
+    expect(ef.status).toBe(200);
+    const form = (await ef.json()).form as AssessmentForm;
+    const rec = (base: number, level: number, value: number) => buildAssessmentRecord({ ...form, lines: [] },
+      { base, "tests.pushup-test.level": level, "tests.pushup-test.value": value, "tests.wallsit-test.value": 30 }, "2026-11-02");
+    const weak = await call("/api/profiles/from-intake", "POST", { input, initialAssessment: rec(1, 2, 8) });
+    expect(weak.status).toBe(422);
+    expect(JSON.stringify(await weak.json())).toMatch(/有基础/);
+    const ok = await call("/api/profiles/from-intake", "POST", { input, initialAssessment: rec(2, 3, 10) });
+    expect(ok.status).toBe(201);
+    const created = await ok.json();
+    const detail = await (await call(`/api/profiles/${created.id}`)).json();
+    expect(detail.profile.segments[0]).toMatchObject({ phase: "稳定", product: "18-39岁-居家版（稳定期）" });
+    expect(detail.profile.bedtime).toBe("22:40");
+  });
+
   it("档案检查的报错换成界面说法：不出现命令、档案文件名", async () => {
     const { s, call } = await setup();
     srv = s;

@@ -148,7 +148,7 @@ export function formatApiError(err: unknown): string {
       const lines = d.issues
         .filter((i) => i.level !== "warning")
         .slice(0, 6)
-        .map((i) => `• ${i.path ? `${i.path}: ` : ""}${i.message ?? ""}`);
+        .map((i) => `• ${i.message ?? ""}`);
       if (lines.length) return `${err.message}\n${lines.join("\n")}`;
     }
     return err.message;

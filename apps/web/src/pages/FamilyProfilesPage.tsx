@@ -1,22 +1,48 @@
-import { PROFILE_FORMAT, uncoveredChoiceGroups, type ChoiceGroup } from "@yangxia/course-core";
 import { useEffect, useState } from "preact/hooks";
+import { Pills } from "../components/Pills.tsx";
 import { apiRequest, formatApiError } from "../lib/api.ts";
 import { qrSvgPath } from "../lib/qr.ts";
 import type { AuthMe, ProfileSummary } from "../types.ts";
+import { OnboardWizard } from "./OnboardWizard.tsx";
 
 function todayIso(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-interface IntakeResp {
-  intake: {
-    stages: { stage: string; age: string | null }[];
-    not_covered?: { group: string; advice: string }[];
-    screening: { age: string; items: string[] }[];
-  };
-  products: { name: string; age: string; venue: string; phase?: string }[];
-}
+/** 家里还有谁（全家餐饮模板按人数换算用）：年龄段的说法。 */
+const HOUSEHOLD: [string, string][] = [["a06", "6–12 岁"], ["a13", "13–17 岁"], ["a18", "18–39 岁"], ["a40", "40–64 岁"], ["a65", "65 岁以上"]];
+
+/** 操作留痕的代号换成说法（不认识的照原样）。 */
+const ACTIONS: Record<string, string> = {
+  "setup.init": "初始化管理员",
+  "profile.create": "建档",
+  create_profile: "建档（助手）",
+  "profile.update": "改档案设置",
+  "profile.playback_update": "改播放偏好",
+  "assessment.submit": "交评估",
+  submit_assessment: "交评估（助手）",
+  "review.submit": "交周复盘",
+  "review.submit_and_advance": "交周复盘并推到下一周",
+  submit_weekly_review: "交周复盘（助手）",
+  "plan_sheet.generate": "生成计划单",
+  "course.publish": "发布课程",
+  "course.invalidate": "作废课程",
+  "courses.invalidated_by_template_reload": "模板更新后作废旧课",
+  "session.submit": "手机回传练习记录",
+  "session.replace": "手机改了练习记录",
+  "segment.archive": "归档一段",
+  archive_segment: "归档一段（助手）",
+  "pairing_code.create": "生成扫码绑定码",
+  "auth.pair_redeem": "手机扫码绑定",
+  "auth.device_revoke": "下线设备",
+  update_conditions_and_choices: "改训练条件和器材（助手）",
+  update_schedule_and_segment: "改排期（助手）",
+  update_screening_and_doctor: "改筛查和医生同意（助手）",
+  publish_course_senior_no_fall: "发布课程（确认没有摔倒）",
+};
+
+const KIND_NAME: Record<string, string> = { web: "网页", mobile_bound: "绑定的手机", mobile: "手机" };
 
 export function FamilyProfilesPage({
   me,
@@ -31,7 +57,6 @@ export function FamilyProfilesPage({
   onSelectProfile: (id: string) => void;
   onRefreshProfiles: () => void;
 }) {
-  const [intake, setIntake] = useState<IntakeResp | null>(null);
   const [devices, setDevices] = useState<any[]>([]);
   const [auditData, setAuditData] = useState<{ issues: any[]; auditLogs: any[] } | null>(null);
   const [profileDetail, setProfileDetail] = useState<any>(null);
@@ -43,46 +68,17 @@ export function FamilyProfilesPage({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // 新建档案向导表单状态
-  const [code, setCode] = useState("");
-  // 学段、成品、出生年月都不预选、不预填
-  const [stage, setStage] = useState("");
-  const [age, setAge] = useState("");
-  const [product, setProduct] = useState("");
-  const [birth, setBirth] = useState("");
-  const [walkBase, setWalkBase] = useState("");
-  const [bodyChoice, setBodyChoice] = useState<"" | "记" | "不记">("");
-  // "按器材选一个"：服务端按训练单给出要选的组，使用者勾能用的，勾的先后就是优先顺序
-  const [choiceGroupList, setChoiceGroupList] = useState<ChoiceGroup[]>([]);
-  const [choicePicked, setChoicePicked] = useState<string[]>([]);
-  const [schoolStage, setSchoolStage] = useState("初中");
-  const [schoolEntry, setSchoolEntry] = useState(2025);
-  const [wake, setWake] = useState("07:00");
-  const [bedtime, setBedtime] = useState("");
-  const [timezone, setTimezone] = useState("Asia/Shanghai");
-  const [startDate, setStartDate] = useState(todayIso());
-  const [screenAnswers, setScreenAnswers] = useState<Record<string, "是" | "否" | "">>({});
-  const [condState, setCondState] = useState<Record<string, "未确认" | "是" | "否">>({});
-  const [doctorCleared, setDoctorCleared] = useState(false);
-  const [doctorDate, setDoctorDate] = useState(todayIso());
-  const [isManaged, setIsManaged] = useState(false);
-  const [memberUserId, setMemberUserId] = useState("");
-  const [household, setHousehold] = useState<string[]>([]);
-
-  // 受控编辑当前档案字段
+  // 当前档案能改的设置
   const [editHousehold, setEditHousehold] = useState<string[]>([]);
   const [editBody, setEditBody] = useState<"记" | "不记" | "停记">("不记");
   const [editWake, setEditWake] = useState("");
   const [editBedtime, setEditBedtime] = useState("");
-  const [editDoctorCleared, setEditDoctorCleared] = useState(false);
+  const [editDoctor, setEditDoctor] = useState<"" | "是" | "否">("");
+  const [editDoctorDate, setEditDoctorDate] = useState("");
 
   const loadCommon = async () => {
     try {
-      const [inRes, devRes] = await Promise.all([
-        apiRequest<IntakeResp>("/api/intake"),
-        apiRequest<{ devices: any[] }>("/api/auth/devices"),
-      ]);
-      setIntake(inRes);
+      const devRes = await apiRequest<{ devices: any[] }>("/api/auth/devices");
       setDevices(devRes.devices ?? []);
       if (me.user.role === "admin") {
         const uRes = await apiRequest<{ users: any[] }>("/api/admin/users");
@@ -110,7 +106,9 @@ export function FamilyProfilesPage({
       setEditBody(det.profile?.body ?? "不记");
       setEditWake(det.profile?.wake ?? "");
       setEditBedtime(det.profile?.bedtime ?? "");
-      setEditDoctorCleared(Boolean(det.profile?.screening?.doctorCleared));
+      const sc = det.profile?.screening;
+      setEditDoctor(sc?.doctorCleared === true ? "是" : sc ? "否" : "");
+      setEditDoctorDate(sc?.doctorDate ?? "");
     } catch (err) {
       setError(formatApiError(err));
     }
@@ -121,167 +119,16 @@ export function FamilyProfilesPage({
   }, []);
 
   useEffect(() => {
-    setChoicePicked([]);
-    setChoiceGroupList([]);
-    if (!product) return;
-    apiRequest<{ groups: ChoiceGroup[] }>(`/api/choices?product=${encodeURIComponent(product)}`)
-      .then((r) => setChoiceGroupList(r.groups ?? []))
-      .catch((err) => setError(formatApiError(err)));
-  }, [product]);
-
-  const choiceOptions = choiceGroupList
-    .flatMap((g) => g.options)
-    .filter((o, i, all) => all.findIndex((x) => x.value === o.value) === i);
-  const uncovered = uncoveredChoiceGroups(choiceGroupList, choicePicked);
-  const toggleChoice = (value: string, on: boolean) =>
-    setChoicePicked((cur) => (on ? (cur.includes(value) ? cur : [...cur, value]) : cur.filter((v) => v !== value)));
-
-  useEffect(() => {
     void loadSelected();
   }, [selectedProfile?.id]);
 
-  // 根据所选年龄段过滤起始期成品（附册、稳定期不能直接选）
-  const startProducts = (intake?.products ?? []).filter((p) => p.age === age && p.phase === "起始");
-  const screeningItems = intake?.intake.screening.find((s) => s.age === age)?.items ?? [];
-
-  // 按年龄段展示对应的训练安全条件项（未确认时不写入，交由核心规则层导出保守版本）
-  const conditionFields: { key: string; label: string }[] =
-    age === "a18" || age === "a40"
-      ? [
-          { key: "高血压", label: "是否有高血压（未确认将按保守版：稳态有氧 + 保留换气提示音）" },
-          { key: "骨质疏松", label: "是否有骨质疏松" },
-          { key: "重度肥胖", label: "BMI 是否达到 37.5 及以上（仅记是/否，不记身高体重数字）" },
-          { key: "没地方跳", label: "是否没有跳跃场地" },
-        ]
-      : age === "a65"
-        ? [
-            { key: "家里没有别人", label: "训练时家里是否没有其他人陪同" },
-            { key: "高血压", label: "是否有高血压" },
-            { key: "骨质疏松", label: "是否有骨质疏松" },
-          ]
-        : age === "a13"
-          ? [
-              { key: "家长在旁边", label: "训练时家长是否在旁边" },
-              { key: "没地方跳", label: "是否没有跳跃场地" },
-            ]
-          : [];
-
+  // 改了起床时间就按公式重算上床时间
   useEffect(() => {
-    // 成品不替使用者选：换了年龄段就清空，由使用者重新选
-    if (product && !startProducts.some((p) => p.name === product)) setProduct("");
-    const initAns: Record<string, "是" | "否" | ""> = {};
-    for (const item of screeningItems) initAns[item] = screenAnswers[item] ?? "";
-    setScreenAnswers(initAns);
-  }, [age, intake]);
-
-  const calcBedtime = async (st: string, wk: string, setter: (v: string) => void) => {
-    setError(null);
-    try {
-      const res = await apiRequest<{ bedtime: string }>(
-        `/api/bedtime?stage=${encodeURIComponent(st)}&wake=${encodeURIComponent(wk)}`,
-      );
-      setter(res.bedtime);
-    } catch (err) {
-      setError(formatApiError(err));
-    }
-  };
-
-  const handleCreateProfile = async (e: Event) => {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      const unanswered = screeningItems.filter((item) => screenAnswers[item] !== "是" && screenAnswers[item] !== "否");
-      if (unanswered.length > 0) {
-        setError(`请先逐项明确勾选全部安全筛查问题（尚有 ${unanswered.length} 项未选择「是 / 否」）`);
-        setBusy(false);
-        return;
-      }
-      const resolvedConditions: Record<string, boolean> = {};
-      for (const f of conditionFields) {
-        const v = condState[f.key];
-        if (v === "是") resolvedConditions[f.key] = true;
-        else if (v === "否") resolvedConditions[f.key] = false;
-      }
-      if (!startProducts.some((p) => p.name === product)) {
-        setError("请先选年龄 / 学段和起始期计划成品");
-        setBusy(false);
-        return;
-      }
-      if (uncovered.length) {
-        setError(`请先勾选能用的器材：${uncovered.map((g) => g.options.map((o) => o.name).join(" / ")).join("；")} 这几组每组至少选一个`);
-        setBusy(false);
-        return;
-      }
-      const prodObj = startProducts.find((p) => p.name === product);
-      const venue = prodObj?.venue ?? "home";
-      const profilePayload: Record<string, any> = {
-        schema: PROFILE_FORMAT,
-        code: code.trim(),
-        stage,
-        age,
-        venue,
-        product,
-        timezone,
-        startDate,
-        segments: [{ n: 1, type: "标准", week: 1, start: startDate, product }],
-        screening: {
-          answers: screeningItems.map((item) => ({ item, answer: screenAnswers[item] as "是" | "否" })),
-          doctorCleared,
-          date: startDate,
-          ...(doctorCleared ? { doctorDate } : {}),
-        },
-        ...(wake ? { wake } : {}),
-        ...(bedtime ? { bedtime } : {}),
-        ...(household.length ? { household } : {}),
-        ...(choicePicked.length ? { choices: choicePicked } : {}),
-      };
-      if (age === "a06" || age === "a13") {
-        profilePayload.school = { stage: schoolStage, entry: Number(schoolEntry) };
-        if (age === "a13") {
-          if (Object.keys(resolvedConditions).length) profilePayload.conditions = resolvedConditions;
-          profilePayload.progress = {};
-          profilePayload.progressLog = [];
-        }
-      } else if (age === "a65") {
-        profilePayload.birth = birth;
-        profilePayload.habitBase = { 散步: Number(walkBase) };
-        if (Object.keys(resolvedConditions).length) profilePayload.conditions = resolvedConditions;
-        profilePayload.progress = {};
-        profilePayload.progressLog = [];
-      } else {
-        profilePayload.birth = birth;
-        profilePayload.body = bodyChoice;
-        if (Object.keys(resolvedConditions).length) profilePayload.conditions = resolvedConditions;
-        profilePayload.progress = {};
-        profilePayload.progressLog = [];
-      }
-
-      const res = await apiRequest<{ id: string; warnings: any[] }>("/api/profiles", {
-        method: "POST",
-        body: {
-          profile: profilePayload,
-          timezone,
-          isManaged: me.user.role === "admin" ? isManaged : false,
-          ...(me.user.role === "admin" && isManaged && memberUserId ? { memberUserId } : {}),
-        },
-      });
-      setNotice(
-        res.warnings?.length
-          ? `已建档「${code.trim()}」（提示：${res.warnings.map((w: any) => w.message).join("；")}）`
-          : `已成功建档「${code.trim()}」，接下来请前往「评估与复盘」完成入门评估`,
-      );
-      setCode("");
-      setShowCreate(false);
-      onRefreshProfiles();
-      onSelectProfile(res.id);
-    } catch (err) {
-      setError(formatApiError(err));
-    } finally {
-      setBusy(false);
-    }
-  };
+    if (!selectedProfile?.stage || !/^\d{2}:\d{2}$/.test(editWake)) return;
+    apiRequest<{ bedtime: string }>(`/api/bedtime?stage=${encodeURIComponent(selectedProfile.stage)}&wake=${encodeURIComponent(editWake)}`)
+      .then((r) => setEditBedtime(r.bedtime))
+      .catch(() => {});
+  }, [editWake, selectedProfile?.stage]);
 
   const handleSaveEdit = async (e: Event) => {
     e.preventDefault();
@@ -293,24 +140,24 @@ export function FamilyProfilesPage({
       const patch: Record<string, any> = {};
       if (editWake) patch.wake = editWake;
       if (editBedtime) patch.bedtime = editBedtime;
-      if (editHousehold.length) patch.household = editHousehold;
+      patch.household = editHousehold;
       if (selectedProfile.age === "a18" || selectedProfile.age === "a40") {
         patch.body = editBody;
+        if (editBody === "停记" && profileDetail.profile?.body !== "停记") patch.bodyStopDate = todayIso();
       }
-      if (editDoctorCleared !== Boolean(profileDetail.profile?.screening?.doctorCleared)) {
-        const nextScreening: Record<string, any> = {
-          ...(profileDetail.profile?.screening ?? {}),
-          doctorCleared: editDoctorCleared,
-        };
-        if (editDoctorCleared) nextScreening.doctorDate = todayIso();
-        else delete nextScreening.doctorDate;
-        patch.screening = nextScreening;
+      const before = profileDetail.profile?.screening ?? {};
+      const cleared = editDoctor === "是";
+      if (cleared !== (before.doctorCleared === true) || (cleared && editDoctorDate !== before.doctorDate)) {
+        const next: Record<string, any> = { ...before, doctorCleared: cleared };
+        if (cleared) next.doctorDate = editDoctorDate;
+        else delete next.doctorDate;
+        patch.screening = next;
       }
       await apiRequest(`/api/profiles/${selectedProfile.id}`, {
         method: "PATCH",
         body: { expectedVersion: profileDetail.version, patch },
       });
-      setNotice("已保存档案设置");
+      setNotice("档案设置已保存");
       onRefreshProfiles();
       await loadSelected();
     } catch (err) {
@@ -328,6 +175,7 @@ export function FamilyProfilesPage({
         `/api/profiles/${pid}/pairing-code`,
         { method: "POST", body: {} },
       );
+      // 安卓扫码端认这个格式（apps/android 的配对解析），不要改字段名
       const payload = JSON.stringify({
         type: "yangxia_pair",
         serverUrl: window.location.origin,
@@ -335,7 +183,6 @@ export function FamilyProfilesPage({
         profileCode: res.profileCode,
       });
       setPairModal({ code: res.code, profileCode: res.profileCode, expiresAt: res.expiresAt, payload });
-      await loadCommon();
     } catch (err) {
       setError(formatApiError(err));
     } finally {
@@ -344,11 +191,11 @@ export function FamilyProfilesPage({
   };
 
   const revokeDevice = async (devId: string) => {
+    if (!window.confirm("让这台设备下线？下线后它要重新登录或扫码绑定。")) return;
     setBusy(true);
-    setError(null);
     try {
       await apiRequest(`/api/auth/devices/${devId}`, { method: "DELETE" });
-      setNotice("已吊销该设备会话");
+      setNotice("已让这台设备下线");
       await loadCommon();
     } catch (err) {
       setError(formatApiError(err));
@@ -357,23 +204,19 @@ export function FamilyProfilesPage({
     }
   };
 
-  const toggleArr = (arr: string[], val: string, setter: (v: string[]) => void) => {
-    setter(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
-  };
-
   return (
     <div class="stack" style={{ gap: "18px" }}>
-      <div class="row-between">
-        <div>
-          <div class="eyebrow">成员隔离与手机扫码配对</div>
-          <h1 class="h1">家庭与档案</h1>
+      {!showCreate && (
+        <div class="page-head">
+          <div>
+            <div class="crumb">家里每个人一份档案</div>
+            <h1>家庭与档案</h1>
+          </div>
+          {!me.isTeen && (
+            <button class="btn primary" onClick={() => setShowCreate(true)}>新建档案</button>
+          )}
         </div>
-        {!me.isTeen && (
-          <button class="btn primary" onClick={() => setShowCreate(!showCreate)}>
-            {showCreate ? "收起建档向导" : "+ 可视向导新建档案"}
-          </button>
-        )}
-      </div>
+      )}
 
       {error && (
         <div class="banner danger" role="alert" style={{ whiteSpace: "pre-wrap" }}>
@@ -382,467 +225,196 @@ export function FamilyProfilesPage({
       )}
       {notice && <div class="banner ok">{notice}</div>}
 
-      {/* 可视建档向导 */}
       {showCreate && !me.isTeen && (
-        <form class="card" onSubmit={handleCreateProfile}>
-          <h2 class="h2">新建档案向导（无需大模型，严格按入口问卷与筛查规则）</h2>
-          <div class="grid-3">
-            <label class="field">
-              <span>档案代号（建议勿用真实姓名）</span>
-              <input type="text" required value={code} onInput={(e) => setCode((e.target as HTMLInputElement).value)} placeholder="如 小夏、爸爸" />
-            </label>
-            <label class="field">
-              <span>年龄 / 学段</span>
-              <select
-                required
-                value={stage ? `${stage}|${age}` : ""}
-                onChange={(e) => {
-                  const v = (e.target as HTMLSelectElement).value;
-                  const [st, ag] = v ? v.split("|") : ["", ""];
-                  setStage(st);
-                  setAge(ag);
-                  setProduct("");
-                  if (ag === "a06") setSchoolStage("小学");
-                  if (ag === "a13") setSchoolStage(st.includes("高") ? "高中" : "初中");
-                }}
-              >
-                <option value="">请选择</option>
-                {(intake?.intake.stages ?? [])
-                  .filter((s) => s.age)
-                  .map((s) => (
-                    <option key={s.stage} value={`${s.stage}|${s.age}`}>
-                      {s.stage}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <label class="field">
-              <span>起始期计划成品</span>
-              <select required value={product} onChange={(e) => setProduct((e.target as HTMLSelectElement).value)}>
-                <option value="">请选择</option>
-                {startProducts.map((p) => (
-                  <option key={p.name} value={p.name}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <p class="muted" style={{ fontSize: "13px" }}>
-            不在覆盖范围：{(intake?.intake.not_covered ?? []).map((n) => `${n.group}（${n.advice}）`).join("；")}。
-          </p>
-
-          {choiceGroupList.length > 0 && (
-            <fieldset class="card-soft">
-              <legend class="h3">能用的器材（成品写的是"按器材选一个"）</legend>
-              <p class="muted" style={{ fontSize: "13px" }}>
-                勾上家里能用的，先勾的优先用；每一组至少选一个。标"不能导出成跟练"的只能照成品原文做。
-              </p>
-              <div class="stack">
-                {choiceOptions.map((o) => {
-                  const order = choicePicked.indexOf(o.value);
-                  return (
-                    <label class="check" key={o.value}>
-                      <input type="checkbox" checked={order >= 0} onChange={(e) => toggleChoice(o.value, (e.target as HTMLInputElement).checked)} />
-                      <span>
-                        {o.name}
-                        {o.exportable ? "" : "（不能导出成跟练）"}
-                        {order >= 0 ? ` · 第 ${order + 1} 选` : ""}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-              {uncovered.length > 0 && (
-                <p class="muted" style={{ fontSize: "13px" }}>
-                  还没选：
-                  {uncovered
-                    .map((g) => `${g.options.map((o) => o.name).join(" / ")}${g.condition ? `（${g.condition.name}为「${g.condition.value ? "是" : "否"}」时用）` : ""}`)
-                    .join("；")}
-                </p>
-              )}
-            </fieldset>
-          )}
-
-          <div class="grid-3">
-            {age === "a06" || age === "a13" ? (
-              <>
-                <label class="field">
-                  <span>学段</span>
-                  <select value={schoolStage} onChange={(e) => setSchoolStage((e.target as HTMLSelectElement).value)}>
-                    <option value="小学">小学</option>
-                    <option value="初中">初中</option>
-                    <option value="高中">高中</option>
-                  </select>
-                </label>
-                <label class="field">
-                  <span>入学年份</span>
-                  <input type="number" min={2010} max={2035} value={schoolEntry} onInput={(e) => setSchoolEntry(Number((e.target as HTMLInputElement).value))} />
-                </label>
-              </>
-            ) : (
-              <label class="field">
-                <span>出生年月（仅记到月）</span>
-                <input type="text" required pattern="\d{4}-\d{2}" value={birth} onInput={(e) => setBirth((e.target as HTMLInputElement).value)} placeholder="YYYY-MM" />
-              </label>
-            )}
-            {age === "a65" && (
-              <label class="field">
-                <span>现在每天散步大约几分钟（"散步减 5 分钟"按它算）</span>
-                <input type="number" min={1} max={180} required value={walkBase} onInput={(e) => setWalkBase((e.target as HTMLInputElement).value)} />
-              </label>
-            )}
-            {(age === "a18" || age === "a40") && (
-              <div class="field">
-                <span>体重腰围记不记（选"记"才记；出现节食、焦虑就停记）</span>
-                <div class="row">
-                  <label class="check">
-                    <input type="radio" name="body-choice" required checked={bodyChoice === "记"} onChange={() => setBodyChoice("记")} />
-                    <span>记</span>
-                  </label>
-                  <label class="check">
-                    <input type="radio" name="body-choice" required checked={bodyChoice === "不记"} onChange={() => setBodyChoice("不记")} />
-                    <span>不记</span>
-                  </label>
-                </div>
-              </div>
-            )}
-            <label class="field">
-              <span>开始日期</span>
-              <input type="date" required value={startDate} onInput={(e) => setStartDate((e.target as HTMLInputElement).value)} />
-            </label>
-            <label class="field">
-              <span>所在时区（IANA）</span>
-              <input type="text" required value={timezone} onInput={(e) => setTimezone((e.target as HTMLInputElement).value)} />
-            </label>
-          </div>
-
-          <div class="grid-3">
-            <label class="field">
-              <span>习惯起床时间</span>
-              <input type="time" value={wake} onInput={(e) => setWake((e.target as HTMLInputElement).value)} />
-            </label>
-            <label class="field">
-              <span>建议上床时间（由公式计算）</span>
-              <div class="row">
-                <input type="text" value={bedtime} readOnly placeholder="点击右侧计算" style={{ flex: 1 }} />
-                <button type="button" class="btn small" onClick={() => void calcBedtime(stage, wake, setBedtime)}>
-                  按公式计算
-                </button>
-              </div>
-            </label>
-            {me.user.role === "admin" && (
-              <div class="stack">
-                <label class="check">
-                  <input type="checkbox" checked={isManaged} onChange={(e) => setIsManaged((e.target as HTMLInputElement).checked)} />
-                  <span>设为管理员代管子档案（老人/儿童/青少年）</span>
-                </label>
-                {isManaged && (
-                  <select value={memberUserId} onChange={(e) => setMemberUserId((e.target as HTMLSelectElement).value)}>
-                    <option value="">不关联成员账号（仅扫码手机绑定）</option>
-                    {users.filter((u) => u.role === "member").map((u) => (
-                      <option key={u.id} value={u.id}>
-                        关联只读成员：{u.username}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 逐字安全筛查 */}
-          <div class="card-soft">
-            <h3 class="h3">安全筛查（请如实逐项勾选「否 / 是」，不记录诊断或用药细节）</h3>
-            {screeningItems.map((item) => (
-              <div class="row-between" key={item} style={{ borderBottom: "1px solid var(--line)", padding: "6px 0" }}>
-                <span style={{ flex: 1, fontSize: "14px" }}>{item}</span>
-                <div class="row">
-                  <label class="check">
-                    <input
-                      type="radio"
-                      name={`scr-${item}`}
-                      checked={screenAnswers[item] === "否"}
-                      onChange={() => setScreenAnswers({ ...screenAnswers, [item]: "否" })}
-                    />
-                    <span>否</span>
-                  </label>
-                  <label class="check">
-                    <input
-                      type="radio"
-                      name={`scr-${item}`}
-                      checked={screenAnswers[item] === "是"}
-                      onChange={() => setScreenAnswers({ ...screenAnswers, [item]: "是" })}
-                    />
-                    <span>是</span>
-                  </label>
-                </div>
-              </div>
-            ))}
-            {conditionFields.length > 0 && (
-              <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: "1px solid var(--line)" }}>
-                <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "6px" }}>
-                  训练安全条件（可选，只记是/否；选「未确认」将自动导出保守版本）
-                </div>
-                {conditionFields.map((f) => (
-                  <div class="row-between" key={f.key} style={{ borderBottom: "1px solid var(--line)", padding: "5px 0" }}>
-                    <span style={{ flex: 1, fontSize: "13px" }}>{f.label}</span>
-                    <div class="row">
-                      {(["未确认", "否", "是"] as const).map((opt) => (
-                        <label class="check" key={opt}>
-                          <input
-                            type="radio"
-                            name={`cond-${f.key}`}
-                            checked={(condState[f.key] ?? "未确认") === opt}
-                            onChange={() => setCondState({ ...condState, [f.key]: opt })}
-                          />
-                          <span>{opt}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div class="row" style={{ marginTop: "6px" }}>
-              <label class="check">
-                <input type="checkbox" checked={doctorCleared} onChange={(e) => setDoctorCleared((e.target as HTMLInputElement).checked)} />
-                <span>已咨询医生并获同意开始本计划（筛查有“是”或 65 岁以上须获同意后才可出课）</span>
-              </label>
-              {doctorCleared && (
-                <input type="date" style={{ width: "160px" }} value={doctorDate} onInput={(e) => setDoctorDate((e.target as HTMLInputElement).value)} />
-              )}
-            </div>
-          </div>
-
-          <div class="row">
-            <span class="muted">家庭同桌成员年龄段（排全家菜单用，可选）：</span>
-            {(["a06", "a13", "a18", "a40", "a65"] as const).map((a) => (
-              <label class="check" key={a}>
-                <input type="checkbox" checked={household.includes(a)} onChange={() => toggleArr(household, a, setHousehold)} />
-                <span>{a}</span>
-              </label>
-            ))}
-          </div>
-
-          <div class="row">
-            <button class="btn primary" type="submit" disabled={busy}>
-              {busy ? "创建中..." : "校验并创建档案"}
-            </button>
-          </div>
-        </form>
+        <OnboardWizard
+          isAdmin={me.user.role === "admin"}
+          members={users.filter((u) => u.role === "member")}
+          onCancel={profiles.length ? () => setShowCreate(false) : undefined}
+          onCreated={(id, code) => {
+            setShowCreate(false);
+            setNotice(`已建档「${code}」。下一步：到"排课中心"生成这一周的计划单、发布课程。`);
+            onRefreshProfiles();
+            onSelectProfile(id);
+          }}
+        />
       )}
 
-      {/* 档案列表 */}
-      <div class="grid-3">
-        {profiles.map((p) => (
-          <div
-            class="card"
-            key={p.id}
-            style={{
-              borderColor: selectedProfile?.id === p.id ? "var(--accent)" : undefined,
-              boxShadow: selectedProfile?.id === p.id ? "0 0 0 2px var(--accent-soft)" : undefined,
-            }}
-          >
-            <div class="row-between">
-              <strong style={{ fontSize: "17px" }}>{p.code}</strong>
-              <div class="row">
-                {p.isManaged ? <span class="tag info">代管</span> : <span class="tag ok">个人</span>}
-                {p.hasConflict && <span class="tag danger">冲突</span>}
-              </div>
-            </div>
-            <div class="muted">{p.product}</div>
-            <div class="muted">
-              {p.currentSegment ? `第 ${p.currentSegment.n} 段 · 第 ${p.currentSegment.week} 周` : "未开始"} · {p.timezone}
-            </div>
-            <div class="row">
-              <button class="btn small primary" onClick={() => onSelectProfile(p.id)}>
-                {selectedProfile?.id === p.id ? "当前选中" : "切换此档案"}
-              </button>
-              {p.canManage && p.age !== "a06" && (
-                <button class="btn small" onClick={() => void openPairModal(p.id)} disabled={busy}>
-                  手机扫码绑定
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* 当前档案受控编辑 & 审计日志 */}
-      {selectedProfile && selectedProfile.canManage && profileDetail && (
-        <div class="grid-2">
-          <form class="card" onSubmit={handleSaveEdit}>
-            <h2 class="h2">档案受控设置 · {selectedProfile.code}（版本 v{profileDetail.version}）</h2>
-            <div class="grid-2">
-              <label class="field">
-                <span>起床时间</span>
-                <input type="time" value={editWake} onInput={(e) => setEditWake((e.target as HTMLInputElement).value)} />
-              </label>
-              <label class="field">
-                <span>建议上床时间</span>
-                <div class="row">
-                  <input type="text" value={editBedtime} readOnly style={{ flex: 1 }} />
-                  <button
-                    type="button"
-                    class="btn small"
-                    onClick={() => void calcBedtime(selectedProfile.stage ?? "", editWake || "07:00", setEditBedtime)}
-                  >
-                    重算
-                  </button>
-                </div>
-              </label>
-            </div>
-
-            {(selectedProfile.age === "a18" || selectedProfile.age === "a40") && (
-              <label class="field">
-                <span>体重腰围记录开关（仅 18–64 岁可选，出现焦虑可随时停记）</span>
-                <select value={editBody} onChange={(e) => setEditBody((e.target as HTMLSelectElement).value as any)}>
-                  <option value="不记">不记</option>
-                  <option value="记">记</option>
-                  <option value="停记">停记</option>
-                </select>
-              </label>
-            )}
-
-            <label class="check">
-              <input type="checkbox" checked={editDoctorCleared} onChange={(e) => setEditDoctorCleared((e.target as HTMLInputElement).checked)} />
-              <span>医生已同意开始 / 继续计划（doctorCleared）</span>
-            </label>
-
-            <div class="row">
-              <span class="muted">家庭成员年龄段（household）：</span>
-              {(["a06", "a13", "a18", "a40", "a65"] as const).map((a) => (
-                <label class="check" key={a}>
-                  <input type="checkbox" checked={editHousehold.includes(a)} onChange={() => toggleArr(editHousehold, a, setEditHousehold)} />
-                  <span>{a}</span>
-                </label>
-              ))}
-            </div>
-
-            <button class="btn primary" type="submit" disabled={busy}>
-              保存设置
-            </button>
-          </form>
-
-          <div class="card">
-            <h2 class="h2">规则核对与操作留痕</h2>
-            {auditData?.issues?.length ? (
-              <div class="stack">
-                {auditData.issues.slice(0, 6).map((iss, idx) => (
-                  <div class={iss.level === "error" ? "banner danger" : "banner warn"} key={idx}>
-                    {iss.path ? `${iss.path}: ` : ""}
-                    {iss.message}
+      {!showCreate && (
+        <>
+          <div class="grid-3">
+            {profiles.map((p) => (
+              <div
+                class="card"
+                key={p.id}
+                style={{
+                  borderColor: selectedProfile?.id === p.id ? "var(--accent)" : undefined,
+                  boxShadow: selectedProfile?.id === p.id ? "0 0 0 2px var(--accent-soft)" : undefined,
+                }}
+              >
+                <div class="row-between">
+                  <strong style={{ fontSize: "17px" }}>{p.code}</strong>
+                  <div class="row">
+                    {p.isManaged ? <span class="tag info">代管</span> : <span class="tag ok">自己管</span>}
+                    {p.hasConflict && <span class="tag danger">有冲突</span>}
                   </div>
-                ))}
+                </div>
+                <div class="muted">{p.product ?? "还没选成品"}</div>
+                <div class="muted">{p.currentSegment ? `第 ${p.currentSegment.n} 段 · 第 ${p.currentSegment.week} 周` : "还没开始"}</div>
+                <div class="row">
+                  <button class="btn small primary" onClick={() => onSelectProfile(p.id)} disabled={selectedProfile?.id === p.id}>
+                    {selectedProfile?.id === p.id ? "正在看这份" : "切到这份"}
+                  </button>
+                  {p.canManage && p.age !== "a06" && (
+                    <button class="btn small" onClick={() => void openPairModal(p.id)} disabled={busy}>
+                      手机扫码绑定
+                    </button>
+                  )}
+                </div>
               </div>
-            ) : (
-              <div class="banner ok">当前档案与记录规则核对 0 错误。</div>
-            )}
+            ))}
+          </div>
 
-            <div style={{ maxHeight: "220px", overflowY: "auto" }}>
+          {selectedProfile && selectedProfile.canManage && profileDetail && (
+            <div class="two-col">
+              <form class="section main" onSubmit={handleSaveEdit}>
+                <h2>{selectedProfile.code} 的设置</h2>
+                <div class="grid-2">
+                  <label class="field2" for="ed-wake">
+                    平时几点起床
+                    <input id="ed-wake" type="time" value={editWake} onInput={(e) => setEditWake((e.target as HTMLInputElement).value)} />
+                  </label>
+                  <div class="field2">
+                    上床时间<span class="hint">按公式算，改起床时间会跟着变</span>
+                    <span class="num" style={{ fontSize: "24px", color: "var(--accent-strong)" }}>{editBedtime || "—"}</span>
+                  </div>
+                </div>
+
+                {(selectedProfile.age === "a18" || selectedProfile.age === "a40") && (
+                  <div class="field2">
+                    体重、腰围记不记<span class="hint">出现节食、焦虑就停记：以前记的保留，之后不再记</span>
+                    <Pills label="体重、腰围记不记" value={editBody} options={[{ value: "记", label: "记" }, { value: "不记", label: "不记" }, { value: "停记", label: "停记" }]}
+                      onChange={(v) => setEditBody(v as "记" | "不记" | "停记")} />
+                  </div>
+                )}
+
+                <div class="field2">
+                  医生同意按这份计划练了吗
+                  <Pills label="医生同意了吗" value={editDoctor} options={[{ value: "是", label: "同意了" }, { value: "否", label: "还没有" }]} onChange={(v) => setEditDoctor(v as "是" | "否")} />
+                </div>
+                {editDoctor === "是" && (
+                  <label class="field2" for="ed-dd" style={{ maxWidth: "240px" }}>
+                    医生同意的日期
+                    <input id="ed-dd" type="date" value={editDoctorDate} max={todayIso()} onInput={(e) => setEditDoctorDate((e.target as HTMLInputElement).value)} />
+                  </label>
+                )}
+
+                <div class="field2">
+                  家里一起吃饭的还有谁<span class="hint">全家菜单按人数换算用，只记年龄段</span>
+                  <div class="pills" role="group" aria-label="家里一起吃饭的还有谁">
+                    {HOUSEHOLD.map(([a, label]) => (
+                      <button key={a} type="button" class="pill" aria-pressed={editHousehold.includes(a)}
+                        onClick={() => setEditHousehold((cur) => (cur.includes(a) ? cur.filter((x) => x !== a) : [...cur, a]))}>{label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <button class="btn primary big" type="submit" disabled={busy || (editDoctor === "是" && !editDoctorDate)} style={{ alignSelf: "flex-start" }}>
+                  保存设置
+                </button>
+              </form>
+
+              <div class="section side">
+                <h2>规则核对</h2>
+                {auditData?.issues?.length ? (
+                  <div class="stack">
+                    {auditData.issues.slice(0, 8).map((iss, idx) => (
+                      <div class={`notice ${iss.level === "error" ? "danger" : "warn"}`} key={idx}>{iss.message}</div>
+                    ))}
+                  </div>
+                ) : (
+                  <div class="notice ok">这份档案和记录照规则核对没有问题。</div>
+                )}
+                <details>
+                  <summary class="h3" style={{ cursor: "pointer" }}>操作留痕（最近 15 条）</summary>
+                  <div style={{ maxHeight: "240px", overflowY: "auto", marginTop: "8px" }}>
+                    <table class="tbl">
+                      <thead>
+                        <tr><th>时间</th><th>做了什么</th></tr>
+                      </thead>
+                      <tbody>
+                        {(auditData?.auditLogs ?? []).slice(0, 15).map((l) => (
+                          <tr key={l.id}>
+                            <td class="num">{String(l.createdAt).replace("T", " ").slice(0, 16)}</td>
+                            <td>{ACTIONS[l.action] ?? l.action}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              </div>
+            </div>
+          )}
+
+          <div class="section">
+            <div class="row-between">
+              <h2>登录和绑定的设备（{devices.length}）</h2>
+              <button class="btn small" onClick={() => void loadCommon()}>刷新</button>
+            </div>
+            <div style={{ overflowX: "auto" }}>
               <table class="tbl">
                 <thead>
-                  <tr>
-                    <th>时间</th>
-                    <th>操作</th>
-                    <th>变更字段</th>
-                  </tr>
+                  <tr><th>设备</th><th>类型</th><th>能看的档案</th><th>最近用过</th><th><span class="sr-only">操作</span></th></tr>
                 </thead>
                 <tbody>
-                  {(auditData?.auditLogs ?? []).slice(0, 15).map((l) => (
-                    <tr key={l.id}>
-                      <td>{String(l.createdAt).replace("T", " ").slice(0, 16)}</td>
-                      <td><code>{l.action}</code></td>
-                      <td>{Array.isArray(l.fields) ? l.fields.join(", ") : "-"}</td>
+                  {devices.map((d) => (
+                    <tr key={d.id}>
+                      <td>{d.deviceName || "没起名的设备"} {d.isCurrent && <span class="tag ok">这台</span>}</td>
+                      <td>{KIND_NAME[d.kind] ?? d.kind}</td>
+                      <td>{d.boundProfileCode ?? "这个账号能看的全部"}</td>
+                      <td class="num">{String(d.lastUsedAt).replace("T", " ").slice(0, 16)}</td>
+                      <td>
+                        {!d.isCurrent && (
+                          <button class="btn small danger" onClick={() => void revokeDevice(d.id)} disabled={busy}>下线</button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      {/* 已登录与配对设备管理 */}
-      <div class="card">
-        <div class="row-between">
-          <h2 class="h2">已登录与已配对设备（{devices.length}）</h2>
-          <button class="btn small" onClick={() => void loadCommon()}>
-            刷新设备
-          </button>
-        </div>
-        <div style={{ overflowX: "auto" }}>
-          <table class="tbl">
-            <thead>
-              <tr>
-                <th>设备名称</th>
-                <th>类型</th>
-                <th>绑定档案</th>
-                <th>最近活跃</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {devices.map((d) => (
-                <tr key={d.id}>
-                  <td>
-                    {d.deviceName || "未命名设备"} {d.isCurrent && <span class="tag ok">当前</span>}
-                  </td>
-                  <td><code>{d.kind}</code></td>
-                  <td>{d.boundProfileCode ?? "账号全权限"}</td>
-                  <td>{String(d.lastUsedAt).replace("T", " ").slice(0, 16)}</td>
-                  <td>
-                    {!d.isCurrent && (
-                      <button class="btn small danger" onClick={() => void revokeDevice(d.id)} disabled={busy}>
-                        吊销下线
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 纯本地 5 分钟扫码配对弹窗（0 外部网络请求） */}
       {pairModal && (
         <div class="modal-mask" onClick={() => setPairModal(null)}>
-          <div class="modal-box" onClick={(e) => e.stopPropagation()}>
+          <div class="modal-box" role="dialog" aria-label={`扫码绑定手机 · ${pairModal.profileCode}`} onClick={(e) => e.stopPropagation()}>
             <div class="row-between">
               <h2 class="h2">扫码绑定手机 · {pairModal.profileCode}</h2>
-              <button class="btn small" onClick={() => setPairModal(null)}>
-                关闭
-              </button>
+              <button class="btn small" onClick={() => setPairModal(null)}>关闭</button>
             </div>
             <p class="muted" style={{ margin: 0 }}>
-              128 位单次有效绑定码，5 分钟内有效（截止 {pairModal.expiresAt.replace("T", " ").slice(11, 19)} UTC）。手机端绑定后仅能拉取「{pairModal.profileCode}」的课程并同步练习记录。
+              绑定码只能用一次，5 分钟内有效。绑定后这台手机只能取「{pairModal.profileCode}」的课程、传回练习记录。
             </p>
             <div class="qr-wrap">
               {(() => {
                 try {
                   const qr = qrSvgPath(pairModal.payload);
                   return (
-                    <svg
-                      width="220"
-                      height="220"
-                      viewBox={`0 0 ${qr.size} ${qr.size}`}
-                      role="img"
-                      aria-label="手机扫码配对二维码"
-                    >
+                    <svg width="220" height="220" viewBox={`0 0 ${qr.size} ${qr.size}`} role="img" aria-label="手机扫码配对二维码">
                       <rect width={qr.size} height={qr.size} fill="#FFFFFF" />
                       <path d={qr.path} fill="#1D2B24" />
                     </svg>
                   );
                 } catch {
-                  return <div class="muted">当前服务地址过长，无法渲染二维码，请直接复制下方配对码手动绑定。</div>;
+                  return <div class="muted">服务地址太长，画不出二维码：在手机上手动输入下面的绑定码。</div>;
                 }
               })()}
             </div>
-            <label class="field">
-              <span>或手动输入配对码</span>
-              <input type="text" readOnly value={pairModal.code} />
+            <label class="field2" for="pair-code">
+              或者手动输入绑定码
+              <input id="pair-code" type="text" readOnly value={pairModal.code} />
             </label>
           </div>
         </div>

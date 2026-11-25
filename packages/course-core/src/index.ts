@@ -28,7 +28,7 @@ export { cleanText, conclusionLines, presentIssue } from "./present.ts";
 export { progressForm, type ProgressForm, type ProgressMove, type ProgressRuleOption } from "./progress-form.ts";
 export { buildReviewRecord, nextWeekEntry, reviewForm, type NextChoice, type ReviewForm, type ReviewSessionSummary } from "./review-form.ts";
 export { assessmentForm, buildAssessmentRecord, fieldVisible, missingFields, type AssessmentForm, type FieldInput, type FormField, type FormSection, type ShowIf } from "./assess-form.ts";
-export { choiceGroups, intakeConditions, intakeForm, uncoveredChoiceGroups, type ChoiceGroup, type ChoiceOption, type DirectEntry, type IntakeAnswers, type IntakeCondition, type IntakeForm, type IntakeProduct, type IntakeTemplates } from "./forms.ts";
+export { choiceGroups, intakeConditions, intakeForm, profileFromIntake, uncoveredChoiceGroups, type ChoiceGroup, type ChoiceOption, type DirectEntry, type IntakeAnswers, type IntakeCondition, type IntakeForm, type IntakeProduct, type IntakeProfileInput, type IntakeTemplates } from "./forms.ts";
 export { breathOf, fmtClock, liveFrame, parseStage, segTitle, stageSpan, unitsOf, type LiveBreath, type LiveFrame, type LiveSeg, type StageInfo } from "./live-view.ts";
 export {
   auditProfileBundle,

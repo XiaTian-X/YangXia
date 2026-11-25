@@ -1,8 +1,9 @@
 // 给网页、安卓渲染表单用的结构化数据：要问什么、能选什么都从训练单和规则层推出来，
 // 前端只渲染，不自己挑选项（第一轮审查修复方案第二节）。
-import { notCoveredItems, screeningFor } from "./intake.ts";
+import { bedtimeFor, notCoveredItems, screeningFor } from "./intake.ts";
 import { productCode, type Manifest, type ManifestProduct } from "./manifest.ts";
 import { stableParam, type PlansData, type RulesData } from "./plan.ts";
+import { PROFILE_FORMAT } from "./profile.ts";
 
 /** "按器材选一个"里的一个选项。 */
 export interface ChoiceOption {
@@ -252,6 +253,80 @@ export function intakeForm(t: IntakeTemplates, answers: IntakeAnswers): IntakeFo
   out.basics.body = adult;
   out.basics.walkBase = age === "a65";
   return out;
+}
+
+/** 建档向导收齐以后组装档案用的输入（筛查、条件、器材这些照 IntakeAnswers；其余是基本信息）。 */
+export interface IntakeProfileInput {
+  answers: IntakeAnswers;
+  code: string;
+  startDate: string;
+  timezone: string;
+  wake?: string;
+  /** 18 岁以上：出生年月 YYYY-MM。 */
+  birth?: string;
+  /** 6–17 岁：学段、入学年份、学制。 */
+  school?: { stage: string; entry: number; system?: "63" | "54" };
+  /** 18–64 岁：体重腰围记不记。 */
+  body?: "记" | "不记";
+  /** 65 岁以上：建档时的散步分钟。 */
+  walkBase?: number;
+  /** 能用的器材，按优先顺序。 */
+  choices?: string[];
+  /** 直接进稳定期的人：方向。 */
+  focus?: string[];
+  doctorCleared?: boolean;
+  doctorDate?: string;
+  household?: string[];
+}
+
+/**
+ * 照建档向导的回答组装档案（yangxia.profile/1）：只用这份成品要问的条件里答了的项（没确认的不写），
+ * 上床时间按公式算；直接进稳定期的第一段写稳定期成品。组装好的档案照旧由服务端整档核对。
+ */
+export function profileFromIntake(t: IntakeTemplates, input: IntakeProfileInput): { profile: Record<string, unknown> } | { error: string } {
+  const form = intakeForm(t, input.answers);
+  if (form.blocked) return { error: form.blocked };
+  if (!form.age) return { error: "还没选阶段" };
+  const start = form.products.find((p) => p.name === input.answers.product);
+  if (!start) return { error: "还没选起始期计划成品" };
+  if (!form.screeningOutcome || !form.screening) return { error: "安全筛查还没逐项答完" };
+  const direct = !!(input.answers.direct && form.direct);
+  const product = direct ? form.direct!.product : start.name;
+  const asked = new Set(form.conditions.map((c) => c.name));
+  const conditions = Object.fromEntries(Object.entries(input.answers.conditions ?? {}).filter(([k, v]) => asked.has(k) && typeof v === "boolean"));
+  const stage = input.answers.stage!;
+  const bedtime = input.wake ? bedtimeFor(t.manifest, stage, input.wake) : null;
+  const answers = form.screening.items.map((item) => ({ item, answer: input.answers.screening![item] }));
+  const profile: Record<string, unknown> = {
+    schema: PROFILE_FORMAT,
+    code: input.code.trim(),
+    stage,
+    age: form.age,
+    venue: start.venue,
+    product,
+    timezone: input.timezone,
+    startDate: input.startDate,
+    segments: [{ n: 1, type: "标准", ...(direct ? { phase: "稳定" } : {}), week: 1, start: input.startDate, product }],
+    screening: {
+      answers,
+      doctorCleared: input.doctorCleared === true,
+      date: input.startDate,
+      ...(input.doctorCleared && input.doctorDate ? { doctorDate: input.doctorDate } : {}),
+    },
+    ...(Object.keys(conditions).length ? { conditions } : {}),
+    ...(input.choices?.length ? { choices: input.choices } : {}),
+    ...(input.wake ? { wake: input.wake } : {}),
+    ...(bedtime ? { bedtime } : {}),
+    ...(input.household?.length ? { household: input.household } : {}),
+    progress: {},
+    progressLog: [],
+  };
+  if (form.basics.birth && input.birth) profile.birth = input.birth;
+  if (form.basics.school && input.school) profile.school = { stage: input.school.stage, entry: input.school.entry, ...(input.school.system ? { system: input.school.system } : {}) };
+  if (form.basics.body && input.body) profile.body = input.body;
+  if (form.basics.walkBase && input.walkBase) profile.habitBase = { 散步: input.walkBase };
+  if (direct && input.focus?.length) profile.focus = { areas: input.focus };
+  return { profile };
 }
 
 /**

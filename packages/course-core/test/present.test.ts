@@ -8,7 +8,7 @@ describe("presentIssue：命令行的说法换成界面说法", () => {
   it("有代号的按代号换", () => {
     const entry: Issue = { level: "error", path: "评估/", code: "ENTRY_ASSESSMENT_MISSING",
       message: "第一段（2026-11-02 起）之前要有入门评估：评估/<日期>-入门.json（用 npm run course -- assess 列出要问、要测的项）" };
-    expect(presentIssue(entry)).toEqual({ level: "error", path: "评估/", code: "ENTRY_ASSESSMENT_MISSING",
+    expect(presentIssue(entry)).toEqual({ level: "error", path: "评估", code: "ENTRY_ASSESSMENT_MISSING",
       message: "第一段（2026-11-02 起）开始之前要先做入门评估：到「评估与复盘」填写" });
     const sheet = presentIssue({ level: "error", path: "计划/第1段-第2周.md", code: "SHEET_REGENERATE",
       message: "这一周从 2026-11-09 开始，这张计划单是按 2026-11-02 开始的那一周生成的：重新生成（npm run course -- plan），不手改" });
@@ -22,9 +22,11 @@ describe("presentIssue：命令行的说法换成界面说法", () => {
   });
 
   it("没有代号的去掉命令和文件名", () => {
-    expect(cleanText("档案.json focus：直接进稳定期的人方向要含\"训练\"")).toBe("档案 focus：直接进稳定期的人方向要含\"训练\"");
+    expect(cleanText("档案.json focus：直接进稳定期的人方向要含\"训练\"")).toBe("档案 方向：直接进稳定期的人方向要含\"训练\"");
+    expect(cleanText("档案 screening.doctorDate：记新的 doctorDate")).toBe("档案 医生同意的日期：记新的 医生同意的日期");
+    expect(cleanText("排菜单前要在档案里记下家庭成员的年龄段（household）")).toBe("排菜单前要在档案里记下家庭成员的年龄段");
     expect(cleanText("评估/2026-11-02-入门.json tests[0]")).toBe("2026-11-02 的入门评估 tests[0]");
-    expect(cleanText("复盘/2026-11-02-第1周.json 缺少 trainings")).toBe("2026-11-02 起第 1 周的复盘 缺少 trainings");
+    expect(cleanText("复盘/2026-11-02-第1周.json 缺少 trainings")).toBe("2026-11-02 起第 1 周的复盘 缺少 训练次数");
   });
 
   it("真实的档案检查报错换完以后不留命令行字样", () => {

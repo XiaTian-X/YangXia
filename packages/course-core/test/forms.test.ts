@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ASSESS_FORMAT, assessmentForm, buildAssessmentRecord, buildReviewRecord, REVIEW_FORMAT, SESSION_FORMAT, choiceGroups, evaluateAssessment, exportCourse, intakeForm, missingFields, nextWeekEntry, reviewForm, validateReview, uncoveredChoiceGroups, type IntakeTemplates, type PlansData, type RulesData } from "../src/index.ts";
+import { ASSESS_FORMAT, assessmentForm, buildAssessmentRecord, buildReviewRecord, REVIEW_FORMAT, SESSION_FORMAT, choiceGroups, evaluateAssessment, exportCourse, intakeForm, missingFields, profileFromIntake, nextWeekEntry, reviewForm, validateReview, uncoveredChoiceGroups, type IntakeTemplates, type PlansData, type RulesData } from "../src/index.ts";
 import { loadTemplates, templatesDir } from "../src/node.ts";
 import { fixtureManifest, fixturePlans } from "./helpers.ts";
 
@@ -132,6 +132,30 @@ describe("intakeForm：建档向导要问什么、能选什么由规则推出", 
     const child = intakeForm(t, { stage: "小学", product: "6-12岁-户外与游戏版（家长版）" });
     expect(child.conditions).toEqual([]);
     expect(child.basics.school?.stages).toEqual(["小学"]);
+  });
+
+  it("profileFromIntake：组装的档案过档案核对；只写问到并答了的条件；直接进稳定期第一段写稳定期成品", async () => {
+    const t = await real();
+    if (!t) return;
+    const { validateProfile, checkProfileWithTemplates } = await import("../src/index.ts");
+    const base = { stage: "18–39 岁", venue: "home", product: "18-39岁-居家版" };
+    const items = intakeForm(t, base).screening!.items;
+    const answers = { ...base, screening: allNo(items), conditions: { 高血压: false, 骨质疏松: true } };
+    const r = profileFromIntake(t, { answers, code: "小夏", startDate: "2026-11-02", timezone: "Asia/Shanghai", wake: "07:00", birth: "1996-05", body: "不记", choices: ["table-row"] });
+    if ("error" in r) throw new Error(r.error);
+    const p = r.profile as Record<string, any>;
+    expect(p.bedtime).toBe("22:40");
+    expect(p.conditions).toEqual({ 高血压: false }); // 骨质疏松不属于 18–39 岁，不写
+    expect(p.segments).toEqual([{ n: 1, type: "标准", week: 1, start: "2026-11-02", product: "18-39岁-居家版" }]);
+    const issues = [...validateProfile(p), ...checkProfileWithTemplates(p, t.manifest)].filter((i) => i.level === "error");
+    expect(issues).toEqual([]);
+
+    const d = profileFromIntake(t, { answers: { ...answers, direct: true }, code: "小夏", startDate: "2026-11-02", timezone: "Asia/Shanghai", birth: "1996-05", body: "不记", choices: ["table-row"], focus: ["训练"] });
+    if ("error" in d) throw new Error(d.error);
+    expect((d.profile as any).segments[0]).toMatchObject({ phase: "稳定", product: "18-39岁-居家版（稳定期）" });
+    expect((d.profile as any).focus).toEqual({ areas: ["训练"] });
+    // 没答完筛查、孕期答"是"：不组装
+    expect(profileFromIntake(t, { answers: base, code: "x", startDate: "2026-11-02", timezone: "Asia/Shanghai" })).toMatchObject({ error: expect.stringMatching(/筛查/) });
   });
 
   it("筛查：没答完没有结论；都答\"否\"可以开始；有\"是\"先问医生；孕期、产后 6 个月内答\"是\"不建档", async () => {

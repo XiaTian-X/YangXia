@@ -18,8 +18,45 @@ const BY_CODE: Record<string, (msg: string) => string> = {
   REVIEW_MISSING: (m) => `${cleanText(m)}（到${PLACES.assess}填写）`,
 };
 
-/** 去掉命令行字样：命令、文件名、档案文件。 */
+/** 档案、评估、复盘里常见字段名的说法（报错里夹着英文字段名时换成中文）。 */
+const FIELD_NAMES: Record<string, string> = {
+  "screening.doctorDate": "医生同意的日期",
+  "screening.doctorCleared": "医生同意",
+  "screening.date": "安全筛查的日期",
+  doctorDate: "医生同意的日期",
+  doctorCleared: "医生同意",
+  screening: "安全筛查",
+  household: "家里一起吃饭的人",
+  bodyStopDate: "停记的日期",
+  habitBase: "散步分钟",
+  habitTargets: "习惯目标",
+  conditions: "训练条件",
+  choices: "器材",
+  focus: "方向",
+  birth: "出生年月",
+  school: "学段",
+  bedtime: "上床时间",
+  wake: "起床时间",
+  segments: "段",
+  progressLog: "个人进度记录",
+  progress: "个人进度",
+  trainings: "训练次数",
+  symptoms: "不适",
+  habits: "习惯",
+  companion: "家人在旁边",
+  eventDate: "事情发生的日期",
+  eventDates: "摔倒的日期",
+  reasons: "原因",
+  prereqs: "开工前提",
+};
+const FIELD_RE = new RegExp(`(?<![A-Za-z.])(${Object.keys(FIELD_NAMES).map((k) => k.replace(/\./g, "\\.")).join("|")})(?![A-Za-z])`, "g");
+
+/** 去掉命令行字样：命令、文件名、档案文件；常见英文字段名换成中文。 */
 export function cleanText(s: string): string {
+  return cleanCli(s).replace(FIELD_RE, (m) => FIELD_NAMES[m] ?? m);
+}
+
+function cleanCli(s: string): string {
   return s
     // 带命令的括号说明整段去掉
     .replace(/（[^（）]*(npm run|course (assess|export|plan|bedtime))[^（）]*）/g, "")
@@ -34,6 +71,10 @@ export function cleanText(s: string): string {
     .replace(/计划\/第(\d+)段-第(\d+)周\.md/g, "第 $1 段第 $2 周的计划单")
     .replace(/打卡\/[^\s：，；）]+\.json/g, "练习记录")
     .replace(/课程\/[^\s：，；）]+\.(json|html)/g, "课程")
+    .replace(/菜单\/([^\s：，；）]+)\.md/g, "菜单「$1」")
+    .replace(/评估\/(?=\s|$|：)/g, "评估")
+    // 括号里只有英文字段名的（如"（household）"）去掉
+    .replace(/（[A-Za-z_.[\]0-9]+）/g, "")
     .replace(/档案\.json\s*/g, "档案 ")
     .replace(/\s+([：，；。）])/g, "$1")
     .replace(/（\s*）/g, "")

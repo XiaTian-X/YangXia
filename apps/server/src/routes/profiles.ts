@@ -13,6 +13,7 @@ import {
   conclusionLines,
   inspectEndSummary,
   intakeForm,
+  profileFromIntake,
   progressForm,
   reviewForm,
   screeningFor,
@@ -95,6 +96,31 @@ const IntakeAnswersSchema = z.object({
 
 const ReviewFormSchema = z.object({ symptoms: z.boolean().optional() });
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const IntakeProfileSchema = z.object({
+  answers: IntakeAnswersSchema,
+  code: z.string().trim().min(1).max(20),
+  startDate: z.string().regex(DATE_RE),
+  timezone: z.string().min(1).max(64),
+  wake: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  birth: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  school: z.object({ stage: z.string().max(10), entry: z.number().int(), system: z.enum(["63", "54"]).optional() }).optional(),
+  body: z.enum(["记", "不记"]).optional(),
+  walkBase: z.number().int().min(1).max(300).optional(),
+  choices: z.array(z.string().max(60)).max(20).optional(),
+  focus: z.array(z.enum(["作息", "饮食", "训练"])).max(3).optional(),
+  doctorCleared: z.boolean().optional(),
+  doctorDate: z.string().regex(DATE_RE).optional(),
+  household: z.array(z.string().max(40)).max(20).optional(),
+});
+
+const CreateFromIntakeSchema = z.object({
+  input: IntakeProfileSchema,
+  initialAssessment: z.record(z.string(), z.unknown()).optional(),
+  isManaged: z.boolean().optional(),
+  memberUserId: z.string().uuid().nullable().optional(),
+});
+
 const ProgressLogSchema = z.object({
   expectedVersion: z.number().int().positive().optional(),
   entries: z
@@ -173,6 +199,20 @@ export function registerProfileRoutes(
     return c.json({ declaration: DECLARATION, form: intakeForm({ manifest: snap.manifest, plans: snap.plans, rules: snap.rules }, answers) } satisfies IntakeFormResponse);
   });
 
+  // 建档向导最后一步的入门评估：按草稿档案（还没建）算要问、要测什么
+  app.post("/api/intake/entry-form", async (c) => {
+    const { input } = z.object({ input: IntakeProfileSchema }).parse(await c.req.json());
+    const snap = ctx.templates.current();
+    if (!snap.plans || !snap.rules) throw new AppError(500, "TEMPLATE_INVALID", "模板缺训练单或规则层");
+    const draft = profileFromIntake({ manifest: snap.manifest, plans: snap.plans, rules: snap.rules }, input);
+    if ("error" in draft) throw new AppError(422, "INTAKE_INCOMPLETE", draft.error);
+    const bundle = { profile: draft.profile, timeZone: input.timezone, sessions: [], reviewData: {}, courses: [], assessments: [], docs: [] };
+    const form = assessmentForm(bundle, snap, "入门", { now: ctx.now() });
+    if ("error" in form) throw new AppError(422, "ASSESSMENT_FORM_UNAVAILABLE", form.error);
+    const { lines: _lines, ...rest } = form;
+    return c.json({ declaration: DECLARATION, form: rest } satisfies AssessmentFormResponse);
+  });
+
   app.get("/api/bedtime", (c) => {
     const stage = c.req.query("stage") || "";
     const wake = c.req.query("wake") || "";
@@ -215,6 +255,30 @@ export function registerProfileRoutes(
     const actor = c.get("actor");
     const body = CreateProfileSchema.parse(await c.req.json());
     const res = createProfileOp(ctx.getDb(), ctx.templates.current(), actor, body, ctx.now());
+    return c.json({ ok: true, declaration: DECLARATION, ...res }, 201);
+  });
+
+  // 照建档向导的回答建档：档案由服务端按规则组装（网页不拼档案），入门评估可以一起交
+  app.post("/api/profiles/from-intake", async (c) => {
+    const actor = c.get("actor");
+    const body = CreateFromIntakeSchema.parse(await c.req.json());
+    const snap = ctx.templates.current();
+    if (!snap.plans || !snap.rules) throw new AppError(500, "TEMPLATE_INVALID", "模板缺训练单或规则层");
+    const draft = profileFromIntake({ manifest: snap.manifest, plans: snap.plans, rules: snap.rules }, body.input);
+    if ("error" in draft) throw new AppError(422, "INTAKE_INCOMPLETE", draft.error);
+    const res = createProfileOp(
+      ctx.getDb(),
+      snap,
+      actor,
+      {
+        profile: draft.profile,
+        timezone: body.input.timezone,
+        isManaged: body.isManaged,
+        memberUserId: body.memberUserId,
+        ...(body.initialAssessment ? { initialAssessment: body.initialAssessment } : {}),
+      },
+      ctx.now(),
+    );
     return c.json({ ok: true, declaration: DECLARATION, ...res }, 201);
   });
 
