@@ -318,6 +318,20 @@ class GoldenPlayerParityTest {
             val enforced = LiveViewMath.enforceSafetyFloor(plan.effectiveSettings.copy(breathVolume = 0, breathAfter = "quiet"), plan.floor)
             assertEquals("pluck", enforced.breathAfter)
             assertTrue("换气下限音量必须 >= 15", enforced.breathVolume >= 15)
+
+            // 验证「上一段 / 下一段」精准段跳转（落点严格对齐 stages[i].firstEventIdx，不腰斩节拍）
+            assertTrue("测试课程应包含多段", plan.timeline.stages.size >= 3)
+            val s0Time = plan.timeline.events[plan.timeline.stages[0].firstEventIdx].time
+            val s1Idx = plan.timeline.stages[1].firstEventIdx
+            val s1Time = plan.timeline.events[s1Idx].time
+            val s2Idx = plan.timeline.stages[2].firstEventIdx
+            val s2Time = plan.timeline.events[s2Idx].time
+
+            assertEquals(0, LiveViewMath.stageIndexAt(plan.timeline, s0Time + 0.5))
+            assertEquals(s1Idx to s1Time, LiveViewMath.adjacentStageTarget(plan.timeline, s0Time + 0.5, +1))
+            assertEquals(s2Idx to s2Time, LiveViewMath.adjacentStageTarget(plan.timeline, s1Time + 0.5, +1))
+            assertEquals(s1Idx to s1Time, LiveViewMath.adjacentStageTarget(plan.timeline, s2Time + 0.5, -1))
+            assertEquals(plan.timeline.stages[0].firstEventIdx to s0Time, LiveViewMath.adjacentStageTarget(plan.timeline, s0Time + 0.5, -1))
         } finally {
             provider.close()
         }

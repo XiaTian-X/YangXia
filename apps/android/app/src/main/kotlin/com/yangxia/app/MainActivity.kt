@@ -145,7 +145,8 @@ class MainActivity : ComponentActivity() {
                             motionRawMap = motionRawMap,
                             motionMetaMap = motionMetaMap,
                             onTogglePause = { WorkoutPlaybackBus.togglePause(this@MainActivity) },
-                            onSeekDelta = { d -> WorkoutPlaybackBus.seekBy(this@MainActivity, d) },
+                            onPrevStage = { WorkoutPlaybackBus.jumpStage(this@MainActivity, -1) },
+                            onNextStage = { WorkoutPlaybackBus.jumpStage(this@MainActivity, +1) },
                             onFinish = { vm.finishWorkoutEarly() },
                         )
 

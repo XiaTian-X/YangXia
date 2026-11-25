@@ -24,8 +24,12 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -59,7 +63,8 @@ fun WorkoutScreen(
     motionRawMap: Map<String, String>,
     motionMetaMap: Map<String, MotionClipMetaDto>,
     onTogglePause: () -> Unit,
-    onSeekDelta: (Double) -> Unit,
+    onPrevStage: () -> Unit,
+    onNextStage: () -> Unit,
     onFinish: () -> Unit,
 ) {
     val course = state.course
@@ -77,6 +82,10 @@ fun WorkoutScreen(
     val isPaused = state.status == WorkoutPhaseStatus.PAUSED
     val totalDur = timeline?.totalDuration ?: 1.0
     val progressFrac = (state.elapsedSec / totalDur.coerceAtLeast(0.1)).toFloat().coerceIn(0f, 1f)
+    val curStageIdx = remember(timeline, state.elapsedSec) {
+        if (timeline != null) LiveViewMath.stageIndexAt(timeline, state.elapsedSec) else 0
+    }
+    val canNextStage = timeline != null && curStageIdx < timeline.stages.lastIndex
 
     BoxWithConstraints(
         modifier = Modifier
@@ -122,7 +131,13 @@ fun WorkoutScreen(
                         trackColor = YangXiaColors.WorkoutSurface,
                     )
                     CounterAndBreathBlock(frame = frame, ringSize = 112.dp, bigFontSp = 40)
-                    WorkoutControlsBar(isPaused = isPaused, onTogglePause = onTogglePause, onSeekDelta = onSeekDelta)
+                    WorkoutControlsBar(
+                        isPaused = isPaused,
+                        canNext = canNextStage,
+                        onTogglePause = onTogglePause,
+                        onPrevStage = onPrevStage,
+                        onNextStage = onNextStage,
+                    )
                 }
             }
         } else {
@@ -158,7 +173,13 @@ fun WorkoutScreen(
                     bigFontSp = if (isCompactPortrait) 40 else 52,
                 )
 
-                WorkoutControlsBar(isPaused = isPaused, onTogglePause = onTogglePause, onSeekDelta = onSeekDelta)
+                WorkoutControlsBar(
+                    isPaused = isPaused,
+                    canNext = canNextStage,
+                    onTogglePause = onTogglePause,
+                    onPrevStage = onPrevStage,
+                    onNextStage = onNextStage,
+                )
             }
         }
     }
@@ -171,6 +192,14 @@ private fun WorkoutTopBar(
     leftText: String,
     onFinish: () -> Unit,
 ) {
+    // 防做动作时误碰：结束需在 3 秒内再点一次确认（与 v1 编排器一致）
+    var armEnd by remember { mutableStateOf(false) }
+    LaunchedEffect(armEnd) {
+        if (armEnd) {
+            delay(3000L)
+            armEnd = false
+        }
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -193,10 +222,15 @@ private fun WorkoutTopBar(
             )
         }
         OutlinedButton(
-            onClick = onFinish,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = YangXiaColors.WorkoutInk),
+            onClick = {
+                if (armEnd) onFinish() else armEnd = true
+            },
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = if (armEnd) YangXiaColors.Warn else YangXiaColors.WorkoutInk,
+            ),
         ) {
-            Text("结束", fontSize = 13.sp)
+            Text(if (armEnd) "再点结束" else "结束", fontSize = 13.sp, maxLines = 1, softWrap = false)
         }
     }
 }
@@ -340,8 +374,10 @@ private fun CounterAndBreathBlock(
 @Composable
 private fun WorkoutControlsBar(
     isPaused: Boolean,
+    canNext: Boolean,
     onTogglePause: () -> Unit,
-    onSeekDelta: (Double) -> Unit,
+    onPrevStage: () -> Unit,
+    onNextStage: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -349,28 +385,29 @@ private fun WorkoutControlsBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         OutlinedButton(
-            onClick = { onSeekDelta(-10.0) },
+            onClick = onPrevStage,
             modifier = Modifier.weight(1f).height(48.dp),
             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = YangXiaColors.WorkoutInk),
         ) {
-            Text("-10秒", fontSize = 14.sp, maxLines = 1, softWrap = false)
+            Text("上一段", fontSize = 14.sp, maxLines = 1, softWrap = false)
         }
         Button(
             onClick = onTogglePause,
-            modifier = Modifier.weight(1.5f).height(50.dp),
+            modifier = Modifier.weight(1.45f).height(50.dp),
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
             colors = ButtonDefaults.buttonColors(containerColor = YangXiaColors.Accent),
         ) {
             Text(if (isPaused) "继续" else "暂停", fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
         }
         OutlinedButton(
-            onClick = { onSeekDelta(10.0) },
+            onClick = onNextStage,
+            enabled = canNext,
             modifier = Modifier.weight(1f).height(48.dp),
             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = YangXiaColors.WorkoutInk),
         ) {
-            Text("+10秒", fontSize = 14.sp, maxLines = 1, softWrap = false)
+            Text("下一段", fontSize = 14.sp, maxLines = 1, softWrap = false)
         }
     }
 }

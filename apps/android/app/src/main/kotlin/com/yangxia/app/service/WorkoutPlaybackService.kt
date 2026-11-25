@@ -96,10 +96,10 @@ object WorkoutPlaybackBus {
         context.startService(intent)
     }
 
-    fun seekBy(context: Context, deltaSec: Double) {
+    fun jumpStage(context: Context, delta: Int) {
         val intent = Intent(context, WorkoutPlaybackService::class.java).apply {
-            action = ACTION_SEEK_DELTA
-            putExtra(EXTRA_DELTA_SEC, deltaSec)
+            action = ACTION_JUMP_STAGE
+            putExtra(EXTRA_STAGE_DELTA, delta)
         }
         context.startService(intent)
     }
@@ -121,9 +121,9 @@ object WorkoutPlaybackBus {
 
     const val ACTION_START = "com.yangxia.app.action.START"
     const val ACTION_TOGGLE_PAUSE = "com.yangxia.app.action.TOGGLE_PAUSE"
-    const val ACTION_SEEK_DELTA = "com.yangxia.app.action.SEEK_DELTA"
+    const val ACTION_JUMP_STAGE = "com.yangxia.app.action.JUMP_STAGE"
     const val ACTION_FINISH = "com.yangxia.app.action.FINISH"
-    const val EXTRA_DELTA_SEC = "delta_sec"
+    const val EXTRA_STAGE_DELTA = "stage_delta"
 }
 
 /**
@@ -178,9 +178,9 @@ class WorkoutPlaybackService : Service() {
                 startSession(payload)
             }
             WorkoutPlaybackBus.ACTION_TOGGLE_PAUSE -> togglePause()
-            WorkoutPlaybackBus.ACTION_SEEK_DELTA -> {
-                val delta = intent.getDoubleExtra(WorkoutPlaybackBus.EXTRA_DELTA_SEC, 0.0)
-                seekBy(delta)
+            WorkoutPlaybackBus.ACTION_JUMP_STAGE -> {
+                val delta = intent.getIntExtra(WorkoutPlaybackBus.EXTRA_STAGE_DELTA, 0)
+                if (delta != 0) jumpStage(delta)
             }
             WorkoutPlaybackBus.ACTION_FINISH -> finishSession()
         }
@@ -259,16 +259,17 @@ class WorkoutPlaybackService : Service() {
         }
     }
 
-    private fun seekBy(deltaSec: Double) {
+    /** 按段精准跳转（上一段 / 下一段）：落点对齐整段起点，不破坏呼吸节拍，暂停中跳段只刷新画面不播报。 */
+    private fun jumpStage(delta: Int) {
         val st = WorkoutPlaybackBus.state.value
         val tl = st.plan?.timeline ?: return
         val cur = if (st.status == WorkoutPhaseStatus.PLAYING) currentElapsedSec() else accumulatedSec
-        val target = (cur + deltaSec).coerceIn(0.0, tl.totalDuration)
-        accumulatedSec = target
+        val (targetEvIdx, targetSec) = LiveViewMath.adjacentStageTarget(tl, cur, delta) ?: return
+        accumulatedSec = targetSec
         baseElapsedRealtimeMs = SystemClock.elapsedRealtime()
-        nextEventIdx = tl.events.indexOfFirst { it.time >= target }.let { if (it < 0) tl.events.size else it }
+        nextEventIdx = targetEvIdx
         audioEngine.stopAllPlayback()
-        WorkoutPlaybackBus.update { it.copy(elapsedSec = target) }
+        WorkoutPlaybackBus.update { it.copy(elapsedSec = targetSec, lastEventIndex = targetEvIdx) }
     }
 
     private fun finishSession() {

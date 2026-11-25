@@ -127,7 +127,8 @@ fun PreviewMi6WorkoutPortrait() {
             motionRawMap = emptyMap(),
             motionMetaMap = emptyMap(),
             onTogglePause = {},
-            onSeekDelta = {},
+            onPrevStage = {},
+            onNextStage = {},
             onFinish = {},
         )
     }
@@ -142,7 +143,8 @@ fun PreviewStandardWorkout() {
             motionRawMap = emptyMap(),
             motionMetaMap = emptyMap(),
             onTogglePause = {},
-            onSeekDelta = {},
+            onPrevStage = {},
+            onNextStage = {},
             onFinish = {},
         )
     }
@@ -157,7 +159,8 @@ fun PreviewLandscapeWorkout() {
             motionRawMap = emptyMap(),
             motionMetaMap = emptyMap(),
             onTogglePause = {},
-            onSeekDelta = {},
+            onPrevStage = {},
+            onNextStage = {},
             onFinish = {},
         )
     }

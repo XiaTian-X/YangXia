@@ -66,6 +66,26 @@ object LiveViewMath {
         return start to end
     }
 
+    /** 查找当前播放时刻所处的段索引（与 v1 编排器 jumpRel 语义一致）。 */
+    fun stageIndexAt(tl: TimelineDto, t: Double): Int {
+        if (tl.stages.isEmpty()) return -1
+        var cur = 0
+        for (i in tl.stages.indices) {
+            val stTime = tl.events.getOrNull(tl.stages[i].firstEventIdx)?.time ?: 0.0
+            if (stTime <= t + 1e-6) cur = i else break
+        }
+        return cur
+    }
+
+    /** 计算「上一段 / 下一段」跳转目标：(targetEventIdx, targetTimeSec)。 */
+    fun adjacentStageTarget(tl: TimelineDto, currentSec: Double, delta: Int): Pair<Int, Double>? {
+        if (tl.stages.isEmpty() || tl.events.isEmpty()) return null
+        val cur = stageIndexAt(tl, currentSec).coerceAtLeast(0)
+        val targetStageIdx = (cur + delta).coerceIn(0, tl.stages.lastIndex)
+        val evIdx = tl.stages[targetStageIdx].firstEventIdx.coerceIn(0, tl.events.lastIndex)
+        return evIdx to tl.events[evIdx].time
+    }
+
     private fun stripLead(s: String): String = s.replace(STRIP_LEAD_RE, "").trim()
 
     private fun breathPhrase(text: String): String {
