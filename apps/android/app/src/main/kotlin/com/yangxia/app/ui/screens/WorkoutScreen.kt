@@ -52,6 +52,20 @@ import com.yangxia.app.service.WorkoutSessionState
 import com.yangxia.app.ui.theme.YangXiaColors
 import kotlin.math.ceil
 
+/** 跟练页常驻的安全声明全文（v1 审查定的必须项：含"疼、头晕、胸闷马上停下"）。 */
+const val WORKOUT_SAFETY_TEXT = "未经专业审核，不是医学建议，不能替代医生的判断。疼、头晕、胸闷马上停下。"
+
+@Composable
+fun WorkoutSafetyNote(modifier: Modifier = Modifier) {
+    Text(
+        text = WORKOUT_SAFETY_TEXT,
+        color = YangXiaColors.WorkoutInkMuted,
+        fontSize = 16.sp,
+        lineHeight = 21.sp,
+        modifier = modifier.fillMaxWidth(),
+    )
+}
+
 private fun formatClock(sec: Double): String {
     val s = ceil(sec.coerceAtLeast(0.0)).toInt()
     return "%02d:%02d".format(s / 60, s % 60)
@@ -116,8 +130,9 @@ fun WorkoutScreen(
                         figure = figure,
                         rawJson = figure?.let { motionRawMap[it.clip] },
                         fallbackNote = frame?.phase ?: "",
-                        height = (availHeight - 86.dp).coerceIn(130.dp, 240.dp),
+                        height = (availHeight - 160.dp).coerceIn(100.dp, 220.dp),
                     )
+                    WorkoutSafetyNote()
                 }
                 Column(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -164,7 +179,7 @@ fun WorkoutScreen(
                     figure = figure,
                     rawJson = figure?.let { motionRawMap[it.clip] },
                     fallbackNote = frame?.phase ?: "",
-                    height = if (isCompactPortrait) 152.dp else 210.dp,
+                    height = if (isCompactPortrait) 120.dp else 196.dp,
                 )
 
                 CounterAndBreathBlock(
@@ -173,13 +188,16 @@ fun WorkoutScreen(
                     bigFontSp = if (isCompactPortrait) 40 else 52,
                 )
 
-                WorkoutControlsBar(
-                    isPaused = isPaused,
-                    canNext = canNextStage,
-                    onTogglePause = onTogglePause,
-                    onPrevStage = onPrevStage,
-                    onNextStage = onNextStage,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    WorkoutControlsBar(
+                        isPaused = isPaused,
+                        canNext = canNextStage,
+                        onTogglePause = onTogglePause,
+                        onPrevStage = onPrevStage,
+                        onNextStage = onNextStage,
+                    )
+                    WorkoutSafetyNote()
+                }
             }
         }
     }

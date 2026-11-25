@@ -257,7 +257,7 @@ npx playwright install chromium
   - 方案文档：[docs/自托管版需求文档.md](docs/自托管版需求文档.md)（v3 定稿）、[docs/自托管版架构与分阶段实施方案.md](docs/自托管版架构与分阶段实施方案.md)（v2 定稿）。
   - 常用命令：
     - `npm run build:web`：构建网页管理端静态产物（`apps/web/dist/`）。
-    - `npm run dev:server`：本地启动自托管服务端（默认 `http://0.0.0.0:3000`，数据落 `./data/`）。
+    - `npm run server`：本地启动自托管服务端（默认 `http://0.0.0.0:3000`，数据落 `./data/`）。
     - `docker compose -f deploy/docker-compose.yml up -d --build`：容器化部署（含 `/data` 持久化与只读 `/templates` 挂载）。
     - `npm run e2e -w @yangxia/web`：运行网页管理端 Playwright 端到端测试（断言 0 外部网络请求）。
     - `./apps/android/gradlew -p apps/android testDebugUnitTest assembleDebug`：运行安卓 JVM 跨端黄金一致性/安全/Deep Link 单测并打 Debug APK；连接真机后可运行 `connectedDebugAndroidTest`（配合 `adb reverse tcp:8787 tcp:8787` 可跑通真机全链路联调）。

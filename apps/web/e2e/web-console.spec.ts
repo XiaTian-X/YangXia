@@ -137,6 +137,22 @@ test("桌面 1440×900 与平板 820×1180：无大模型全闭环 + Agent SSE �
     await page.getByRole("button", { name: "前往可视向导建档" }).click();
     await expect(page.getByRole("heading", { name: "家庭与档案" })).toBeVisible();
     await page.getByPlaceholder("如 小夏、爸爸").fill("小夏E2E");
+    // 学段、成品、出生年月、体重腰围记不记都不预选：逐项明确选
+    const stageSelect = page.getByLabel("年龄 / 学段");
+    await expect(stageSelect).toHaveValue("");
+    await expect(stageSelect.locator("option", { hasText: "学龄前" })).toHaveCount(0);
+    await stageSelect.selectOption({ label: "18–39 岁" });
+    const productSelect = page.getByLabel("起始期计划成品");
+    await expect(productSelect.locator("option", { hasText: "附册" })).toHaveCount(0);
+    await productSelect.selectOption("18-39岁-居家版");
+    // 器材不预选：照训练单"按器材选一个"列出，勾能用的
+    const tableRow = page.getByLabel(/桌下反向划船/);
+    await expect(tableRow).not.toBeChecked();
+    await tableRow.check();
+    await expect(page.getByText(/桌下反向划船 · 第 1 选/)).toBeVisible();
+    await expect(page.getByLabel("出生年月（仅记到月）")).toHaveValue("");
+    await page.getByLabel("出生年月（仅记到月）").fill("1995-05");
+    await page.getByLabel("不记", { exact: true }).check();
     await page.getByRole("button", { name: "按公式计算" }).click();
     await expect(page.locator('input[placeholder="点击右侧计算"]')).toHaveValue(/\d{2}:\d{2}/);
     // 设置日期与当前测试时钟对齐（2026-11-02），并显式逐项勾选全部安全筛查为「否」
@@ -170,6 +186,12 @@ test("桌面 1440×900 与平板 820×1180：无大模型全闭环 + Agent SSE �
 
     // 3. 评估与复盘：可视化提交入门评估并展示后端重算结论
     await page.getByRole("button", { name: "评估与复盘" }).click();
+    // 测量值不预填；复盘不预勾"推进到下一周"
+    await expect(page.getByLabel("完成次数")).toHaveValue("");
+    await expect(page.getByLabel(/同时推进到下一周/)).not.toBeChecked();
+    await page.getByLabel("近 3 个月每周规律力量练习天数（0–7）").fill("0");
+    await page.getByLabel("俯卧撑测试做的是第几级（照成品动作库的分级）").fill("2");
+    await page.getByLabel("完成次数").fill("8");
     await page.getByRole("button", { name: "提交「入门」评估" }).click();
     await expect(page.getByText(/已提交「入门」评估，服务端重算结论/)).toBeVisible();
 

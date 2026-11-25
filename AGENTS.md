@@ -92,7 +92,7 @@ npm run profile -- check profiles/<代号>              # 档案（和模板核�
 npm run profile -- import profiles/<代号> <记录.json>… [--dry-run] [--replace]   # 导入练习记录：校验格式、核对是这个档案的课、去重，按格式写进 打卡/
 npm run build:player                                  # 打包核心库 ES2020 播放器运行时（packages/course-core/dist/player-runtime.js）
 npm run build:web                                     # 构建自托管网页排课管理端（apps/web/dist/）
-npm run dev:server                                    # 启动自托管服务端（apps/server/src/index.ts）
+npm run server                                        # 启动自托管服务端（apps/server/src/index.ts）
 npm run e2e -w @yangxia/web                           # 网页管理端 Playwright E2E（桌面 + 平板，断言 0 外部请求）
 ./apps/android/gradlew -p apps/android testDebugUnitTest assembleDebug   # 安卓端 JVM 单测（含 8 组黄金跨端一致性）与 Debug APK 构建
 python3 templates/tpl.py all                          # 改了模板后构建 + 校验

@@ -5,6 +5,7 @@ import {
   assessRules,
   auditProfileBundle,
   bedtimeFor,
+  choiceGroups,
   currentSegment,
   dayRows,
   DECLARATION,
@@ -108,6 +109,16 @@ export function registerProfileRoutes(
       products: snap.manifest.products,
       screening: age ? screeningFor(snap.manifest, age) : snap.manifest.intake.screening,
     });
+  });
+
+  // 这份成品要"按器材选一个"的组（训练单 trim.kind = choose），建档向导照它问，不替使用者选
+  app.get("/api/choices", (c) => {
+    const snap = ctx.templates.current();
+    const product = c.req.query("product") || "";
+    if (!snap.manifest.products.some((p) => p.name === product)) {
+      throw new AppError(400, "UNKNOWN_PRODUCT", "没有这份成品");
+    }
+    return c.json({ product, groups: snap.plans ? choiceGroups(snap.plans, snap.manifest, product) : [] });
   });
 
   app.get("/api/bedtime", (c) => {

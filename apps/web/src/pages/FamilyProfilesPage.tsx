@@ -1,4 +1,4 @@
-import { PROFILE_FORMAT } from "@yangxia/course-core";
+import { PROFILE_FORMAT, uncoveredChoiceGroups, type ChoiceGroup } from "@yangxia/course-core";
 import { useEffect, useState } from "preact/hooks";
 import { apiRequest, formatApiError } from "../lib/api.ts";
 import { qrSvgPath } from "../lib/qr.ts";
@@ -11,7 +11,8 @@ function todayIso(): string {
 
 interface IntakeResp {
   intake: {
-    stages: { label: string; age: string }[];
+    stages: { stage: string; age: string | null }[];
+    not_covered?: { group: string; advice: string }[];
     screening: { age: string; items: string[] }[];
   };
   products: { name: string; age: string; venue: string; phase?: string }[];
@@ -44,10 +45,16 @@ export function FamilyProfilesPage({
 
   // 新建档案向导表单状态
   const [code, setCode] = useState("");
-  const [stage, setStage] = useState("18–39 岁");
-  const [age, setAge] = useState("a18");
-  const [product, setProduct] = useState("18-39岁-居家版");
-  const [birth, setBirth] = useState("1995-05");
+  // 学段、成品、出生年月都不预选、不预填
+  const [stage, setStage] = useState("");
+  const [age, setAge] = useState("");
+  const [product, setProduct] = useState("");
+  const [birth, setBirth] = useState("");
+  const [walkBase, setWalkBase] = useState("");
+  const [bodyChoice, setBodyChoice] = useState<"" | "记" | "不记">("");
+  // "按器材选一个"：服务端按训练单给出要选的组，使用者勾能用的，勾的先后就是优先顺序
+  const [choiceGroupList, setChoiceGroupList] = useState<ChoiceGroup[]>([]);
+  const [choicePicked, setChoicePicked] = useState<string[]>([]);
   const [schoolStage, setSchoolStage] = useState("初中");
   const [schoolEntry, setSchoolEntry] = useState(2025);
   const [wake, setWake] = useState("07:00");
@@ -114,11 +121,27 @@ export function FamilyProfilesPage({
   }, []);
 
   useEffect(() => {
+    setChoicePicked([]);
+    setChoiceGroupList([]);
+    if (!product) return;
+    apiRequest<{ groups: ChoiceGroup[] }>(`/api/choices?product=${encodeURIComponent(product)}`)
+      .then((r) => setChoiceGroupList(r.groups ?? []))
+      .catch((err) => setError(formatApiError(err)));
+  }, [product]);
+
+  const choiceOptions = choiceGroupList
+    .flatMap((g) => g.options)
+    .filter((o, i, all) => all.findIndex((x) => x.value === o.value) === i);
+  const uncovered = uncoveredChoiceGroups(choiceGroupList, choicePicked);
+  const toggleChoice = (value: string, on: boolean) =>
+    setChoicePicked((cur) => (on ? (cur.includes(value) ? cur : [...cur, value]) : cur.filter((v) => v !== value)));
+
+  useEffect(() => {
     void loadSelected();
   }, [selectedProfile?.id]);
 
-  // 根据所选年龄段过滤起始期成品
-  const startProducts = (intake?.products ?? []).filter((p) => p.age === age && p.phase !== "稳定");
+  // 根据所选年龄段过滤起始期成品（附册、稳定期不能直接选）
+  const startProducts = (intake?.products ?? []).filter((p) => p.age === age && p.phase === "起始");
   const screeningItems = intake?.intake.screening.find((s) => s.age === age)?.items ?? [];
 
   // 按年龄段展示对应的训练安全条件项（未确认时不写入，交由核心规则层导出保守版本）
@@ -144,9 +167,8 @@ export function FamilyProfilesPage({
           : [];
 
   useEffect(() => {
-    if (startProducts.length && !startProducts.some((p) => p.name === product)) {
-      setProduct(startProducts[0].name);
-    }
+    // 成品不替使用者选：换了年龄段就清空，由使用者重新选
+    if (product && !startProducts.some((p) => p.name === product)) setProduct("");
     const initAns: Record<string, "是" | "否" | ""> = {};
     for (const item of screeningItems) initAns[item] = screenAnswers[item] ?? "";
     setScreenAnswers(initAns);
@@ -182,6 +204,16 @@ export function FamilyProfilesPage({
         if (v === "是") resolvedConditions[f.key] = true;
         else if (v === "否") resolvedConditions[f.key] = false;
       }
+      if (!startProducts.some((p) => p.name === product)) {
+        setError("请先选年龄 / 学段和起始期计划成品");
+        setBusy(false);
+        return;
+      }
+      if (uncovered.length) {
+        setError(`请先勾选能用的器材：${uncovered.map((g) => g.options.map((o) => o.name).join(" / ")).join("；")} 这几组每组至少选一个`);
+        setBusy(false);
+        return;
+      }
       const prodObj = startProducts.find((p) => p.name === product);
       const venue = prodObj?.venue ?? "home";
       const profilePayload: Record<string, any> = {
@@ -203,26 +235,25 @@ export function FamilyProfilesPage({
         ...(wake ? { wake } : {}),
         ...(bedtime ? { bedtime } : {}),
         ...(household.length ? { household } : {}),
+        ...(choicePicked.length ? { choices: choicePicked } : {}),
       };
       if (age === "a06" || age === "a13") {
         profilePayload.school = { stage: schoolStage, entry: Number(schoolEntry) };
         if (age === "a13") {
           if (Object.keys(resolvedConditions).length) profilePayload.conditions = resolvedConditions;
-          profilePayload.choices = ["table-row"];
           profilePayload.progress = {};
           profilePayload.progressLog = [];
         }
       } else if (age === "a65") {
         profilePayload.birth = birth;
-        profilePayload.habitBase = { 散步: 20 };
+        profilePayload.habitBase = { 散步: Number(walkBase) };
         if (Object.keys(resolvedConditions).length) profilePayload.conditions = resolvedConditions;
         profilePayload.progress = {};
         profilePayload.progressLog = [];
       } else {
         profilePayload.birth = birth;
-        profilePayload.body = "不记";
+        profilePayload.body = bodyChoice;
         if (Object.keys(resolvedConditions).length) profilePayload.conditions = resolvedConditions;
-        profilePayload.choices = ["table-row"];
         profilePayload.progress = {};
         profilePayload.progressLog = [];
       }
@@ -363,25 +394,32 @@ export function FamilyProfilesPage({
             <label class="field">
               <span>年龄 / 学段</span>
               <select
-                value={`${stage}|${age}`}
+                required
+                value={stage ? `${stage}|${age}` : ""}
                 onChange={(e) => {
-                  const [st, ag] = (e.target as HTMLSelectElement).value.split("|");
+                  const v = (e.target as HTMLSelectElement).value;
+                  const [st, ag] = v ? v.split("|") : ["", ""];
                   setStage(st);
                   setAge(ag);
+                  setProduct("");
                   if (ag === "a06") setSchoolStage("小学");
                   if (ag === "a13") setSchoolStage(st.includes("高") ? "高中" : "初中");
                 }}
               >
-                {(intake?.intake.stages ?? []).map((s) => (
-                  <option key={`${s.label}-${s.age}`} value={`${s.label}|${s.age}`}>
-                    {s.label} ({s.age})
-                  </option>
-                ))}
+                <option value="">请选择</option>
+                {(intake?.intake.stages ?? [])
+                  .filter((s) => s.age)
+                  .map((s) => (
+                    <option key={s.stage} value={`${s.stage}|${s.age}`}>
+                      {s.stage}
+                    </option>
+                  ))}
               </select>
             </label>
             <label class="field">
               <span>起始期计划成品</span>
-              <select value={product} onChange={(e) => setProduct((e.target as HTMLSelectElement).value)}>
+              <select required value={product} onChange={(e) => setProduct((e.target as HTMLSelectElement).value)}>
+                <option value="">请选择</option>
                 {startProducts.map((p) => (
                   <option key={p.name} value={p.name}>
                     {p.name}
@@ -390,6 +428,41 @@ export function FamilyProfilesPage({
               </select>
             </label>
           </div>
+          <p class="muted" style={{ fontSize: "13px" }}>
+            不在覆盖范围：{(intake?.intake.not_covered ?? []).map((n) => `${n.group}（${n.advice}）`).join("；")}。
+          </p>
+
+          {choiceGroupList.length > 0 && (
+            <fieldset class="card-soft">
+              <legend class="h3">能用的器材（成品写的是"按器材选一个"）</legend>
+              <p class="muted" style={{ fontSize: "13px" }}>
+                勾上家里能用的，先勾的优先用；每一组至少选一个。标"不能导出成跟练"的只能照成品原文做。
+              </p>
+              <div class="stack">
+                {choiceOptions.map((o) => {
+                  const order = choicePicked.indexOf(o.value);
+                  return (
+                    <label class="check" key={o.value}>
+                      <input type="checkbox" checked={order >= 0} onChange={(e) => toggleChoice(o.value, (e.target as HTMLInputElement).checked)} />
+                      <span>
+                        {o.name}
+                        {o.exportable ? "" : "（不能导出成跟练）"}
+                        {order >= 0 ? ` · 第 ${order + 1} 选` : ""}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              {uncovered.length > 0 && (
+                <p class="muted" style={{ fontSize: "13px" }}>
+                  还没选：
+                  {uncovered
+                    .map((g) => `${g.options.map((o) => o.name).join(" / ")}${g.condition ? `（${g.condition.name}为「${g.condition.value ? "是" : "否"}」时用）` : ""}`)
+                    .join("；")}
+                </p>
+              )}
+            </fieldset>
+          )}
 
           <div class="grid-3">
             {age === "a06" || age === "a13" ? (
@@ -412,6 +485,27 @@ export function FamilyProfilesPage({
                 <span>出生年月（仅记到月）</span>
                 <input type="text" required pattern="\d{4}-\d{2}" value={birth} onInput={(e) => setBirth((e.target as HTMLInputElement).value)} placeholder="YYYY-MM" />
               </label>
+            )}
+            {age === "a65" && (
+              <label class="field">
+                <span>现在每天散步大约几分钟（"散步减 5 分钟"按它算）</span>
+                <input type="number" min={1} max={180} required value={walkBase} onInput={(e) => setWalkBase((e.target as HTMLInputElement).value)} />
+              </label>
+            )}
+            {(age === "a18" || age === "a40") && (
+              <div class="field">
+                <span>体重腰围记不记（选"记"才记；出现节食、焦虑就停记）</span>
+                <div class="row">
+                  <label class="check">
+                    <input type="radio" name="body-choice" required checked={bodyChoice === "记"} onChange={() => setBodyChoice("记")} />
+                    <span>记</span>
+                  </label>
+                  <label class="check">
+                    <input type="radio" name="body-choice" required checked={bodyChoice === "不记"} onChange={() => setBodyChoice("不记")} />
+                    <span>不记</span>
+                  </label>
+                </div>
+              </div>
             )}
             <label class="field">
               <span>开始日期</span>

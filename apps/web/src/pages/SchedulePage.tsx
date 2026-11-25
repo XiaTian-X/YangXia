@@ -302,7 +302,7 @@ export function SchedulePage({
             <div class="stack" style={{ justifyContent: "center" }}>
               <label class="check">
                 <input type="checkbox" checked={half} onChange={(e) => setHalf((e.target as HTMLInputElement).checked)} />
-                <span>半量（--half，减半组数/时长）</span>
+                <span>半量课（中断后回来的第一次：组数减半向上取整，次数、秒数、休息不变）</span>
               </label>
             </div>
           </div>
