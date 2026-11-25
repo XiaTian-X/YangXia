@@ -176,7 +176,7 @@ export function App() {
             />
           )}
           {tab === "assess" && (
-            <AssessReviewPage profile={selectedProfile} onRefreshProfiles={() => void loadProfiles()} />
+            <AssessReviewPage profile={selectedProfile} isAdmin={me.user.role === "admin"} onRefreshProfiles={() => void loadProfiles()} />
           )}
           {tab === "profiles" && (
             <FamilyProfilesPage

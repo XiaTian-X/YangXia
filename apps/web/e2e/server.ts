@@ -47,6 +47,7 @@ function loadFixtureSnapshot(): TemplatesSnapshot {
 }
 
 export async function startLiveTestServer() {
+  let clock = new Date("2026-11-02T03:00:00.000Z");
   const tempDir = mkdtempSync(join(tmpdir(), "yangxia-web-e2e-"));
   const dbPath = join(tempDir, "yangxia.sqlite");
   const db = openDatabase(dbPath);
@@ -87,7 +88,7 @@ export async function startLiveTestServer() {
     setupCode: setup.store,
     masterKey: randomBytes(32),
     scrypt: { N: 1024, r: 8, p: 1, keylen: 64 },
-    now: () => new Date("2026-11-02T03:00:00.000Z"),
+    now: () => clock,
     agentRuntimeFactory: () => mockRuntime,
   });
 
@@ -103,6 +104,10 @@ export async function startLiveTestServer() {
   return {
     baseUrl,
     setupCode: setup.code!,
+    /** 拨服务端的时钟（周复盘要在这一周结束以后做）。 */
+    setNow(d: Date) {
+      clock = d;
+    },
     setupPath: setup.path,
     async close() {
       await new Promise<void>((res) => server.close(() => res()));

@@ -12,7 +12,7 @@ function GaitInput({ field, value, onChange }: { field: FormField; value: GaitVa
   const inp = field.input;
   const mode = value?.result === "没测成" ? "untested" : value?.result === "按规则不测" ? "skipped" : value ? "tested" : "";
   const set = (patch: GaitValue) => onChange({ ...(value ?? {}), ...patch });
-  const id = field.key.replace(/\W/g, "-");
+  const id = `g-${field.key.replace(/[^\w\u4e00-\u9fff]/g, "-")}`;
   return (
     <div class="stack" style={{ gap: "12px" }}>
       <Pills
@@ -81,7 +81,7 @@ function GaitInput({ field, value, onChange }: { field: FormField; value: GaitVa
 
 /** 一项输入。 */
 export function FieldInput({ field, value, onChange }: { field: FormField; value: unknown; onChange: (v: unknown) => void }) {
-  const id = `f-${field.key.replace(/[^\w]/g, "-")}`;
+  const id = `f-${field.key.replace(/[^\w\u4e00-\u9fff]/g, "-")}`;
   const inp = field.input;
   if (field.readonly) {
     return (

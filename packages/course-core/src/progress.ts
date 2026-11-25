@@ -212,7 +212,9 @@ export const FEELS = ["做不到下限或后面几下变形", "能做到下限�
 const RULES = ["建档", "找级", "退回", "减量", "升级", "加次数", "调重量", "加重", "重来", "加一档"] as const;
 const FIELDS = ["level", "reps", "weight"] as const;
 type Field = (typeof FIELDS)[number];
-const UP = new Set(["找级", "升级", "加次数", "调重量", "加重", "加一档"]);
+/** 往上加的规则（这一段、这一轮有不适时不能用；找级往下降一级不在此限）。 */
+export const UP_RULES = ["找级", "升级", "加次数", "调重量", "加重", "加一档"] as const;
+const UP = new Set<string>(UP_RULES);
 
 /** progress 的结构：{动作或阶梯 ID: {level?, reps?, weight?}}。 */
 export function validateProgressShape(p: Obj): Issue[] {

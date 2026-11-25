@@ -3,7 +3,7 @@
 import type { ProfileBundle, TemplateBundle } from "./engine.ts";
 import { productCode } from "./manifest.ts";
 import { planType, type PlansData, type RulesData } from "./plan.ts";
-import { localDate, progressOn, reviewDataName } from "./progress.ts";
+import { localDate, progressOn, reviewDataName, UP_RULES } from "./progress.ts";
 
 type Obj = Record<string, any>;
 type Field = "level" | "reps" | "weight";
@@ -15,6 +15,8 @@ export interface ProgressRuleOption {
   fields: Field[];
   /** 依据：练习记录、上一周的复盘数据、触发评估；null 是不用依据。 */
   evidence: "session" | "review" | "session-or-review" | "assessment" | null;
+  /** 往上加的规则：这一段（稳定期这一轮）或上一周有疼痛、头晕、胸闷时不能用（找级往下降一级除外）。 */
+  up: boolean;
 }
 
 export interface ProgressMove {
@@ -32,7 +34,7 @@ export interface ProgressForm {
   evidence: { sessions: { value: string; label: string }[]; reviews: { value: string; label: string }[]; assessments: { value: string; label: string }[] };
 }
 
-const RULE_OPTIONS: ProgressRuleOption[] = [
+const RULE_OPTIONS: Omit<ProgressRuleOption, "up">[] = [
   { rule: "建档", when: "第一次记起始值：这份成品开始的那一周（重量起始期没记的，稳定期第 1 周可以补）", fields: ["level", "reps", "weight"], evidence: null },
   { rule: "找级", when: "找级周里照练习记录这个动作的感受升或降一级", fields: ["level"], evidence: "session" },
   { rule: "退回", when: "练习记录里这个动作标了\"当场退回\"：降回上一级", fields: ["level"], evidence: "session" },
@@ -89,5 +91,6 @@ export function progressForm(bundle: ProfileBundle, t: TemplateBundle, opts: { n
     .reverse();
   const assessments = bundle.assessments.filter((a) => a.raw?.kind === "触发")
     .map((a) => ({ value: a.name, label: `${a.raw.date} 的触发评估（${(a.raw.reasons ?? []).join("、")}）` }));
-  return { moves: [...moves.values()], rules: RULE_OPTIONS.filter((r) => r.fields.some((f) => f !== "weight" || gym)), evidence: { sessions, reviews, assessments } };
+  const rules = RULE_OPTIONS.filter((r) => r.fields.some((f) => f !== "weight" || gym)).map((r) => ({ ...r, up: (UP_RULES as readonly string[]).includes(r.rule) }));
+  return { moves: [...moves.values()], rules, evidence: { sessions, reviews, assessments } };
 }
