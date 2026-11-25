@@ -263,7 +263,7 @@ npx playwright install chromium
     - `docker compose -f deploy/docker-compose.yml up -d --build`：容器化部署（含 `/data` 持久化与只读 `/templates` 挂载）。
     - `npm run e2e -w @yangxia/web`：运行网页管理端 Playwright 端到端测试（断言 0 外部网络请求）。
     - `./apps/android/gradlew -p apps/android testDebugUnitTest assembleDebug`：运行安卓 JVM 跨端黄金一致性/安全/Deep Link 单测并打 Debug APK；连接真机后可运行 `connectedDebugAndroidTest`（配合 `adb reverse tcp:8787 tcp:8787` 可跑通真机全链路联调）。
-  - 外部应用拉起（M8 Deep Link，仅接受不透明 UUID、拒绝查询参数）：`yangxia://today`、`yangxia://profile/<uuid>`、`yangxia://course/<uuid>`。
+  - 外部应用拉起（M8 Deep Link，仅接受不透明 UUID、拒绝查询参数）：`yangxia://today`、`yangxia://profile/<uuid>`、`yangxia://course/<uuid>`（打开"今天"页并选中这节课，不直接开练：练前确认照样要答）。
 - 每一次改了什么见 [CHANGELOG.md](CHANGELOG.md)；模板仓库的改动记在 `templates/CHANGELOG.md`。
 
 ## 文档
