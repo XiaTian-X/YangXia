@@ -19,6 +19,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -194,6 +195,29 @@ class GoldenPlayerParityTest {
                         sc["expectedSession"]!!,
                         json.parseToJsonElement(fallbackSessJson),
                     )
+
+                    // 练完页每个动作的补充（感受、还能做几下、当场退回）：核心库 buildSession 和 Kotlin 回退写法一致
+                    val perItemJson = com.yangxia.app.ui.screens.perItemToJson(
+                        mapOf(0 to com.yangxia.app.ui.screens.ItemNote(feel = "能做到下限，最后两下有点难", spare = 3, reverted = true)),
+                    )
+                    val withItemQjs = provider.buildPlayerSessionJson(
+                        courseJson = courseJson, timelineJson = tlJson, playedIndices = played,
+                        startedAtIso = sc["startedAt"]!!.jsonPrimitive.content, endedAtIso = sc["endedAt"]!!.jsonPrimitive.content,
+                        symptoms = syms, feeling = sc["feeling"]!!.jsonPrimitive.content, note = noteText, edited = editedFlag,
+                        perItemJson = perItemJson,
+                    )
+                    val withItemFallback = fallback.buildPlayerSessionJson(
+                        courseJson = courseJson, timelineJson = tlJson, playedIndices = played,
+                        startedAtIso = sc["startedAt"]!!.jsonPrimitive.content, endedAtIso = sc["endedAt"]!!.jsonPrimitive.content,
+                        symptoms = syms, feeling = sc["feeling"]!!.jsonPrimitive.content, note = noteText, edited = editedFlag,
+                        perItemJson = perItemJson,
+                    )
+                    val qItems = json.parseToJsonElement(withItemQjs).jsonObject["items"]!!.jsonArray
+                    assertEquals("[$caseId] perItem feel", "能做到下限，最后两下有点难", qItems[0].jsonObject["feel"]!!.jsonPrimitive.content)
+                    assertEquals("[$caseId] perItem spare", 3, qItems[0].jsonObject["spare"]!!.jsonPrimitive.int)
+                    assertEquals("[$caseId] perItem reverted", true, qItems[0].jsonObject["reverted"]!!.jsonPrimitive.booleanOrNull)
+                    if (qItems.size > 1) assertNull("[$caseId] 没填的动作不写 feel", qItems[1].jsonObject["feel"])
+                    assertEquals("[$caseId] perItem (QuickJS vs Fallback)", json.parseToJsonElement(withItemQjs), json.parseToJsonElement(withItemFallback))
                 }
             }
         } finally {

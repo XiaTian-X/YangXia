@@ -104,6 +104,27 @@ data class BreathPluckDto(
 )
 
 @Serializable
+data class RepDto(val n: Int = 0, val of: Int = 0)
+
+/**
+ * 跟练画面用的结构化字段（核心库 timeline.ts 的 EventView）：吸呼、左右侧、数到第几、倒数几秒都读这里，
+ * 不从显示文字（display、label、breathText、tag）里解析。
+ */
+@Serializable
+data class EventViewDto(
+    val breath: String? = null, // "inhale" | "exhale" | null
+    val lead: Boolean = false,
+    val tempo: String? = null, // "down" | "up" | "top" | "bottom" | null
+    val rep: RepDto? = null,
+    val secLeft: Int? = null,
+    val restTotal: Int? = null,
+    val count: Int? = null,
+    val side: String? = null, // "左侧" | "右侧" | null
+    val sideSwitch: Boolean = false,
+    val done: Boolean = false,
+)
+
+@Serializable
 data class TimelineEventDto(
     val time: Double = 0.0,
     val beatDur: Double = 1.0,
@@ -128,6 +149,7 @@ data class TimelineEventDto(
     val timedProgressRatio: Double? = null,
     val phaseGroup: String = "",
     val itemIndex: Int = 0,
+    val view: EventViewDto = EventViewDto(),
 )
 
 @Serializable
@@ -214,6 +236,21 @@ data class FigureFrame(
     val itemIndex: Int,
 )
 
+/**
+ * 练前确认（核心库 PreSessionCheck）：
+ * - kind = "fall"：65 岁以上每次问；答"有"不开练，照 stop 做；
+ * - kind = "condition"：训练单"每次练之前确认"的条件；recorded 是档案记的（null 没确认），不一样时照 hint 换做法。
+ */
+@Serializable
+data class PreSessionCheckDto(
+    val kind: String = "condition",
+    val ask: String = "",
+    val stop: String? = null,
+    val condition: String? = null,
+    val recorded: Boolean? = null,
+    val hint: String? = null,
+)
+
 @Serializable
 data class DeliveryEnvelopeDto(
     val schema: String = "yangxia.delivery/1",
@@ -230,10 +267,26 @@ data class DeliveryEnvelopeDto(
     val course: CourseDto,
     val follow: List<JsonElement> = emptyList(),
     val notes: List<JsonElement> = emptyList(),
+    val checks: List<PreSessionCheckDto> = emptyList(),
+    /** 服务端照本人播放偏好排出的时间轴总长（分钟，向上取整）；没有就不写时长。 */
+    val minutes: Int? = null,
     val motionHashes: Map<String, String> = emptyMap(),
 ) {
     fun followLines(): List<String> = follow.mapNotNull(::formatNoteElement)
     fun noteLines(): List<String> = notes.mapNotNull(::formatNoteElement)
+
+    /** 照成品做的项：名字和原因分开（名字连成一行，原因去重后逐条写）。 */
+    fun followItems(): List<Pair<String, String>> = follow.mapNotNull { el ->
+        when (el) {
+            is JsonPrimitive -> el.content.takeIf { it.isNotBlank() }?.let { it to "" }
+            is JsonObject -> {
+                val name = el["name"]?.jsonPrimitive?.content.orEmpty()
+                val reason = el["reason"]?.jsonPrimitive?.content.orEmpty()
+                if (name.isBlank() && reason.isBlank()) null else name to reason
+            }
+            else -> null
+        }
+    }
 
     companion object {
         private fun formatNoteElement(el: JsonElement): String? = when (el) {

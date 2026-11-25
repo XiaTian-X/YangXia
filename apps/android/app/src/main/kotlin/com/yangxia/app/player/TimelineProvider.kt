@@ -1,5 +1,10 @@
 package com.yangxia.app.player
 
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import com.dokar.quickjs.QuickJs
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.sync.Mutex
@@ -28,6 +33,10 @@ interface TimelineProvider {
         playedIndices: List<Int>,
     ): List<Int>
 
+    /**
+     * 照实际播放过的拍子生成练习记录（完成组数只数播放过的组，不能手改）。
+     * perItemJson：每个动作的补充 {"itemIndex": {feel, spare, reverted}}（核心库 SessionInput.perItem）。
+     */
     suspend fun buildPlayerSessionJson(
         courseJson: String,
         timelineJson: String,
@@ -38,8 +47,10 @@ interface TimelineProvider {
         feeling: String,
         note: String,
         edited: Boolean = false,
+        perItemJson: String = "{}",
     ): String
 
+    /** 只给真机联调测试用（不经播放直接给组数）；练完页不走这里。 */
     suspend fun buildSessionWithSetsDoneJson(
         courseJson: String,
         setsDone: List<Int>,
@@ -49,6 +60,7 @@ interface TimelineProvider {
         feeling: String,
         note: String,
         edited: Boolean = false,
+        perItemJson: String = "{}",
     ): String
 }
 
@@ -137,7 +149,8 @@ class QuickJsTimelineProvider(
                   + "\t" + flags
                   + "\t" + (e.timedProgressRatio != null ? e.timedProgressRatio : "")
                   + "\t" + esc(e.phaseGroup)
-                  + "\t" + (e.itemIndex | 0);
+                  + "\t" + (e.itemIndex | 0)
+                  + "\t" + esc(JSON.stringify(e.view || {}));
               }
               var head = globalThis.__yxToJniSafeJson({
                 course: plan.course,
@@ -198,7 +211,7 @@ class QuickJsTimelineProvider(
         val headJson = packed.substring(0, firstNl)
         val head = json.decodeFromString(PlayerPlanResultDto.serializer(), headJson)
         val events = ArrayList<TimelineEventDto>(1024)
-        val cols = Array(19) { "" }
+        val cols = Array(20) { "" }
         var pos = firstNl + 1
         val len = packed.length
         while (pos < len) {
@@ -217,7 +230,7 @@ class QuickJsTimelineProvider(
         var col = 0
         var cStart = start
         var i = start
-        while (i < end && col < 18) {
+        while (i < end && col < 19) {
             if (src[i] == '\t') {
                 cols[col++] = src.substring(cStart, i)
                 cStart = i + 1
@@ -270,6 +283,8 @@ class QuickJsTimelineProvider(
             timedProgressRatio = if (ratioRaw.isEmpty()) null else ratioRaw.toDoubleOrNull(),
             phaseGroup = unescapeCell(cols[17]),
             itemIndex = cols[18].toIntOrNull() ?: 0,
+            // 第 20 列：跟练画面用的结构化字段（核心库 EventView，紧凑 JSON）
+            view = if (cols[19].isEmpty()) EventViewDto() else json.decodeFromString(EventViewDto.serializer(), unescapeCell(cols[19])),
         )
     }
 
@@ -340,6 +355,7 @@ class QuickJsTimelineProvider(
         feeling: String,
         note: String,
         edited: Boolean,
+        perItemJson: String,
     ): String = mutex.withLock {
         withContext(dispatcher) {
             val rt = ensureRuntime()
@@ -358,7 +374,8 @@ class QuickJsTimelineProvider(
                     symptoms: { pain: $pain, dizzy: $dizzy, chest: $chest },
                     feeling: ${lit(feeling)},
                     edited: $edited,
-                    note: ${lit(note)}
+                    note: ${lit(note)},
+                    perItem: JSON.parse(${lit(perItemJson)})
                   });
                   return globalThis.__yxToJniSafeJson(sess);
                 })()
@@ -376,6 +393,7 @@ class QuickJsTimelineProvider(
         feeling: String,
         note: String,
         edited: Boolean,
+        perItemJson: String,
     ): String = mutex.withLock {
         withContext(dispatcher) {
             val rt = ensureRuntime()
@@ -394,7 +412,8 @@ class QuickJsTimelineProvider(
                     symptoms: { pain: $pain, dizzy: $dizzy, chest: $chest },
                     feeling: ${lit(feeling)},
                     edited: $edited,
-                    note: ${lit(note)}
+                    note: ${lit(note)},
+                    perItem: JSON.parse(${lit(perItemJson)})
                   });
                   return globalThis.__yxToJniSafeJson(sess);
                 })()
@@ -485,6 +504,7 @@ class ServerPrecomputedTimelineProvider(
         feeling: String,
         note: String,
         edited: Boolean,
+        perItemJson: String,
     ): String {
         val setsDone = computeSetsDone(courseJson, timelineJson, playedIndices)
         return buildSessionWithSetsDoneJson(
@@ -496,6 +516,7 @@ class ServerPrecomputedTimelineProvider(
             feeling = feeling,
             note = note,
             edited = edited,
+            perItemJson = perItemJson,
         )
     }
 
@@ -508,13 +529,25 @@ class ServerPrecomputedTimelineProvider(
         feeling: String,
         note: String,
         edited: Boolean,
+        perItemJson: String,
     ): String {
         val course = json.decodeFromString(CourseDto.serializer(), courseJson)
         val plannedList = course.plannedPerItem()
+        // 和核心库 buildSession 一样：每个动作的感受（成品原话）、还能做几下、当场退回
+        val perItem = runCatching { json.parseToJsonElement(perItemJson).jsonObject }.getOrNull()
         val itemsJson = course.allItems().mapIndexed { idx, item ->
             val planned = plannedList.getOrElse(idx) { 1 to "组" }.first
             val done = minOf(planned, setsDone.getOrElse(idx) { 0 })
-            """{"exercise":${Json.encodeToString(item.exercise)},"setsPlanned":$planned,"setsDone":$done,"skipped":${done == 0}}"""
+            val extra = perItem?.get(idx.toString())?.jsonObject
+            val feel = extra?.get("feel")?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotEmpty() }
+            val spare = extra?.get("spare")?.jsonPrimitive?.intOrNull
+            val reverted = extra?.get("reverted")?.jsonPrimitive?.booleanOrNull == true
+            val extras = buildString {
+                if (feel != null) append(""","feel":${Json.encodeToString(feel)}""")
+                if (spare != null) append(""","spare":$spare""")
+                if (reverted) append(""","reverted":true""")
+            }
+            """{"exercise":${Json.encodeToString(item.exercise)},"setsPlanned":$planned,"setsDone":$done,"skipped":${done == 0}$extras}"""
         }.joinToString(",")
         val pain = symptoms.contains("疼痛")
         val dizzy = symptoms.contains("头晕")

@@ -301,7 +301,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _screen.value = AppScreen.SUMMARY
     }
 
-    fun submitSummary(setsDone: List<Int>, symptoms: List<String>, feel: String, note: String) {
+    /** 练完保存：完成组数照实际播放过的算（不手改）；perItem 是每个动作的感受、还能做几下、当场退回。 */
+    fun submitSummary(symptoms: List<String>, feel: String, note: String, perItem: Map<Int, com.yangxia.app.ui.screens.ItemNote>) {
         viewModelScope.launch {
             _busy.value = true
             clearBanner()
@@ -325,10 +326,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     playedIndices = st.playedEventIndices,
                     startedAtIso = st.startedAtIso.ifBlank { Instant.now().toString() },
                     endedAtIso = Instant.now().toString(),
-                    setsDoneOverride = setsDone,
                     symptoms = symptoms,
                     feel = feel,
                     note = note,
+                    perItemJson = com.yangxia.app.ui.screens.perItemToJson(perItem),
                 )
                 WorkoutPlaybackBus.resetToIdle()
                 _screen.value = AppScreen.TODAY

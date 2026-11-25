@@ -337,10 +337,12 @@ class YangXiaRepository(context: Context) {
         playedIndices: List<Int>,
         startedAtIso: String,
         endedAtIso: String,
-        setsDoneOverride: List<Int>,
         symptoms: List<String>,
         feel: String,
         note: String,
+        perItemJson: String = "{}",
+        /** 只给真机联调测试：不经播放直接给组数。练完页不传，组数照实际播放过的算。 */
+        setsDoneOverride: List<Int> = emptyList(),
     ): SyncReport {
         val prefs = prefsStore.prefsFlow.first()
         val provider: TimelineProvider = if (prefs.useServerPrecomputed) {
@@ -357,6 +359,7 @@ class YangXiaRepository(context: Context) {
                 symptoms = symptoms,
                 feeling = feel,
                 note = note,
+                perItemJson = perItemJson,
             )
         } else {
             provider.buildPlayerSessionJson(
@@ -368,6 +371,7 @@ class YangXiaRepository(context: Context) {
                 symptoms = symptoms,
                 feeling = feel,
                 note = note,
+                perItemJson = perItemJson,
             )
         }
 

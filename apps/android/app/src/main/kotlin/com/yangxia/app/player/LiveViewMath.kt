@@ -13,13 +13,8 @@ import kotlin.math.roundToInt
 object LiveViewMath {
 
     private val STAGE_RE = Regex("^ex-(\\d+)-(prep|set|rest)(?:-(\\d+))?$")
-    private val LEAD_BREATH_RE = Regex("领呼\"(吸|呼)\"")
-    private val NEUTRAL_BREATH_RE = Regex("均匀|自然|别把气停住")
-    private val SIDE_TAG_RE = Regex("· (左侧|右侧)")
+    // 显示状态、数字、倒数一律读时间轴事件的 view 字段；下面几个正则只做给人看的文字整理（去掉前面的图标、"第 N 次 · "）
     private val STRIP_LEAD_RE = Regex("^[^\\p{L}\\p{N}]+")
-    private val SEC_DISPLAY_RE = Regex("^(\\d+)s$")
-    private val INT_DISPLAY_RE = Regex("^\\d+$")
-    private val REP_DISPLAY_RE = Regex("(\\d+) / (\\d+)")
     private val REP_PREFIX_RE = Regex("^第 \\d+ 次 · ")
     private val PLUS_ONE_RE = Regex("\\s*\\(\\+1\\)")
 
@@ -32,20 +27,6 @@ object LiveViewMath {
             itemIndex = m.groupValues[1].toInt(),
             set = m.groupValues[3].toIntOrNull() ?: 0,
         )
-    }
-
-    fun breathOf(text: String): String? {
-        LEAD_BREATH_RE.find(text)?.let { m ->
-            return if (m.groupValues[1] == "吸") "inhale" else "exhale"
-        }
-        if (NEUTRAL_BREATH_RE.containsMatchIn(text)) return null
-        val inh = text.contains("吸")
-        val exh = text.contains("呼")
-        return when {
-            inh && !exh -> "inhale"
-            exh && !inh -> "exhale"
-            else -> null
-        }
     }
 
     fun eventIndexAt(events: List<TimelineEventDto>, t: Double): Int {
@@ -88,20 +69,17 @@ object LiveViewMath {
 
     private fun stripLead(s: String): String = s.replace(STRIP_LEAD_RE, "").trim()
 
-    private fun breathPhrase(text: String): String {
-        LEAD_BREATH_RE.find(text)?.let { m ->
-            return if (m.groupValues[1] == "吸") "吸气" else "呼气"
-        }
-        return stripLead(text)
-    }
+    /** 领呼的拍子说"吸气""呼气"，别的照呼吸提示文字（去掉前面的图标）。 */
+    private fun breathPhrase(ev: TimelineEventDto): String =
+        if (ev.view.lead) (if (ev.view.breath == "inhale") "吸气" else "呼气") else stripLead(ev.breathText)
 
-    private fun tempoSeconds(item: CourseItemDto?, label: String): String {
+    private fun tempoSeconds(item: CourseItemDto?, tempo: String?): String {
         val tp = item?.tempo ?: return ""
-        val sec = when {
-            label.contains("下放") -> tp.down
-            label.contains("发力") -> tp.up
-            label.contains("顶点") -> tp.top
-            label.contains("底部") -> tp.bottom
+        val sec = when (tempo) {
+            "down" -> tp.down
+            "up" -> tp.up
+            "top" -> tp.top
+            "bottom" -> tp.bottom
             else -> null
         }
         return if (sec != null && sec > 0) "$sec 秒" else ""
@@ -121,14 +99,10 @@ object LiveViewMath {
     private fun setTotalOf(tl: TimelineDto, itemIndex: Int): Int =
         tl.stages.count { s -> parseStage(s.id)?.let { it.kind == "set" && it.itemIndex == itemIndex } == true }
 
+    /** 休息段一共几秒（4 秒以下的休息没有，按时长算）。 */
     private fun restSeconds(tl: TimelineDto, stageIndex: Int): Int? {
         val st = tl.stages.getOrNull(stageIndex) ?: return null
-        var i = st.firstEventIdx
-        while (i < tl.events.size && tl.events[i].phaseGroup == st.id) {
-            SEC_DISPLAY_RE.matchEntire(tl.events[i].display)?.let { return it.groupValues[1].toInt() }
-            i++
-        }
-        return null
+        return tl.events.getOrNull(st.firstEventIdx)?.view?.restTotal
     }
 
     fun liveFrame(course: CourseDto, tl: TimelineDto, idx: Int, t: Double): LiveFrame {
@@ -146,9 +120,9 @@ object LiveViewMath {
         val unit = units.getOrElse(info.itemIndex) { "组" }
         val total = setTotalOf(tl, info.itemIndex).coerceAtLeast(1)
         val head = "${itemIndex + 1} / ${items.size}"
-        val side = SIDE_TAG_RE.find(ev.tag)?.groupValues?.get(1)
+        val side = if (ev.view.sideSwitch) null else ev.view.side
         val (start, end) = stageSpan(tl, stageIndex)
-        val breath = breathOf(ev.breathText)
+        val breath = ev.view.breath
         val breathWord = when (breath) {
             "inhale" -> "吸气"
             "exhale" -> "呼气"
@@ -167,7 +141,7 @@ object LiveViewMath {
         when {
             ev.state == "rest" -> {
                 val all = restSeconds(tl, stageIndex) ?: max(1, (end - start).roundToInt())
-                val sec = SEC_DISPLAY_RE.matchEntire(ev.display)
+                val sec = ev.view.secLeft
                 title = if (tl.stages[stageIndex].label == "换项休") "换项休息" else "${unit}间休息"
                 sub = if (unit == "轮" && tl.stages[stageIndex].label == "换项休") {
                     "$head · 这一轮的${items.getOrNull(info.itemIndex)?.name ?: "动作"}做完了"
@@ -176,35 +150,35 @@ object LiveViewMath {
                 }
                 phase = stripLead(ev.breathText)
                 if (sec != null) {
-                    val leftSec = max(0.0, sec.groupValues[1].toDouble() - max(0.0, t - ev.time))
+                    val leftSec = max(0.0, sec.toDouble() - max(0.0, t - ev.time))
                     over = "还剩"
                     big = ceil(leftSec - 0.001).toInt().coerceAtLeast(0).toString()
                     small = "秒，共 $all 秒"
                     ring = (leftSec / all.toDouble()).coerceIn(0.0, 1.0)
                 } else {
                     over = stripLead(ev.label)
-                    big = if (INT_DISPLAY_RE.matches(ev.display)) ev.display else ""
+                    big = ev.view.count?.toString() ?: ""
                     ring = 0.0
                 }
             }
             ev.state == "prep" -> {
                 sub = "$head · 准备"
                 title = item?.name ?: ""
-                big = if (INT_DISPLAY_RE.matches(ev.display)) ev.display else ""
+                big = ev.view.count?.toString() ?: ""
                 over = if (big.isNotEmpty()) "" else "准备"
                 phase = stripLead(ev.label)
             }
-            ev.display == "左侧" || ev.display == "右侧" -> {
+            ev.view.sideSwitch -> {
                 sub = "$head · 第 ${info.set} / $total $unit"
                 over = "换边"
-                big = ev.display
+                big = ev.view.side ?: ""
                 small = "不休息"
                 ring = 0.0
                 phase = stripLead(ev.label)
             }
             ev.isTimedMode -> {
-                val done = ev.display.contains("✓")
-                val leftNum = Regex("\\d+").find(ev.display)?.value?.toIntOrNull() ?: 0
+                val done = ev.view.done
+                val leftNum = ev.view.secLeft ?: 0
                 val sideText = when {
                     side != null -> " · $side"
                     done && item?.perSide == true -> " · 两侧做完"
@@ -214,19 +188,18 @@ object LiveViewMath {
                 big = leftNum.toString()
                 small = "秒"
                 ring = if (done) 1.0 else (1.0 - (ev.timedProgressRatio ?: 1.0)).coerceIn(0.0, 1.0)
-                phase = if (done) stripLead(ev.label) else breathPhrase(ev.breathText)
+                phase = if (done) stripLead(ev.label) else breathPhrase(ev)
             }
             else -> {
-                val m = REP_DISPLAY_RE.find(ev.display)
-                val r = m?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                val n = m?.groupValues?.get(2)?.toIntOrNull() ?: (item?.reps ?: 0)
+                val r = ev.view.rep?.n ?: 0
+                val n = ev.view.rep?.of ?: (item?.reps ?: 0)
                 sub = "$head · 第 ${info.set} / $total $unit${if (side != null) " · $side" else ""}"
                 big = r.toString()
                 small = "/ $n"
                 ring = if (n > 0) min(1.0, r.toDouble() / n.toDouble()) else 0.0
                 val lbl = stripLead(ev.label).replace(REP_PREFIX_RE, "").replace(PLUS_ONE_RE, "")
                 phase = if (breathWord.isNotEmpty() && !lbl.contains(breathWord)) "$lbl · $breathWord" else lbl
-                phaseSec = tempoSeconds(item, lbl)
+                phaseSec = tempoSeconds(item, ev.view.tempo)
             }
         }
 

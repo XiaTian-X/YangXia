@@ -158,7 +158,7 @@ class MainActivity : ComponentActivity() {
                                     course = c,
                                     initialSetsDone = summarySets,
                                     busy = busy,
-                                    onSubmit = { sets, syms, feel, note -> vm.submitSummary(sets, syms, feel, note) },
+                                    onSubmit = { syms, feel, note, perItem -> vm.submitSummary(syms, feel, note, perItem) },
                                     onDiscard = {
                                         WorkoutPlaybackBus.resetToIdle()
                                         vm.backToToday()

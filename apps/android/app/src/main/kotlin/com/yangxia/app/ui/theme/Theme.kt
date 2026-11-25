@@ -31,12 +31,34 @@ object YangXiaColors {
     val Danger = Color(0xFFB23B2A)
     val DangerSoft = Color(0xFFFBE7E3)
 
+    // 设计稿"安卓 · 今天"：练前确认卡的深棕字和按钮描边、动作卡描边
+    val WarnInk = Color(0xFF5E3A0C)
+    val WarnLine = Color(0xFFD9C9A8)
+    val CardLine = Color(0xFFE9E4DA)
+    val InhaleInk = Color(0xFF234F7D)
+    val ExhaleInk = Color(0xFF7A4214)
+    val Muted = Color(0xFF8A948E)
+
     // 深色沉浸跟练页（Lottie 动图外层套 #F9FAFB 浅色圆角底卡）
     val WorkoutGround = Color(0xFF111916)
     val WorkoutSurface = Color(0xFF1C2722)
     val WorkoutInk = Color(0xFFF4F6F4)
     val WorkoutInkMuted = Color(0xFFAAB8B0)
     val MotionCardLight = Color(0xFFF9FAFB)
+
+    // 设计稿"安卓 · 跟练"：外圈进度绿；内盘吸气蓝、呼气橙；暂停时橙色
+    val WorkoutAccent = Color(0xFF5FD3A0)
+    val WorkoutTrack = Color(0xFF22332A)
+    val WorkoutLine = Color(0xFF2C3F35)
+    val WorkoutCard = Color(0xFF18261F)
+    val InhaleDisc = Color(0xFF14263A)
+    val InhaleRing = Color(0xFF7FB6F0)
+    val InhaleText = Color(0xFFDCEBFA)
+    val ExhaleDisc = Color(0xFF2B2114)
+    val ExhaleRing = Color(0xFFF2A65A)
+    val ExhaleText = Color(0xFFFBE3C6)
+    val WorkoutDanger = Color(0xFFF28B7A)
+    val WorkoutStop = Color(0xFFF6B9AE)
 }
 
 private val YangXiaLightScheme = lightColorScheme(
