@@ -537,7 +537,7 @@ export function doctorNeed(ctx: AssessContext): { needed: boolean; ok: boolean; 
 /** 一份评估记录按档案和规则核对：测试项属于成品和时机、身体数据只给 18–64 岁且选了"记"、65 岁以上有人在旁边和医生同意、高血压的静蹲上限、开工前提、结论。 */
 export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, asEntry: boolean): Issue[] {
   const out: Issue[] = [];
-  const err = (path: string, message: string) => out.push({ level: "error", path: `${f.name}${path ? " " + path : ""}`, message });
+  const err = (path: string, message: string, code?: string) => out.push({ level: "error", path: `${f.name}${path ? " " + path : ""}`, message, ...(code ? { code } : {}) });
   const ar = assessRules(ctx.rules);
   const info = productInfo(ctx.manifest, product);
   if (!ar || !info) return out;
@@ -637,7 +637,7 @@ export function checkRecord(ctx: AssessContext, f: AssessFile, product: string, 
     // 换到有目标规则的模板以前写的周期末记录：只缺 goals，提醒补上，不算错
     out.push({ level: "warning", path: `${f.name} conclusion`, message: `这份周期末记录是换模板以前写的，没有下一周期能选的目标：用 npm run course -- assess 重算一次，补上 goals（${JSON.stringify(wantGoals)}）` });
   } else if (r.conclusion !== undefined && want && !sameJson(r.conclusion, want)) {
-    err("conclusion", `写的结论和按规则重算的不一致：应该是 ${JSON.stringify(want)}（用 npm run course -- assess 算）`);
+    err("conclusion", `写的结论和按规则重算的不一致：应该是 ${JSON.stringify(want)}（用 npm run course -- assess 算）`, "CONCLUSION_MISMATCH");
   } else if (r.conclusion === undefined && want && Object.keys(want).length) err("conclusion", `缺结论：应该是 ${JSON.stringify(want)}`);
   return out;
 }
@@ -780,7 +780,7 @@ export function cycleHold(ctx: AssessContext, n: number): boolean {
  */
 export function checkAssessments(ctx: AssessContext): Issue[] {
   const out: Issue[] = [];
-  const err = (path: string, message: string) => out.push({ level: "error", path, message });
+  const err = (path: string, message: string, code?: string) => out.push({ level: "error", path, message, ...(code ? { code } : {}) });
   const warn = (path: string, message: string) => out.push({ level: "warning", path, message });
   const ar = assessRules(ctx.rules);
   const p = ctx.profile;
@@ -811,7 +811,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
   // 1. 入门评估
   const entries = byKind("入门");
   const first = entries.find((a) => a.raw.date <= ss[0].start);
-  if (!first) err("评估/", `第一段（${ss[0].start} 起）之前要有入门评估：评估/<日期>-入门.json（用 npm run course -- assess 列出要问、要测的项）`);
+  if (!first) err("评估/", `第一段（${ss[0].start} 起）之前要有入门评估：评估/<日期>-入门.json（用 npm run course -- assess 列出要问、要测的项）`, "ENTRY_ASSESSMENT_MISSING");
   for (const a of entries) {
     if (a.raw.product !== undefined && a.raw.product !== ss[0].product) err(a.name, `入门评估是给「${ss[0].product}」做的，写的是「${a.raw.product}」`);
     out.push(...checkRecord(ctx, a, ss[0].product, true));
@@ -1127,7 +1127,7 @@ export function checkAssessments(ctx: AssessContext): Issue[] {
       const why = a.raw.kind === "入门" ? "建档" : isSwitch(a) ? "换到 65 岁以上版" : ASKS.find((x) => hasReason(a, x));
       if (!why) continue;
       const fr = a.raw.fallRisk;
-      if (!isObj(fr)) { err(`${a.name} fallRisk`, `65 岁以上${why}要做跌倒风险自查（照成品第〇章《跌倒风险自查》的原话；npm run course -- assess 列出来）`); continue; }
+      if (!isObj(fr)) { err(`${a.name} fallRisk`, `65 岁以上${why}要做跌倒风险自查（照成品第〇章《跌倒风险自查》的原话；npm run course -- assess 列出来）`, "FALL_RISK_MISSING"); continue; }
       if (typeof fr.askedOn !== "string") continue;
       // 这次要重新问：事件之后做的问卷；不能照抄之前那份
       const ev = a.raw.eventDate;

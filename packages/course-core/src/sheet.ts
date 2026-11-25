@@ -128,7 +128,7 @@ export function buildSheet(ctx: AssessContext): { text: string | null; issues: I
  * - 模板版本和生成时不一样：报错（旧版本没法重新生成来比）。
  */
 export function checkSheet(ctx: AssessContext, name: string, text: string): Issue[] {
-  const err = (message: string): Issue[] => [{ level: "error", path: name, message }];
+  const err = (message: string): Issue[] => [{ level: "error", path: name, message, code: "SHEET_REGENERATE" }];
   const mark = sheetMark(text);
   if (!mark) return err("计划单要由命令生成（npm run course -- plan），不手写：没有找到生成标记");
   const fm = FILE.exec(name);
@@ -168,7 +168,7 @@ export function checkSheet(ctx: AssessContext, name: string, text: string): Issu
     const lowered = log.slice(count).some((e) => typeof e?.to === "number"
       && (["减量", "退回", "重来"].includes(e.rule) || e.to < (thenProgress?.[e.move]?.[e.field] ?? -Infinity)));
     if (lowered) return err(`个人进度在这张计划单生成之后往下调过（生成时进度截到 ${mark.progress}）：旧单子比现在重，${regen}`);
-    return [{ level: "warning", path: name, message: `个人进度在这张计划单生成之后改过（生成时 ${mark.progress}，现在 ${progressDate(ctx.profile)}）：重新生成（npm run course -- plan）` }];
+    return [{ level: "warning", path: name, message: `个人进度在这张计划单生成之后改过（生成时 ${mark.progress}，现在 ${progressDate(ctx.profile)}）：重新生成（npm run course -- plan）`, code: "SHEET_REGENERATE" }];
   }
   return err(`计划单和按档案重新生成的不一样（手改过，或者条件、复盘变了）：${regen}`);
 }

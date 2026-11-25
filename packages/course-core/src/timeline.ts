@@ -7,6 +7,48 @@ import { repBeats } from "./tempo.ts";
 import type { Age, Course, CourseItem, PlaybackSettings } from "./types.ts";
 import { estimateVoiceSeconds } from "./voice.ts";
 
+/**
+ * 跟练画面要用的结构化字段（v2 第一轮审查 P1-10）：网页、安卓的跟练页只读这些字段，
+ * 不再从显示文字（display、label、breathText、tag）里用正则判断吸呼、左右侧、数到第几、倒数几秒。
+ */
+export interface EventView {
+  /** 这一拍按呼吸提示文字是吸还是呼（领呼按引号里的字）；"均匀呼吸""自然呼吸"这类不分的为 null。 */
+  breath: "inhale" | "exhale" | null;
+  /** 这一拍是领呼（说"吸""呼"）。 */
+  lead: boolean;
+  /** 按次动作：这一拍在一次动作里是哪一段（下放、发力、顶点停、底部停）；报数那一拍为 null。 */
+  tempo: "down" | "up" | "top" | "bottom" | null;
+  /** 按次动作：画面上的"第几次 / 一共几次"。 */
+  rep: { n: number; of: number } | null;
+  /** 计时动作还剩几秒（做完那一拍是 0）；休息还剩几秒（最后 3 秒的倒数除外）。 */
+  secLeft: number | null;
+  /** 这段休息一共几秒（4 秒以上的休息；更短的为 null）。 */
+  restTotal: number | null;
+  /** 准备、休息末尾的倒数 3、2、1。 */
+  count: number | null;
+  /** 每侧动作做的是哪一侧；换边那一拍是换到的那一侧。 */
+  side: "左侧" | "右侧" | null;
+  /** 换边那一拍（不休息）。 */
+  sideSwitch: boolean;
+  /** 计时动作做完那一拍。 */
+  done: boolean;
+}
+
+/**
+ * 呼吸提示文字里是吸还是呼。领呼写成 `🗣️ 领呼"吸"`，按引号里的字算（"领呼"本身带"呼"）；
+ * "均匀呼吸""自然呼吸""别把气停住"这类不分。只在生成时间轴时用一次，写进 view.breath。
+ */
+export function breathOf(text: string): "inhale" | "exhale" | null {
+  const lead = /领呼"(吸|呼)"/.exec(text);
+  if (lead) return lead[1] === "吸" ? "inhale" : "exhale";
+  if (/均匀|自然|别把气停住/.test(text)) return null;
+  const inhale = text.includes("吸");
+  const exhale = text.includes("呼");
+  return inhale && !exhale ? "inhale" : exhale && !inhale ? "exhale" : null;
+}
+
+const NO_VIEW: Omit<EventView, "breath"> = { lead: false, tempo: null, rep: null, secLeft: null, restTotal: null, count: null, side: null, sideSwitch: false, done: false };
+
 export type CueType = "intro-cue" | "count-321" | "count-go" | "up" | "sub" | "hold" | "rep" | "rest-tick" | "side-switch" | "none";
 
 export interface TimelineEvent {
@@ -38,6 +80,8 @@ export interface TimelineEvent {
   actionBeatIdx?: number;
   phaseGroup: string;
   itemIndex: number;
+  /** 跟练画面用的结构化字段。 */
+  view: EventView;
 }
 
 export interface Stage {
@@ -130,8 +174,9 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
   let t = 0.08;
   let actionBeatCounter = 0;
 
-  const push = (ev: Omit<TimelineEvent, "setProgress" | "style" | "bpm"> & { bpm?: number }) => {
-    events.push({ style, bpm, setProgress: 0, ...ev } as TimelineEvent);
+  const push = (ev: Omit<TimelineEvent, "setProgress" | "style" | "bpm" | "view"> & { bpm?: number; view?: Partial<EventView> }) => {
+    const view: EventView = { ...NO_VIEW, breath: breathOf(ev.breathText), ...ev.view };
+    events.push({ style, bpm, setProgress: 0, ...ev, view } as TimelineEvent);
   };
   const motion: MotionSpan[] = [];
   const addMotion = (span: MotionSpan) => {
@@ -168,7 +213,7 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
         push({ time: t, beatDur, cueType: "count-321", state: "prep", display: num, tag: `${exPrefix} (倒计时)`,
           label: "收紧核心，倒计时准备", breathText: idx === 0 ? "🌬️ 吸气准备" : "⚡ 准备开始", srtText: `⏳ ${exName} · 倒计时 ${num}`,
           voice: num, voiceVolScale: 1, voiceOffset: -0.01, breathPluck: null, isLastThree: false, isSetFinalRep: false,
-          isCountJumpBeat: true, dotIdx: idx, totalDots: 4, barProgress: (idx + 1) * 25, phaseGroup: group, itemIndex });
+          isCountJumpBeat: true, dotIdx: idx, totalDots: 4, barProgress: (idx + 1) * 25, phaseGroup: group, itemIndex, view: { count: Number(num) } });
         t += countdownStepDur;
       });
       push({ time: t, beatDur, cueType: "count-go", state: "prep", display: "开始", tag: `${exPrefix} (开始)`,
@@ -197,7 +242,7 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
         push({ time: t, beatDur, cueType: "side-switch", state: "action", display: side!, tag: `${exPrefix} (换${side})`,
           label: `换${side}，不休息`, breathText: "🌬️ 自然呼吸", srtText: `${setPrefix}换${side}`, voice: null, voiceVolScale: 1, voiceOffset: 0,
           breathPluck: null, isLastThree: false, isSetFinalRep: false, isCountJumpBeat: true, dotIdx: 0, totalDots: 4, barProgress: 100,
-          phaseGroup: stageId, itemIndex });
+          phaseGroup: stageId, itemIndex, view: { side: side as "左侧" | "右侧", sideSwitch: true } });
         addMotion({ kind: "pose", pose: "start", itemIndex, start: t, end: t + 2.0, note: "switch-side" });
         t += 2.0;
       }
@@ -259,7 +304,8 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
             breathPluck: pluck ? { direction: pluck, isRestPhase: false } : null, isLastThree, isSetFinalRep: false,
             isCountJumpBeat: secLeft === duration || isHalfway || isTenMilestone || isLastFive, isTimedMode: true,
             timedProgressRatio: secLeft / duration, timedNextRatio: (secLeft - 1) / duration, dotIdx: elapsed % 4, totalDots: 4,
-            barProgress: Math.max(5, Math.round((secLeft / duration) * 100)), actionBeatIdx: actionBeatCounter++, phaseGroup: stageId, itemIndex });
+            barProgress: Math.max(5, Math.round((secLeft / duration) * 100)), actionBeatIdx: actionBeatCounter++, phaseGroup: stageId, itemIndex,
+            view: { secLeft, side: side as "左侧" | "右侧" | null, lead: !!breathVoice } });
           t += 1;
         }
         addMotion({ kind: "timed", itemIndex, start: timedStart, end: t, note: "doing" });
@@ -270,7 +316,7 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
             srtText: isVeryLast ? `🏆 全部完成！(${exName} ${duration}秒)` : `🎉 ${exName} · 第 ${s}/${total} ${u} (${duration}秒) 完成`,
             voice: done, voiceVolScale: 1, voiceOffset: -0.01, breathPluck: null, isLastThree: false, isSetFinalRep: true, isCountJumpBeat: true,
             isTimedMode: true, timedProgressRatio: 1, timedNextRatio: 1, dotIdx: 3, totalDots: 4, barProgress: 100,
-            actionBeatIdx: actionBeatCounter++, phaseGroup: stageId, itemIndex });
+            actionBeatIdx: actionBeatCounter++, phaseGroup: stageId, itemIndex, view: { secLeft: 0, done: true } });
           addMotion({ kind: "pose", pose: "last", itemIndex, start: t, end: t + 1.85, note: "doing" });
           t += 1.85;
         }
@@ -284,6 +330,7 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
           beats.forEach((beat, idx) => {
             let mainVoice: string | null = null;
             let display = `${r} / ${reps}`;
+            let shown = r;
             let isCountJumpBeat = false;
             if (st.countTiming === "on-up") {
               if (idx === 0) {
@@ -299,6 +346,7 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
               else mainVoice = `${r}`;
             } else {
               display = `${r - 1} / ${reps}`;
+              shown = r - 1;
             }
             let breathVoice: string | null = null;
             let pluck: "inhale" | "exhale" | null = null;
@@ -330,7 +378,9 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
               breathText: breathVoice ? `🗣️ 领呼"${breathVoice}"` : beat.breathText, srtText: srt, voice,
               voiceVolScale: mainVoice ? 1 : Math.min(0.85, bVol * 0.95), voiceOffset: -0.015,
               breathPluck: pluck ? { direction: pluck, isRestPhase: false } : null, isLastThree, isSetFinalRep, isCountJumpBeat,
-              dotIdx: idx, totalDots: beats.length, barProgress: beat.progress, actionBeatIdx: actionBeatCounter++, phaseGroup: stageId, itemIndex });
+              dotIdx: idx, totalDots: beats.length, barProgress: beat.progress, actionBeatIdx: actionBeatCounter++, phaseGroup: stageId, itemIndex,
+              view: { rep: { n: shown, of: reps }, tempo: beat.type === "rep" ? null : beat.phase,
+                side: side as "左侧" | "右侧" | null, lead: !!breathVoice } });
             const step = beat.type === "rep" && isSetFinalRep ? Math.max(beat.dur, 1.95) : beat.dur;
             addMotion({ kind: "phase", phase: beat.phase, itemIndex, start: t, end: t + beat.dur, note: "doing" });
             // 每组最后一次报完数多等的时间：停在这一次结束的姿势
@@ -383,7 +433,8 @@ export function buildTimeline(course: Course, opts: TimelineOptions = {}): Timel
           label: toNextItem ? `⏭ 接下来：${next.item.name} (${secLeft}秒)` : last3 ? `⚡ 准备第 ${nextNo} ${unit(next)}` : `休息 (${secLeft}秒)`,
           breathText: last3 ? "⚡ 准备开始" : breathLabel, srtText: srt, voice, voiceVolScale: mainVoice ? 1 : Math.min(0.88, bVol),
           voiceOffset: -0.01, breathPluck: pluck, isLastThree: false, isSetFinalRep: false, isCountJumpBeat: last3,
-          dotIdx: elapsed % 4, totalDots: 4, barProgress: Math.round((secLeft / restSeconds) * 100), phaseGroup: restId, itemIndex });
+          dotIdx: elapsed % 4, totalDots: 4, barProgress: Math.round((secLeft / restSeconds) * 100), phaseGroup: restId, itemIndex,
+          view: last3 ? { count: secLeft } : { secLeft, restTotal: restSeconds > 3 ? restSeconds : null } });
         t += last3 ? countdownStepDur : 1;
       }
       const nextPrefix = totalItems > 1 ? `动作 ${next.itemIndex + 1}/${totalItems} · ${next.item.name}` : next.item.name;

@@ -112,4 +112,9 @@ export interface Issue {
   level: "error" | "warning";
   path: string;
   message: string;
+  /**
+   * 给网页、手机端换说法用的稳定代号（message 是写给命令行的，提到文件名、命令）。
+   * 有代号的由 presentIssue 换成界面上的说法；没有的照 message 去掉命令行字样。
+   */
+  code?: string;
 }

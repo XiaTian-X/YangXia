@@ -179,7 +179,7 @@ export function checkProgress(profile: Obj, sessions: SessionFile[], reviews: st
     const md = reviewName(e);
     const js = reviewDataName(e);
     if (!reviews.includes(md)) {
-      out.push({ level: "error", path: `复盘/${md}`, message: `第 ${e.n} 段第 ${e.week} 周（${e.start} 起）没有周复盘：先复盘，再按成品规则决定下一周` });
+      out.push({ level: "error", path: `复盘/${md}`, message: `第 ${e.n} 段第 ${e.week} 周（${e.start} 起）没有周复盘：先复盘，再按成品规则决定下一周`, code: "REVIEW_MISSING" });
     }
     const data = reviewData[js];
     if (!data) {

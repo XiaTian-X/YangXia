@@ -153,6 +153,18 @@
               "barProgress": 18,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "准备"
               ]
@@ -185,6 +197,18 @@
               "barProgress": 25,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 3,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "3"
               ]
@@ -217,6 +241,18 @@
               "barProgress": 50,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 2,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "2"
               ]
@@ -249,6 +285,18 @@
               "barProgress": 75,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 1,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -284,6 +332,18 @@
               "barProgress": 80,
               "phaseGroup": "ex-0-rest-2",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 72,
+                "restTotal": 90,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "深吸气"
               ]
@@ -319,6 +379,18 @@
               "barProgress": 20,
               "phaseGroup": "ex-1-rest-1",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 18,
+                "restTotal": 90,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "慢呼气"
               ]
@@ -351,6 +423,18 @@
               "barProgress": 74,
               "phaseGroup": "ex-1-rest-2",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 67,
+                "restTotal": 90,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": null
             }
           },
@@ -382,6 +466,21 @@
               "actionBeatIdx": 337,
               "phaseGroup": "ex-2-set-2",
               "itemIndex": 2,
+              "view": {
+                "lead": false,
+                "tempo": "top",
+                "rep": {
+                  "n": 6,
+                  "of": 20
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": null
             }
           },
@@ -419,6 +518,18 @@
               "actionBeatIdx": 469,
               "phaseGroup": "ex-3-set-2",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 2,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "2"
               ]
@@ -455,6 +566,18 @@
               "actionBeatIdx": 470,
               "phaseGroup": "ex-3-set-2",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 1,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -491,6 +614,18 @@
               "actionBeatIdx": 471,
               "phaseGroup": "ex-3-set-2",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 0,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": true,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "全部完成"
               ]
@@ -2475,6 +2610,18 @@
               "barProgress": 18,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "准备"
               ]
@@ -2507,6 +2654,18 @@
               "barProgress": 25,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 3,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "3"
               ]
@@ -2539,6 +2698,18 @@
               "barProgress": 50,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 2,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "2"
               ]
@@ -2571,6 +2742,18 @@
               "barProgress": 75,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 1,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -2603,6 +2786,18 @@
               "barProgress": 80,
               "phaseGroup": "ex-0-rest-2",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 72,
+                "restTotal": 90,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": null
             }
           },
@@ -2633,6 +2828,18 @@
               "barProgress": 20,
               "phaseGroup": "ex-1-rest-1",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 18,
+                "restTotal": 90,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": null
             }
           },
@@ -2663,6 +2870,18 @@
               "barProgress": 74,
               "phaseGroup": "ex-1-rest-2",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 67,
+                "restTotal": 90,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": null
             }
           },
@@ -2694,6 +2913,21 @@
               "actionBeatIdx": 337,
               "phaseGroup": "ex-2-set-2",
               "itemIndex": 2,
+              "view": {
+                "lead": false,
+                "tempo": "top",
+                "rep": {
+                  "n": 5,
+                  "of": 20
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": null
             }
           },
@@ -2728,6 +2962,18 @@
               "actionBeatIdx": 469,
               "phaseGroup": "ex-3-set-2",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 2,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "2"
               ]
@@ -2764,6 +3010,18 @@
               "actionBeatIdx": 470,
               "phaseGroup": "ex-3-set-2",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 1,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -2800,6 +3058,18 @@
               "actionBeatIdx": 471,
               "phaseGroup": "ex-3-set-2",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 0,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": true,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "全部完成"
               ]
@@ -4735,6 +5005,18 @@
               "barProgress": 18,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "准备"
               ]
@@ -4767,6 +5049,18 @@
               "barProgress": 25,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 3,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "3"
               ]
@@ -4799,6 +5093,18 @@
               "barProgress": 50,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 2,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "2"
               ]
@@ -4831,6 +5137,18 @@
               "barProgress": 75,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 1,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -4866,6 +5184,18 @@
               "barProgress": 80,
               "phaseGroup": "ex-0-rest-2",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 72,
+                "restTotal": 90,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "深吸气"
               ]
@@ -4901,6 +5231,18 @@
               "barProgress": 20,
               "phaseGroup": "ex-1-rest-1",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 18,
+                "restTotal": 90,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "慢呼气"
               ]
@@ -4933,6 +5275,18 @@
               "barProgress": 74,
               "phaseGroup": "ex-1-rest-2",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 67,
+                "restTotal": 90,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": null
             }
           },
@@ -4964,6 +5318,21 @@
               "actionBeatIdx": 337,
               "phaseGroup": "ex-2-set-2",
               "itemIndex": 2,
+              "view": {
+                "lead": false,
+                "tempo": "top",
+                "rep": {
+                  "n": 5,
+                  "of": 20
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": null
             }
           },
@@ -5001,6 +5370,18 @@
               "actionBeatIdx": 469,
               "phaseGroup": "ex-3-set-2",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 2,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "2"
               ]
@@ -5037,6 +5418,18 @@
               "actionBeatIdx": 470,
               "phaseGroup": "ex-3-set-2",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 1,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -5073,6 +5466,18 @@
               "actionBeatIdx": 471,
               "phaseGroup": "ex-3-set-2",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 0,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": true,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "全部完成"
               ]
@@ -7006,6 +7411,18 @@
               "barProgress": 18,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "准备"
               ]
@@ -7038,6 +7455,18 @@
               "barProgress": 25,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 3,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "3"
               ]
@@ -7070,6 +7499,18 @@
               "barProgress": 50,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 2,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "2"
               ]
@@ -7102,6 +7543,18 @@
               "barProgress": 75,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 1,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -7137,6 +7590,18 @@
               "barProgress": 80,
               "phaseGroup": "ex-0-rest-2",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 72,
+                "restTotal": 90,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": null
             }
           },
@@ -7170,6 +7635,18 @@
               "barProgress": 20,
               "phaseGroup": "ex-1-rest-1",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 18,
+                "restTotal": 90,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": null
             }
           },
@@ -7200,6 +7677,18 @@
               "barProgress": 74,
               "phaseGroup": "ex-1-rest-2",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 67,
+                "restTotal": 90,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": null
             }
           },
@@ -7231,6 +7720,21 @@
               "actionBeatIdx": 337,
               "phaseGroup": "ex-2-set-2",
               "itemIndex": 2,
+              "view": {
+                "lead": false,
+                "tempo": "top",
+                "rep": {
+                  "n": 5,
+                  "of": 20
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": null
             }
           },
@@ -7268,6 +7772,18 @@
               "actionBeatIdx": 469,
               "phaseGroup": "ex-3-set-2",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 2,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "2"
               ]
@@ -7304,6 +7820,18 @@
               "actionBeatIdx": 470,
               "phaseGroup": "ex-3-set-2",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 1,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -7340,6 +7868,18 @@
               "actionBeatIdx": 471,
               "phaseGroup": "ex-3-set-2",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 0,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": true,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "全部完成"
               ]
@@ -9221,6 +9761,18 @@
               "barProgress": 18,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "准备"
               ]
@@ -9253,6 +9805,18 @@
               "barProgress": 25,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 3,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "3"
               ]
@@ -9285,6 +9849,18 @@
               "barProgress": 50,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 2,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "2"
               ]
@@ -9317,6 +9893,18 @@
               "barProgress": 75,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 1,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -9353,6 +9941,21 @@
               "actionBeatIdx": 18,
               "phaseGroup": "ex-0-set-1",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": "down",
+                "rep": {
+                  "n": 5,
+                  "of": 8
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": null
             }
           },
@@ -9383,6 +9986,18 @@
               "barProgress": 82,
               "phaseGroup": "ex-0-rest-1",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 49,
+                "restTotal": 60,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": null
             }
           },
@@ -9416,6 +10031,18 @@
               "barProgress": 60,
               "phaseGroup": "ex-0-rest-1",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 36,
+                "restTotal": 60,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": null
             }
           },
@@ -9446,6 +10073,18 @@
               "barProgress": 8,
               "phaseGroup": "ex-0-rest-1",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 5,
+                "restTotal": 60,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": null
             }
           },
@@ -9480,6 +10119,21 @@
               "actionBeatIdx": 53,
               "phaseGroup": "ex-1-set-1",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": "down",
+                "rep": {
+                  "n": 8,
+                  "of": 8
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "8"
               ]
@@ -9513,6 +10167,21 @@
               "actionBeatIdx": 54,
               "phaseGroup": "ex-1-set-1",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": "down",
+                "rep": {
+                  "n": 8,
+                  "of": 8
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": null
             }
           },
@@ -9547,6 +10216,21 @@
               "actionBeatIdx": 55,
               "phaseGroup": "ex-1-set-1",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": {
+                  "n": 8,
+                  "of": 8
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "全部完成"
               ]
@@ -10284,6 +10968,18 @@
               "barProgress": 18,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "准备"
               ]
@@ -10316,6 +11012,18 @@
               "barProgress": 25,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 3,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "3"
               ]
@@ -10348,6 +11056,18 @@
               "barProgress": 50,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 2,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "2"
               ]
@@ -10380,6 +11100,18 @@
               "barProgress": 75,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 1,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -10413,6 +11145,21 @@
               "actionBeatIdx": 198,
               "phaseGroup": "ex-3-set-1",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": "top",
+                "rep": {
+                  "n": 11,
+                  "of": 20
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": null
             }
           },
@@ -10443,6 +11190,18 @@
               "barProgress": 100,
               "phaseGroup": "ex-4-rest-1",
               "itemIndex": 4,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 90,
+                "restTotal": 90,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "休息",
                 "9",
@@ -10478,6 +11237,18 @@
               "barProgress": 100,
               "phaseGroup": "ex-4-rest-1",
               "itemIndex": 4,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "开始"
               ]
@@ -10514,6 +11285,21 @@
               "actionBeatIdx": 311,
               "phaseGroup": "ex-0-set-2",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": "down",
+                "rep": {
+                  "n": 12,
+                  "of": 15
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "10_short",
                 "2"
@@ -10551,6 +11337,21 @@
               "actionBeatIdx": 413,
               "phaseGroup": "ex-2-set-2",
               "itemIndex": 2,
+              "view": {
+                "lead": false,
+                "tempo": "up",
+                "rep": {
+                  "n": 9,
+                  "of": 12
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": "右侧",
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "9"
               ]
@@ -10584,6 +11385,21 @@
               "actionBeatIdx": 578,
               "phaseGroup": "ex-0-set-3",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": "down",
+                "rep": {
+                  "n": 8,
+                  "of": 15
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": null
             }
           },
@@ -10621,6 +11437,18 @@
               "actionBeatIdx": 831,
               "phaseGroup": "ex-4-set-3",
               "itemIndex": 4,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 2,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "2"
               ]
@@ -10657,6 +11485,18 @@
               "actionBeatIdx": 832,
               "phaseGroup": "ex-4-set-3",
               "itemIndex": 4,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 1,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -10693,6 +11533,18 @@
               "actionBeatIdx": 833,
               "phaseGroup": "ex-4-set-3",
               "itemIndex": 4,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 0,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": true,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "全部完成"
               ]
@@ -14228,6 +15080,18 @@
               "barProgress": 18,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "准备"
               ]
@@ -14260,6 +15124,18 @@
               "barProgress": 25,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 3,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "3"
               ]
@@ -14292,6 +15168,18 @@
               "barProgress": 50,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 2,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "2"
               ]
@@ -14324,6 +15212,18 @@
               "barProgress": 75,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 1,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -14359,6 +15259,18 @@
               "barProgress": 80,
               "phaseGroup": "ex-0-rest-1",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 16,
+                "restTotal": 20,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "慢呼气"
               ]
@@ -14391,6 +15303,18 @@
               "barProgress": 15,
               "phaseGroup": "ex-0-rest-1",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 3,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "3"
               ]
@@ -14427,6 +15351,21 @@
               "actionBeatIdx": 33,
               "phaseGroup": "ex-0-set-2",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": "up",
+                "rep": {
+                  "n": 3,
+                  "of": 4
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": null
             }
           },
@@ -14457,6 +15396,18 @@
               "barProgress": 55,
               "phaseGroup": "ex-0-rest-2",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 11,
+                "restTotal": 20,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": null
             }
           },
@@ -14494,6 +15445,18 @@
               "actionBeatIdx": 40,
               "phaseGroup": "ex-1-set-1",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 8,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "8",
                 "秒"
@@ -14531,6 +15494,18 @@
               "actionBeatIdx": 48,
               "phaseGroup": "ex-1-set-1",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 0,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": true,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "本组完成"
               ]
@@ -14563,6 +15538,18 @@
               "barProgress": 100,
               "phaseGroup": "ex-1-rest-1",
               "itemIndex": 1,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": null
             }
           },
@@ -14600,6 +15587,18 @@
               "actionBeatIdx": 49,
               "phaseGroup": "ex-2-set-1",
               "itemIndex": 2,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 6,
+                "restTotal": null,
+                "count": null,
+                "side": "左侧",
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "6",
                 "秒"
@@ -14633,6 +15632,18 @@
               "barProgress": 100,
               "phaseGroup": "ex-2-set-1",
               "itemIndex": 2,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": "右侧",
+                "sideSwitch": true,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": null
             }
           },
@@ -14670,6 +15681,18 @@
               "actionBeatIdx": 62,
               "phaseGroup": "ex-3-set-1",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 6,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "6",
                 "秒"
@@ -14707,6 +15730,18 @@
               "actionBeatIdx": 66,
               "phaseGroup": "ex-3-set-1",
               "itemIndex": 3,
+              "view": {
+                "lead": true,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 2,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "2",
                 "呼"
@@ -14744,6 +15779,18 @@
               "actionBeatIdx": 67,
               "phaseGroup": "ex-3-set-1",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 1,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -14780,6 +15827,18 @@
               "actionBeatIdx": 68,
               "phaseGroup": "ex-3-set-1",
               "itemIndex": 3,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": 0,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": true,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "全部完成"
               ]
@@ -16772,6 +17831,18 @@
               "barProgress": 18,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "准备"
               ]
@@ -16804,6 +17875,18 @@
               "barProgress": 25,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 3,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "3"
               ]
@@ -16836,6 +17919,18 @@
               "barProgress": 50,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 2,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "2"
               ]
@@ -16868,6 +17963,18 @@
               "barProgress": 75,
               "phaseGroup": "ex-0-prep",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": 1,
+                "side": null,
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "1"
               ]
@@ -16904,6 +18011,21 @@
               "actionBeatIdx": 0,
               "phaseGroup": "ex-0-set-1",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": "up",
+                "rep": {
+                  "n": 1,
+                  "of": 3
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": "左侧",
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "最后三次"
               ]
@@ -16937,6 +18059,21 @@
               "actionBeatIdx": 6,
               "phaseGroup": "ex-0-set-1",
               "itemIndex": 0,
+              "view": {
+                "lead": true,
+                "tempo": "down",
+                "rep": {
+                  "n": 2,
+                  "of": 3
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": "左侧",
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "吸"
               ]
@@ -16970,6 +18107,21 @@
               "actionBeatIdx": 9,
               "phaseGroup": "ex-0-set-1",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": "top",
+                "rep": {
+                  "n": 3,
+                  "of": 3
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": "左侧",
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": null
             }
           },
@@ -17000,6 +18152,18 @@
               "barProgress": 100,
               "phaseGroup": "ex-0-set-1",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": null,
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": "右侧",
+                "sideSwitch": true,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": null
             }
           },
@@ -17031,6 +18195,21 @@
               "actionBeatIdx": 16,
               "phaseGroup": "ex-0-set-1",
               "itemIndex": 0,
+              "view": {
+                "lead": true,
+                "tempo": "up",
+                "rep": {
+                  "n": 2,
+                  "of": 3
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": "右侧",
+                "sideSwitch": false,
+                "done": false,
+                "breath": "exhale"
+              },
               "voiceTokens": [
                 "2",
                 "呼"
@@ -17065,6 +18244,21 @@
               "actionBeatIdx": 21,
               "phaseGroup": "ex-0-set-1",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": "top",
+                "rep": {
+                  "n": 3,
+                  "of": 3
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": "右侧",
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": null
             }
           },
@@ -17096,6 +18290,21 @@
               "actionBeatIdx": 22,
               "phaseGroup": "ex-0-set-1",
               "itemIndex": 0,
+              "view": {
+                "lead": true,
+                "tempo": "down",
+                "rep": {
+                  "n": 3,
+                  "of": 3
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": "右侧",
+                "sideSwitch": false,
+                "done": false,
+                "breath": "inhale"
+              },
               "voiceTokens": [
                 "吸"
               ]
@@ -17129,6 +18338,21 @@
               "actionBeatIdx": 23,
               "phaseGroup": "ex-0-set-1",
               "itemIndex": 0,
+              "view": {
+                "lead": false,
+                "tempo": null,
+                "rep": {
+                  "n": 3,
+                  "of": 3
+                },
+                "secLeft": null,
+                "restTotal": null,
+                "count": null,
+                "side": "右侧",
+                "sideSwitch": false,
+                "done": false,
+                "breath": null
+              },
               "voiceTokens": [
                 "全部完成"
               ]

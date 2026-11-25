@@ -44,7 +44,7 @@ export function notCoveredItems(m: Manifest, age: string): { item: string; group
  */
 export function checkProfileWithTemplates(raw: unknown, m: Manifest): Issue[] {
   const out: Issue[] = [];
-  const err = (path: string, message: string) => out.push({ level: "error", path, message });
+  const err = (path: string, message: string, code?: string) => out.push({ level: "error", path, message, ...(code ? { code } : {}) });
   if (typeof raw !== "object" || raw === null) return out;
   const p = raw as Obj;
 
@@ -86,7 +86,7 @@ export function checkProfileWithTemplates(raw: unknown, m: Manifest): Issue[] {
 
   if (typeof p.wake === "string" && typeof p.bedtime === "string" && st?.age) {
     const want = bedtimeFor(m, p.stage, p.wake);
-    if (want && want !== p.bedtime) err("bedtime", `${p.stage}、${p.wake} 起床，按公式上床时间是 ${want}，档案写的是 ${p.bedtime}（用 npm run course -- bedtime 算）`);
+    if (want && want !== p.bedtime) err("bedtime", `${p.stage}、${p.wake} 起床，按公式上床时间是 ${want}，档案写的是 ${p.bedtime}（用 npm run course -- bedtime 算）`, "BEDTIME_MISMATCH");
   }
   return out;
 }

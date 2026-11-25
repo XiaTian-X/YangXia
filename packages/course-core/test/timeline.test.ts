@@ -75,6 +75,34 @@ describe("时间轴：计时规则照原版", () => {
   });
 });
 
+describe("时间轴事件的 view：跟练画面只读结构化字段", () => {
+  it("准备倒数、按次的第几次和节奏段、休息倒数和总秒数", () => {
+    const tl = buildTimeline(course([item({ tempo: { start: "down", down: 2, up: 1, bottom: 1 } })]), { settings: { countTiming: "on-rep" } });
+    const ev = tl.events;
+    expect(ev.filter((e) => e.cueType === "count-321" && e.state === "prep").slice(0, 3).map((e) => e.view.count)).toEqual([3, 2, 1]);
+    const firstRep = ev.filter((e) => e.state === "action").slice(0, 4);
+    expect(firstRep.map((e) => e.view.tempo)).toEqual(["down", "down", "bottom", null]);
+    expect(firstRep.map((e) => e.view.rep)).toEqual([{ n: 0, of: 3 }, { n: 0, of: 3 }, { n: 0, of: 3 }, { n: 1, of: 3 }]);
+    expect(firstRep[0].view.breath).toBe("inhale");
+    const rest = ev.filter((e) => e.state === "rest");
+    expect(rest[0].view).toMatchObject({ secLeft: 10, restTotal: 10, count: null });
+    expect(rest.at(-1)!.view).toMatchObject({ secLeft: null, count: 1 });
+  });
+  it("每侧动作的左右侧、换边那一拍；计时动作的倒数和做完那一拍；领呼", () => {
+    const tl = buildTimeline(course([item({ exercise: "plank", name: "平板支撑", mode: "timed", duration: 20, perSide: true, tempo: undefined, sets: 1 })]),
+      { settings: { breathLead: "all" } });
+    const act = tl.events.filter((e) => e.state === "action");
+    expect(act[0].view).toMatchObject({ side: "左侧", secLeft: 20, sideSwitch: false });
+    const sw = act.find((e) => e.view.sideSwitch)!;
+    expect(sw.view.side).toBe("右侧");
+    const done = act.find((e) => e.view.done)!;
+    expect(done.view).toMatchObject({ secLeft: 0, side: null });
+    const lead = act.find((e) => e.view.lead)!;
+    expect(lead.breathText).toMatch(/领呼/);
+    expect(lead.view.breath).not.toBeNull();
+  });
+});
+
 describe("语音词表和字幕", () => {
   it("数字读法", () => {
     expect(numberTokens(15)).toEqual(["10_short", "5"]);

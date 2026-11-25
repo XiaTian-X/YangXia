@@ -234,8 +234,8 @@ function checkProfile(course: Course, profile: unknown, m: Manifest, issues: Iss
 export function checkCourse(raw: unknown, ctx: CheckContext): Issue[] {
   const { course, issues } = validateCourse(raw);
   if (!course) return issues;
-  const err = (path: string, message: string) => issues.push({ level: "error", path, message });
-  const warn = (path: string, message: string) => issues.push({ level: "warning", path, message });
+  const err = (path: string, message: string, code?: string) => issues.push({ level: "error", path, message, ...(code ? { code } : {}) });
+  const warn = (path: string, message: string, code?: string) => issues.push({ level: "warning", path, message, ...(code ? { code } : {}) });
   const m = ctx.manifest;
 
   if (m.format !== MANIFEST_FORMAT) {
@@ -274,9 +274,9 @@ export function checkCourse(raw: unknown, ctx: CheckContext): Issue[] {
     }
   } else if (ctx.plans && ctx.rules && profileObj) {
     // 带档案、模板有训练单：手写的课程不放行（原文核对管不了条件、进度和训练日）
-    err("source.plan", "这份课程不是用 course export 从训练单导出的：带档案检查时只认导出的课程，用 npm run course -- export 重新导出，不要手写处方");
+    err("source.plan", "这份课程不是用 course export 从训练单导出的：带档案检查时只认导出的课程，用 npm run course -- export 重新导出，不要手写处方", "COURSE_NOT_EXPORTED");
   } else {
-    warn("source.plan", "这份课程不是用 course export 从训练单导出的：用 npm run course -- export 重新导出，不要手写处方");
+    warn("source.plan", "这份课程不是用 course export 从训练单导出的：用 npm run course -- export 重新导出，不要手写处方", "COURSE_NOT_EXPORTED");
   }
   if (!fromPlan) {
     course.blocks.forEach((b, bi) => b.items.forEach((it, ii) => {
