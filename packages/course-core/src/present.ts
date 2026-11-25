@@ -1,5 +1,6 @@
 // 把写给命令行的检查结果换成网页、手机上看的说法：不出现"档案.json""npm run …"、文件路径这类字样。
 // 有 code 的按代号换成界面上的说法；没有的照原话去掉命令行字样。检查本身不变（规则只在核心库里写一份）。
+import type { AssessmentForm } from "./assess-form.ts";
 import type { Issue } from "./types.ts";
 
 /** 界面上的入口名（和网页导航一致）。 */
@@ -53,7 +54,59 @@ const FIELD_RE = new RegExp(`(?<![A-Za-z.])(${Object.keys(FIELD_NAMES).map((k) =
 
 /** 去掉命令行字样：命令、文件名、档案文件；常见英文字段名换成中文。 */
 export function cleanText(s: string): string {
-  return cleanCli(s).replace(FIELD_RE, (m) => FIELD_NAMES[m] ?? m);
+  return cleanCli(s)
+    .replace(/habits\.([^\s：，；。）"]+)/g, "习惯「$1」")
+    .replace(FIELD_RE, (m) => FIELD_NAMES[m] ?? m);
+}
+
+/** 评估里测试项的叫法（规则层的测试编号换成中文）。 */
+const TEST_NAMES: Record<string, string> = {
+  "pushup-test": "俯卧撑测试",
+  "wallsit-test": "靠墙静蹲测试",
+  "bike-test": "单车",
+  "gym-weights": "主要动作的重量",
+  "chair-stand-30s": "30 秒坐站测试",
+  body: "身高、体重、腰围",
+};
+const AGE_NAMES: Record<string, string> = { a06: "6–12 岁", a13: "13–17 岁", a18: "18–39 岁", a40: "40–64 岁", a65: "65 岁以上" };
+const JUDGES: Record<string, string> = {
+  "前后比·同一级": "和上次比，要用同一级",
+  "前后比·同一种用手的方式": "和上次比，要用同一种用手的方式",
+  "前后比·同一深度": "和上次比，要蹲同样的深度",
+  "只记录": "只记下来，不比",
+  "BMI 分档": "按 BMI 分档",
+};
+
+/** 习惯目标 {"散步":{"minutes":15}} 这样的写法换成"散步 15 分钟"。 */
+export function habitTargetsText(t: Record<string, Record<string, number>>): string {
+  return Object.entries(t)
+    .map(([h, v]) => `${h} ${v.days !== undefined ? `每周 ${v.days} 天` : v.minutes !== undefined ? `${v.minutes} 分钟` : v.line !== undefined ? `达标线 ${v.line}` : ""}`.trim())
+    .join("、");
+}
+
+/**
+ * 评估表单的汇总、各节说明换成网页上看的说法（命令行列项照原样）：
+ * 测试编号、年龄段代号、英文字段名、原始 JSON 都换成人话。
+ */
+export function presentFormText(s: string): string {
+  let out = s
+    .replace(/习惯目标 (\{.*\})/, (m, j: string) => {
+      try {
+        return `习惯目标 ${habitTargetsText(JSON.parse(j))}`;
+      } catch {
+        return "习惯目标有调整";
+      }
+    })
+    .replace(/写明 doctorRestart（true 回起始期第 1 周；false 照后面几条再算一次）/g, "选上\"医生建议从头来吗\"（从头来就回起始期第 1 周；不从头照后面几条再算一次）")
+    .replace(/（还没算周期末量的体重腰围；写好记录再跑一次，结论的 goals 照重算的写）/g, "（还没算这次量的体重腰围，提交以后照重算的为准）")
+    .replace(/照第八章开头原话问一次进食困扰（eatingCheck），记 goal/g, "照第八章开头原话问一次进食困扰，再选目标")
+    .replace(/分档用 [A-Z_]+(、[A-Z_]+)*/g, "分档照国家标准")
+    .replace(/没做完时 value 是/g, "没做完时填")
+    .replace(/封顶见下面"评估参数"/g, "有封顶")
+    .replace(/^([a-z0-9-]+)：/, (m, id: string) => (TEST_NAMES[id] ? `${TEST_NAMES[id]}：` : m));
+  for (const [k, v] of Object.entries(JUDGES)) out = out.split(`：${k}（`).join(`：${v}（`);
+  out = out.replace(/(?<![A-Za-z0-9-])a(06|13|18|40|65)(?![A-Za-z0-9-])/g, (m) => AGE_NAMES[m] ?? m);
+  return cleanText(out);
 }
 
 function cleanCli(s: string): string {
@@ -62,6 +115,7 @@ function cleanCli(s: string): string {
     .replace(/（[^（）]*(npm run|course (assess|export|plan|bedtime))[^（）]*）/g, "")
     .replace(/[；，]\s*npm run [^；，。）]*/g, "")
     .replace(/用 npm run course -- export 重新导出/g, `在${PLACES.schedule}重新发布`)
+    .replace(/加 --half (重新)?导出半量课/g, `在${PLACES.schedule}发布时勾上"半量课"`)
     .replace(/npm run [a-z:]+( -- [a-z]+)?( [^；，。）\s]+)?/g, "")
     .replace(/course (export|assess|plan|check|bedtime)/g, "命令")
     // 文件名
@@ -107,8 +161,7 @@ export function conclusionLines(c: Record<string, any> | null | undefined): stri
   }
   if (Array.isArray(c.extras) && c.extras.length) out.push(`另外：${c.extras.join("、")}`);
   if (c.habitTargets && typeof c.habitTargets === "object" && Object.keys(c.habitTargets).length) {
-    out.push(`习惯目标调整：${Object.entries(c.habitTargets as Record<string, Record<string, number>>)
-      .map(([h, v]) => `${h} ${v.days !== undefined ? `每周 ${v.days} 天` : v.minutes !== undefined ? `${v.minutes} 分钟` : v.line !== undefined ? `达标线 ${v.line}` : ""}`).join("、")}`);
+    out.push(`习惯目标调整：${habitTargetsText(c.habitTargets as Record<string, Record<string, number>>)}`);
   }
   if (Array.isArray(c.goals) && c.goals.length) out.push(`下一周期能选的目标：${c.goals.join("、")}`);
   if (!out.length) out.push("已按规则记下，这一种评估没有要另外处理的结论");
@@ -119,4 +172,18 @@ export function conclusionLines(c: Record<string, any> | null | undefined): stri
 export function presentIssue(issue: Issue): Issue {
   const f = issue.code ? BY_CODE[issue.code] : undefined;
   return { ...issue, path: cleanText(issue.path), message: f ? f(issue.message) : cleanText(issue.message) };
+}
+
+/** 交给网页的评估表单：汇总、各节说明、字段说明换成界面说法；命令行打印的 lines 不给网页（照原样留在命令行）。 */
+export function presentAssessmentForm(form: AssessmentForm): AssessmentForm {
+  return {
+    ...form,
+    summary: form.summary.map(presentFormText),
+    sections: form.sections.map((sec) => ({
+      ...sec,
+      notes: sec.notes.map(presentFormText),
+      fields: sec.fields.map((f) => (f.note ? { ...f, note: presentFormText(f.note) } : f)),
+    })),
+    lines: [],
+  };
 }

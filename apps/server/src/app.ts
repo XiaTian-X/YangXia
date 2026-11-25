@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError } from "zod";
+import { cleanText } from "@yangxia/course-core";
 import { presentPayload } from "./api/present.ts";
 import { createAuthMiddleware } from "./auth/middleware.ts";
 import type { AuthActor } from "./auth/permissions.ts";
@@ -77,7 +78,8 @@ export function createApp(ctx: ServerContext): Hono {
         {
           ok: false,
           code: err.code,
-          message: err.message,
+          // 服务端自己的报错也换成界面说法（不出现英文字段名、命令行字样）
+          message: cleanText(err.message),
           ...(err.details !== undefined ? { details: presentPayload(err.details) } : {}),
         },
         err.status as ContentfulStatusCode,

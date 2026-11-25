@@ -128,14 +128,31 @@ test("周复盘有不适锁定、个人进度照规则写；65 岁以上入门�
       await box.getByRole("button", { name: "测了", exact: true }).click();
       await box.getByLabel(/用时/).fill(secs);
       await box.getByLabel("测的日期").fill("2026-11-02");
-      await box.getByLabel(/场地防滑/).check();
-      const chair = box.getByLabel(/椅子有扶手和靠背/);
-      if (await chair.count()) await chair.check();
+      // 测试条件逐项答，不预答"否"：没答完这一项不算填完
+      await expect(box.getByRole("group", { name: /平时用手杖吗/ }).locator('[aria-pressed="true"]')).toHaveCount(0);
+      await box.getByRole("group", { name: /平时用手杖吗/ }).getByRole("button", { name: "否", exact: true }).click();
+      await box.getByRole("group", { name: /场地防滑/ }).getByRole("button", { name: "是", exact: true }).click();
+      const chair = box.getByRole("group", { name: /椅子有扶手和靠背/ });
+      if (await chair.count()) await chair.getByRole("button", { name: "是", exact: true }).click();
     }
     await expect(page.getByText("还要填")).toBeVisible();
     await page.getByRole("button", { name: "提交，由服务端重算结论" }).click();
     await expect(page.getByRole("heading", { name: "结论" })).toBeVisible();
     await expect(page.getByText(/跌倒风险自查：低/).first()).toBeVisible();
+    expect(await page.locator("main").innerText()).not.toMatch(CLI);
+
+    // 65 岁以上周复盘：摔倒、差点摔倒、头晕几次都要填；填了头晕（或摔倒）不能推到下一周
+    await page.getByRole("tab", { name: "周复盘与个人进度" }).click();
+    await expect(page.getByRole("heading", { name: "第 1 段第 1 周复盘" })).toBeVisible();
+    await page.getByRole("group", { name: "有没有疼痛、头晕、胸闷" }).getByRole("button", { name: "没有", exact: true }).click();
+    await page.getByRole("button", { name: /推到第 2 周/ }).click();
+    await expect(page.getByRole("button", { name: "保存复盘" })).toBeDisabled();
+    await expect(page.getByText(/还有 \d+ 项没填：.*摔倒几次/)).toBeVisible();
+    await page.getByLabel("摔倒几次").fill("0");
+    await page.getByLabel("差点摔倒几次").fill("0");
+    await page.getByLabel("头晕几次").fill("1");
+    await expect(page.getByRole("button", { name: /推到第 2 周/ })).toBeDisabled();
+    await expect(page.getByText(/有头晕、摔倒或差点摔倒：不能往上走/)).toBeVisible();
     expect(await page.locator("main").innerText()).not.toMatch(CLI);
   } finally {
     await srv.close();

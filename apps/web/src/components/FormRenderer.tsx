@@ -24,7 +24,7 @@ function GaitInput({ field, value, onChange }: { field: FormField; value: GaitVa
           { value: "skipped", label: "按规则不测" },
         ]}
         onChange={(m) =>
-          onChange(m === "tested" ? { cane: false, siteOk: false, ...(inp.chair ? { chairOk: false } : {}) } : m === "untested" ? { result: "没测成" } : { result: "按规则不测" })
+          onChange(m === "tested" ? {} : m === "untested" ? { result: "没测成" } : { result: "按规则不测" })
         }
       />
       {mode === "tested" && (
@@ -39,11 +39,23 @@ function GaitInput({ field, value, onChange }: { field: FormField; value: GaitVa
             测的日期
             <input id={`${id}-d`} type="date" value={(value?.testedOn as string | undefined) ?? ""} onInput={(e) => set({ testedOn: (e.target as HTMLInputElement).value })} />
           </label>
-          <label class="check"><input type="checkbox" checked={value?.cane === true} onChange={(e) => set({ cane: (e.target as HTMLInputElement).checked })} />平时用手杖，测时照用</label>
-          <label class="check"><input type="checkbox" checked={value?.siteOk === true} onChange={(e) => set({ siteOk: (e.target as HTMLInputElement).checked })} />场地防滑、清空，终点线外留了减速的地方</label>
-          {inp.chair && (
-            <label class="check"><input type="checkbox" checked={value?.chairOk === true} onChange={(e) => set({ chairOk: (e.target as HTMLInputElement).checked })} />椅子有扶手和靠背、无轮子、约 46 cm 高</label>
-          )}
+        </div>
+      )}
+      {mode === "tested" && (
+        // 测试条件一项一项答，不替人预答"否"
+        <div class="stack" style={{ gap: "10px" }}>
+          {[
+            { k: "cane", q: "平时用手杖吗（用的，测时照用）" },
+            { k: "siteOk", q: "场地防滑、清空，终点线外留了减速的地方吗" },
+            ...(inp.chair ? [{ k: "chairOk", q: "椅子有扶手和靠背、无轮子、约 46 cm 高吗" }] : []),
+          ].map(({ k, q }) => (
+            <div key={k} class="field2">
+              {q}
+              <Pills label={q} value={value?.[k] === true ? "是" : value?.[k] === false ? "否" : ""}
+                options={[{ value: "是", label: "是" }, { value: "否", label: "否" }]}
+                onChange={(v) => set({ [k]: v === "是" })} />
+            </div>
+          ))}
         </div>
       )}
       {mode === "untested" && (

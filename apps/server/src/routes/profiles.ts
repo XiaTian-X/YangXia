@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import {
   assessmentForm,
+  presentAssessmentForm,
   assessRules,
   auditProfileBundle,
   bedtimeFor,
@@ -12,7 +13,9 @@ import {
   DECLARATION,
   conclusionLines,
   inspectEndSummary,
+  intakeConditions,
   intakeForm,
+  productCode,
   profileFromIntake,
   progressForm,
   reviewForm,
@@ -191,6 +194,26 @@ export function registerProfileRoutes(
     return c.json({ product, groups: snap.plans ? choiceGroups(snap.plans, snap.manifest, product) : [] });
   });
 
+  // 档案设置里的训练条件：这份成品要问的条件（规则层原话）和档案记的值；没记的是"没确认"，按保守版本导出
+  app.get("/api/profiles/:id/conditions", (c) => {
+    const actor = c.get("actor");
+    const db = ctx.getDb();
+    const id = c.req.param("id");
+    const meta = assertProfileAccess(db, actor, id, "manage");
+    const profile = JSON.parse(meta.profile_json) as Record<string, any>;
+    const snap = ctx.templates.current();
+    const product = currentSegment(profile)?.product ?? profile.product;
+    const mp = snap.manifest.products.find((p) => p.name === product);
+    if (!snap.rules || !mp) return c.json({ conditions: [] });
+    const recorded = (profile.conditions ?? {}) as Record<string, unknown>;
+    const screening = Object.fromEntries(
+      (Array.isArray(profile.screening?.answers) ? profile.screening.answers : []).map((a: { item: string; answer: "是" | "否" }) => [a.item, a.answer]),
+    );
+    const booleans = Object.fromEntries(Object.entries(recorded).filter(([, v]) => typeof v === "boolean")) as Record<string, boolean>;
+    const list = intakeConditions(snap.rules, productCode(mp), { conditions: booleans, screening });
+    return c.json({ conditions: list.map((x) => ({ ...x, recorded: typeof recorded[x.name] === "boolean" ? (recorded[x.name] as boolean) : null })) });
+  });
+
   // 建档向导：带上已答的，照入口问卷、规则层、训练单算下一步要问什么（筛查答案走请求体，不进网址）
   app.post("/api/intake/form", async (c) => {
     const answers = IntakeAnswersSchema.parse(await c.req.json());
@@ -209,7 +232,8 @@ export function registerProfileRoutes(
     const bundle = { profile: draft.profile, timeZone: input.timezone, sessions: [], reviewData: {}, courses: [], assessments: [], docs: [] };
     const form = assessmentForm(bundle, snap, "入门", { now: ctx.now() });
     if ("error" in form) throw new AppError(422, "ASSESSMENT_FORM_UNAVAILABLE", form.error);
-    const { lines: _lines, ...rest } = form;
+    // 汇总、说明换成界面说法（测试编号、年龄段代号、英文字段名、原始 JSON）；命令行打印的 lines 不给网页
+    const { lines: _lines, ...rest } = presentAssessmentForm(form);
     return c.json({ declaration: DECLARATION, form: rest } satisfies AssessmentFormResponse);
   });
 
@@ -421,7 +445,8 @@ export function registerProfileRoutes(
       now: ctx.now(),
     });
     if ("error" in form) throw new AppError(422, "ASSESSMENT_FORM_UNAVAILABLE", form.error);
-    const { lines: _lines, ...rest } = form;
+    // 汇总、说明换成界面说法（测试编号、年龄段代号、英文字段名、原始 JSON）；命令行打印的 lines 不给网页
+    const { lines: _lines, ...rest } = presentAssessmentForm(form);
     return c.json({ declaration: DECLARATION, form: rest } satisfies AssessmentFormResponse);
   });
 

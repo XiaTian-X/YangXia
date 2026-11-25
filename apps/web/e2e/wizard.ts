@@ -15,6 +15,8 @@ export interface Persona {
   doctorDate?: string;
   /** 训练条件：问法原话的一部分 → 是 / 否（不写的保持"没确认"）。 */
   conditions?: [string, "是" | "否"][];
+  /** "重度肥胖"当场算：身高、体重（只在浏览器里算，交的是是 / 否）和应该得出的答案。 */
+  bmi?: { height: string; weight: string; expect: "是" | "否" };
   /** 器材：按先后点的名字。 */
   gear?: string[];
   birth?: string;
@@ -74,6 +76,13 @@ export async function createProfileByWizard(page: Page, p: Persona): Promise<voi
   for (const [ask, v] of p.conditions ?? []) {
     await page.getByRole("group", { name: new RegExp(ask) }).getByRole("button", { name: v, exact: true }).click();
   }
+  if (p.bmi) {
+    await page.getByLabel("身高（厘米）").fill(p.bmi.height);
+    await page.getByLabel("体重（公斤）").fill(p.bmi.weight);
+    await page.getByRole("button", { name: "算一下" }).click();
+    await expect(page.getByRole("status")).toContainText(`记"${p.bmi.expect}"`);
+    await expect(page.getByRole("group", { name: /BMI 有没有到/ }).getByRole("button", { name: p.bmi.expect, exact: true })).toHaveAttribute("aria-pressed", "true");
+  }
   for (const g of p.gear ?? []) await page.getByRole("button", { name: new RegExp(g) }).click();
   await next(page);
 
@@ -83,7 +92,8 @@ export async function createProfileByWizard(page: Page, p: Persona): Promise<voi
     await page.getByLabel(/出生年月/).fill(p.birth);
   }
   if (p.school) {
-    await page.locator("#wz-ss").selectOption(p.school.stage);
+    // 学段就是第 2 步选的，不再问一次
+    await expect(page.locator("#wz-ss")).toContainText(p.school.stage);
     await page.locator("#wz-se").fill(p.school.entry);
   }
   if (p.body) await page.getByRole("group", { name: "体重、腰围记不记" }).getByRole("button", { name: p.body, exact: true }).click();

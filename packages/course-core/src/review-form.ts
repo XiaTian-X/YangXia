@@ -2,10 +2,10 @@
 // 习惯项、按年龄段要记的数、稳态自查、减脂的每周项、每个动作的表现都从规则层和训练单推出来；
 // 下一周怎么走（推到下一周 / 这一周重来 / 段末、周期末评估）也由这里算，网页只选。
 import type { FormField, FormSection } from "./assess-form.ts";
-import { assessRules } from "./assess.ts";
+import { type AssessContext, assessRules } from "./assess.ts";
 import { addDays } from "./date.ts";
 import type { ProfileBundle, TemplateBundle } from "./engine.ts";
-import { bodyStateOn, effectiveGoal, goalRules } from "./goals.ts";
+import { bodyStateOn, effectiveGoal, GOAL_REVERT, goalIssues, goalRules, weekGoal } from "./goals.ts";
 import { productCode, type Manifest } from "./manifest.ts";
 import { maxWeek, planType, roundWeek, type PlansData, type RulesData } from "./plan.ts";
 import { localDate, REVIEW_FORMAT } from "./progress.ts";
@@ -202,6 +202,18 @@ export function reviewForm(bundle: ProfileBundle, t: TemplateBundle, opts: { sym
   return { segment: e.n, week: e.week, start: e.start, end, phase, type, product, age: info.age, sessions, minTrainings: sessions.length, symptomsLocked, half, sections, next };
 }
 
+/**
+ * 下一周的目标照规则该退回保持吗（减脂停记、掉太快、BMI 太低、医生同意失效，增肌到线……）：
+ * ctx 里的档案已经带上下一周那一项、复盘数据带上这一周的；该退的返回原因（规则原话），不用退的返回 null。
+ */
+export function nextWeekGoalRevert(ctx: AssessContext): string | null {
+  const ss = (ctx.profile.segments ?? []) as Obj[];
+  if (!ss.length || weekGoal(ss[ss.length - 1]) === "保持") return null;
+  const path = `档案.json segments[${ss.length - 1}].goal`;
+  const hit = goalIssues(ctx).find((i) => i.code === GOAL_REVERT && i.path === path);
+  return hit ? hit.message : null;
+}
+
 /** 下一周的 segments 项：habitTargets、restart 只写在一段的第一项，不抄过去。 */
 export function nextWeekEntry(profile: Obj, choice: NextChoice): Obj | null {
   const ss = (profile.segments ?? []) as Obj[];
@@ -209,6 +221,22 @@ export function nextWeekEntry(profile: Obj, choice: NextChoice): Obj | null {
   if (!e || choice === "end") return null;
   const { habitTargets: _h, restart: _r, ...base } = e;
   return { ...base, week: choice === "advance" ? e.week + 1 : e.week, start: addDays(e.start, 7) };
+}
+
+/**
+ * 每个动作的表现只填了一部分的：还要填的那几项。复盘数据的格式要每组都做到上限（allAtTop）、最后一组余力（spare）都有，
+ * 缺了这个动作整项不记、加量也就没有依据——所以填了这个动作的任何一项，这两项就要补上。
+ */
+export function partialMoveFields(form: ReviewForm, values: Record<string, unknown>): FormField[] {
+  const fields = form.sections.flatMap((s) => s.fields).filter((f) => f.key.startsWith("moves."));
+  const filled = (k: string) => values[k] !== undefined && values[k] !== "";
+  const out: FormField[] = [];
+  for (const move of new Set(fields.map((f) => f.key.split(".")[1]))) {
+    const own = fields.filter((f) => f.key.split(".")[1] === move);
+    if (!own.some((f) => filled(f.key))) continue;
+    for (const f of own) if ((f.key.endsWith(".allAtTop") || f.key.endsWith(".spare")) && !filled(f.key)) out.push(f);
+  }
+  return out;
 }
 
 /** 照表单填的值组装复盘数据（yangxia.review/1）。动作只写 allAtTop、spare 都填了的。 */

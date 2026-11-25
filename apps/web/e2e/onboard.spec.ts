@@ -71,6 +71,26 @@ test("分步建档：18–39 有基础直接进稳定期、40–64 健身房、1
       },
     });
 
+    // 13–17 岁、家长能在旁边：桌下划船那一组能用
+    await newProfile(page);
+    await createProfileByWizard(page, {
+      code: "初中丁", stage: "初中", product: "13-17岁-纯徒手版",
+      conditions: [["家长能不能在旁边", "是"], ["能跳的地方", "否"]], gear: ["桌下反向划船", "门框划船"], school: { stage: "初中", entry: "2025" }, startDate: "2026-11-02",
+      entry: "later",
+    });
+
+    // 40–64 纯徒手、筛查 BMI ≥ 28 答"是"：问"重度肥胖"，身高体重当场算，请求里没有这两个数
+    const bodies: string[] = [];
+    page.on("request", (r) => { if (r.url().startsWith(`${srv.baseUrl}/api/`)) bodies.push(`${r.url()} ${r.postData() ?? ""}`); });
+    await newProfile(page);
+    await createProfileByWizard(page, {
+      code: "居家戊", stage: "40–64 岁", venue: "什么器械都没有", product: "40-64岁-纯徒手版", screeningYes: ["BMI"], doctorDate: "2026-11-02",
+      conditions: [["有没有高血压", "否"], ["骨量低或者骨质疏松", "否"]], bmi: { height: "171.3", weight: "88.8", expect: "否" }, gear: ["门框划船"],
+      birth: "1975-05", body: "不记", startDate: "2026-11-02", entry: "later",
+    });
+    expect(bodies.some((b) => b.includes("/api/profiles/from-intake") && b.includes("重度肥胖"))).toBe(true);
+    expect(bodies.filter((b) => b.includes("171.3") || b.includes("88.8"))).toEqual([]);
+
     // 65 岁以上：筛查都答"否"也要先问医生；散步分钟自己填；入门评估以后（家人在场）做
     await newProfile(page);
     await createProfileByWizard(page, {

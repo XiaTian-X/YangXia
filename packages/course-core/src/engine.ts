@@ -95,7 +95,17 @@ export interface ProfileBundle {
  */
 export type PreSessionCheck =
   | { kind: "fall"; ask: string; stop: string }
-  | { kind: "condition"; condition: string; ask: string; recorded: boolean | null; hint: string };
+  | {
+      kind: "condition";
+      condition: string;
+      ask: string;
+      recorded: boolean | null;
+      /** 没确认时按哪一边（保守的一边）。档案记的不是这一边、当天答成这一边：这节课是照不保守的版本排的，当天不能照它练。 */
+      conservative: boolean;
+      hint: string;
+      /** 当天答成保守的一边、档案记的是另一边时怎么办。 */
+      stop: string;
+    };
 
 /** 65 岁以上每次练前问的话和答"有"时的做法（成品第十二章、"不适优先"、周复盘那一问的原意）。 */
 export const FALL_CHECK = {
@@ -482,7 +492,9 @@ export function exportProfileCourse(
       condition: c.condition,
       ask: c.ask,
       recorded: c.recorded,
+      conservative: c.conservative,
       hint: `和档案记的不一样时，照成品原文换做法（${named(c.move)}那一项）`,
+      stop: `今天和档案记的不一样，这节课是照档案排的：先在网页上的「家庭与档案」把「${c.condition}」改成今天的情况、重新发课，再来练`,
     })),
   ];
   const envelope: CourseDeliveryEnvelope = {

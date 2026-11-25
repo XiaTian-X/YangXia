@@ -2,6 +2,7 @@
 // 前端只渲染，不自己挑选项（第一轮审查修复方案第二节）。
 import { bedtimeFor, notCoveredItems, screeningFor } from "./intake.ts";
 import { productCode, type Manifest, type ManifestProduct } from "./manifest.ts";
+import { goalParam, goalRules } from "./goals.ts";
 import { stableParam, type PlansData, type RulesData } from "./plan.ts";
 import { PROFILE_FORMAT } from "./profile.ts";
 
@@ -86,6 +87,10 @@ export interface IntakeCondition {
   perSession: boolean;
   /** 没确认时按哪边导出（规则层"没确认时"）。 */
   unconfirmed: boolean;
+  /**
+   * "重度肥胖"这种按 BMI 推出来的条件：BMI 到了这个数算"是"。界面请使用者报身高、体重当场算，只交是 / 否，数字不交、不存。
+   */
+  bmiAtLeast?: number;
 }
 
 export interface IntakeProduct {
@@ -322,7 +327,11 @@ export function profileFromIntake(t: IntakeTemplates, input: IntakeProfileInput)
     progressLog: [],
   };
   if (form.basics.birth && input.birth) profile.birth = input.birth;
-  if (form.basics.school && input.school) profile.school = { stage: input.school.stage, entry: input.school.entry, ...(input.school.system ? { system: input.school.system } : {}) };
+  if (form.basics.school && input.school) {
+    // 学段只问一次（入口问卷第 1 题）：基本信息里的学段要和它一致
+    if (input.school.stage !== stage) return { error: `学段和入口问卷选的不一样（选的是${stage}）：照实改一处` };
+    profile.school = { stage: input.school.stage, entry: input.school.entry, ...(input.school.system ? { system: input.school.system } : {}) };
+  }
   if (form.basics.body && input.body) profile.body = input.body;
   if (form.basics.walkBase && input.walkBase) profile.habitBase = { 散步: input.walkBase };
   if (direct && input.focus?.length) profile.focus = { areas: input.focus };
@@ -347,7 +356,11 @@ export function intakeConditions(rules: RulesData, code: string, answers: Intake
       const severe = has("重度肥胖") && bmiYes && conds["重度肥胖"] !== false;
       if (!htn && !severe) continue;
     }
-    out.push({ name, ask: c.ask, note: c.note, perSession: !!c.per_session, unconfirmed: c.default });
+    const gr = name === "重度肥胖" ? goalRules(rules) : null;
+    out.push({
+      name, ask: c.ask, note: c.note, perSession: !!c.per_session, unconfirmed: c.default,
+      ...(name === "重度肥胖" ? { bmiAtLeast: (gr ? goalParam(gr, "重度肥胖 BMI", code) : undefined) ?? 37.5 } : {}),
+    });
   }
   return out;
 }

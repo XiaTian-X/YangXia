@@ -3,6 +3,7 @@
 import { buildAssessmentRecord, missingFields, uncoveredChoiceGroups, type AssessmentForm, type IntakeAnswers, type IntakeForm } from "@yangxia/course-core";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { FormRenderer, type FormValues } from "../components/FormRenderer.tsx";
+import { BmiCheck } from "../components/BmiCheck.tsx";
 import { Pills } from "../components/Pills.tsx";
 import { apiRequest, formatApiError } from "../lib/api.ts";
 import type { AssessmentFormResponse, IntakeFormResponse } from "../types.ts";
@@ -59,14 +60,29 @@ export function OnboardWizard({ isAdmin, members, onCreated, onCancel }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 每次回答变了，照规则重算要问什么
+  // 每次回答变了，照规则重算要问什么（上一次的报错跟着清掉）
   useEffect(() => {
     let alive = true;
     apiRequest<IntakeFormResponse>("/api/intake/form", { method: "POST", body: answers })
-      .then((r) => alive && setForm(r.form))
+      .then((r) => { if (alive) { setForm(r.form); setError(null); } })
       .catch((e) => alive && setError(formatApiError(e)));
     return () => { alive = false; };
   }, [JSON.stringify(answers)]);
+
+  // 换了阶段：跟着阶段走的选择都重来（器材、方向、医生同意、学段、身体数据记不记、散步分钟）；
+  // 学段就是第 2 步选的那个，不再问一次
+  useEffect(() => {
+    setChoices([]);
+    setFocus([]);
+    setDoctorCleared("");
+    setDoctorDate("");
+    setBody("");
+    setWalkBase("");
+    setSchoolEntry("");
+    setSchoolSystem("");
+    setSchoolStage(answers.stage === "小学" || answers.stage === "初中" || answers.stage === "高中" ? answers.stage : "");
+    setEntryValues({});
+  }, [answers.stage]);
 
   useEffect(() => {
     if (!answers.stage || !/^\d{2}:\d{2}$/.test(wake)) { setBedtime(null); return; }
@@ -310,7 +326,11 @@ export function OnboardWizard({ isAdmin, members, onCreated, onCancel }: {
                           if (x === "没确认") delete next[c.name]; else next[c.name] = x === "是";
                           set({ conditions: next });
                         }} />
-                      <div class="muted" style={{ marginTop: "8px" }}>{c.note}{c.perSession ? "（每次练之前手机上还会再问一次）" : ""}</div>
+                      {typeof c.bmiAtLeast === "number" && (
+                        <BmiCheck line={c.bmiAtLeast} idPrefix={`wz-bmi-${c.name}`} onResult={(yes) => set({ conditions: { ...(answers.conditions ?? {}), [c.name]: yes } })} />
+                      )}
+                      {/* 规则层的说明只给"没确认的按……导出"那一种（其余是写给维护者的推法） */}
+                      <div class="muted" style={{ marginTop: "8px" }}>{c.note.startsWith("没确认") ? c.note : ""}{c.perSession ? "（每次练之前手机上还会再问一次）" : ""}</div>
                     </div>
                   );
                 })}
@@ -348,12 +368,9 @@ export function OnboardWizard({ isAdmin, members, onCreated, onCancel }: {
                   )}
                   {form.basics.school && (
                     <>
-                      <label class="field2" for="wz-ss">学段
-                        <select id="wz-ss" value={schoolStage} onChange={(e) => setSchoolStage((e.target as HTMLSelectElement).value)}>
-                          <option value="">请选择</option>
-                          {form.basics.school.stages.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </label>
+                      <div class="field2" id="wz-ss">学段<span class="hint">第 2 步选的；不对就回第 2 步改</span>
+                        <strong>{schoolStage || "—"}</strong>
+                      </div>
                       <label class="field2" for="wz-se">这个学段的入学年份
                         <input id="wz-se" type="number" min={2000} max={2100} value={schoolEntry} onInput={(e) => setSchoolEntry((e.target as HTMLInputElement).value)} />
                       </label>

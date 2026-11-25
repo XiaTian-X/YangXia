@@ -364,7 +364,21 @@ export function fieldVisible(field: FormField, values: Record<string, unknown>):
 /** 表单里要填、现在却没填的项（只看现在要问的）。 */
 export function missingFields(form: AssessmentForm, values: Record<string, unknown>): FormField[] {
   return form.sections.flatMap((s) => s.fields).filter((f) => f.required && !f.readonly && fieldVisible(f, values)
-    && (values[f.key] === undefined || values[f.key] === "" || (Array.isArray(values[f.key]) && !(values[f.key] as unknown[]).length)));
+    && (values[f.key] === undefined || values[f.key] === "" || (Array.isArray(values[f.key]) && !(values[f.key] as unknown[]).length)
+      || (f.input.type === "gait" && !gaitComplete(values[f.key], f.input.chair))));
+}
+
+/**
+ * 步态一项填完了没有：测了的要有秒数、测的日期，用没用手杖、场地合不合格（起立行走另有椅子合不合格）都答了（不替人预答"否"）；
+ * 没测成的要有原因（中途停下的还要停下的原因）；按规则不测的要有原因。
+ */
+export function gaitComplete(v: unknown, chair: boolean): boolean {
+  if (typeof v !== "object" || v === null) return false;
+  const g = v as Record<string, unknown>;
+  if (g.result === "没测成") return typeof g.reason === "string" && (g.reason !== "中途停下" || typeof g.stopReason === "string");
+  if (g.result === "按规则不测") return typeof g.reason === "string";
+  return typeof g.seconds === "number" && g.seconds > 0 && typeof g.testedOn === "string" && g.testedOn !== ""
+    && typeof g.cane === "boolean" && typeof g.siteOk === "boolean" && (!chair || typeof g.chairOk === "boolean");
 }
 
 /**
@@ -396,7 +410,8 @@ export function buildAssessmentRecord(form: AssessmentForm, values: Record<strin
       continue;
     }
     if (f.key === "eventDates" && Array.isArray(v)) {
-      const ds = [...new Set(v as string[])].sort();
+      // 空行不算一个日期
+      const ds = [...new Set((v as unknown[]).filter((d): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
       if (!ds.length) continue;
       if (ds.length > 1) rec.eventDates = ds;
       rec.eventDate = ds[ds.length - 1];

@@ -1,7 +1,7 @@
 // 周复盘与个人进度（设计稿"网页 · 周复盘与个人进度"）：要填什么、下一周能怎么走由核心 reviewForm 给；
 // 训练次数、不适从这一周的练习记录带入，有不适锁定、不能推周；下一周由服务端排。
 // 个人进度照核心 progressForm 选动作、规则、依据，写入后服务端重放核对，不合规则的拒。
-import { buildReviewRecord, type NextChoice, type ProgressForm, type ReviewForm } from "@yangxia/course-core";
+import { buildReviewRecord, partialMoveFields, type NextChoice, type ProgressForm, type ReviewForm } from "@yangxia/course-core";
 import { useEffect, useState } from "preact/hooks";
 import { FormRenderer, type FormValues } from "../components/FormRenderer.tsx";
 import { Pills } from "../components/Pills.tsx";
@@ -42,7 +42,10 @@ export function ReviewPanel({ profile, onChanged, onGoAssess }: {
   const [pError, setPError] = useState<string | null>(null);
   const [pNotice, setPNotice] = useState<string | null>(null);
 
+  // 65 岁以上填了头晕、摔倒、差点摔倒（成品"不适优先"）：这一周不能往上推
+  const eventSym = ["dizzy", "falls", "nearFalls"].some((k) => typeof values[k] === "number" && (values[k] as number) > 0);
   const symptoms = !!form?.symptomsLocked || selfSymptoms === "有";
+  const noAdvance = symptoms || eventSym;
 
   const loadForm = async (sym: boolean) => {
     try {
@@ -79,10 +82,17 @@ export function ReviewPanel({ profile, onChanged, onGoAssess }: {
     void loadForm(selfSymptoms === "有");
     if (selfSymptoms === "有" && next === "advance") setNext("");
   }, [selfSymptoms]);
+  useEffect(() => {
+    if (eventSym && next === "advance") setNext("");
+  }, [eventSym]);
 
   const trainings = typeof values.trainings === "number" ? values.trainings : form?.minTrainings;
-  const missing = (form?.sections ?? []).flatMap((s) => s.fields)
-    .filter((f) => f.required && !f.readonly && f.key !== "trainings" && f.key !== "symptoms" && (values[f.key] === undefined || values[f.key] === ""));
+  const missing = [
+    ...(form?.sections ?? []).flatMap((s) => s.fields)
+      .filter((f) => f.required && !f.readonly && f.key !== "trainings" && f.key !== "symptoms" && (values[f.key] === undefined || values[f.key] === "")),
+    // 动作表现填了一部分的：每组都做到上限、最后一组余力都要补上，不然这个动作不记
+    ...(form ? partialMoveFields(form, values) : []),
+  ];
   const ready = !!form && !!next && (form.symptomsLocked || selfSymptoms !== "") && missing.length === 0 && typeof trainings === "number" && trainings >= form.minTrainings;
 
   const save = async () => {
@@ -93,13 +103,14 @@ export function ReviewPanel({ profile, onChanged, onGoAssess }: {
     try {
       const reviewJson = buildReviewRecord(form, { ...values, trainings, symptoms });
       const d = await apiRequest<{ version: number }>(`/api/profiles/${profile.id}`);
-      await apiRequest(`/api/profiles/${profile.id}/reviews`, {
+      const res = await apiRequest<{ goalReverted?: string | null }>(`/api/profiles/${profile.id}/reviews`, {
         method: "POST",
         body: { expectedVersion: d.version, startDate: form.start, week: form.week, reviewJson, reviewMd: md, next },
       });
-      setNotice(next === "advance" ? `已保存第 ${form.week} 周复盘，推到第 ${form.week + 1} 周。到"排课中心"发布这一周的课程。`
+      const done = next === "advance" ? `已保存第 ${form.week} 周复盘，推到第 ${form.week + 1} 周。到"排课中心"发布这一周的课程。`
         : next === "repeat" ? `已保存第 ${form.week} 周复盘，第 ${form.week} 周重来一次。到"排课中心"重新发布课程。`
-        : `已保存第 ${form.week} 周复盘。接着做${form.phase === "稳定" ? "周期末" : "段末"}评估。`);
+        : `已保存第 ${form.week} 周复盘。接着做${form.phase === "稳定" ? "周期末" : "段末"}评估。`;
+      setNotice(res.goalReverted ? `${done}\n${res.goalReverted}` : done);
       onChanged();
       if (next === "end") onGoAssess(form.phase === "稳定" ? "周期末" : "段末");
       setValues({});
@@ -157,7 +168,7 @@ export function ReviewPanel({ profile, onChanged, onGoAssess }: {
       </div>
 
       {error && <div class="banner danger" role="alert" style={{ whiteSpace: "pre-wrap" }}>{error}</div>}
-      {notice && <div class="banner ok">{notice}</div>}
+      {notice && <div class="banner ok" style={{ whiteSpace: "pre-wrap" }}>{notice}</div>}
       {form.symptomsLocked && (
         <div class="notice danger" role="alert">
           {hurt.map((s) => `${s.date.slice(5)} 的练习记录写了${s.symptoms.join("、")}`).join("；")}：这一周按"有不适"复盘，不能推到下一周，个人进度只能往下调。
@@ -224,10 +235,13 @@ export function ReviewPanel({ profile, onChanged, onGoAssess }: {
             <h2>下一周怎么走 <span class="muted">由服务端照规则排</span></h2>
             <div class="next-opts" role="group" aria-label="下一周怎么走">
               {form.next.map((o) => (
-                <button key={o.value} type="button" class="next-opt" aria-pressed={next === o.value} disabled={!o.allowed || (o.value === "advance" && symptoms)}
+                <button key={o.value} type="button" class="next-opt" aria-pressed={next === o.value} disabled={!o.allowed || (o.value === "advance" && noAdvance)}
                   onClick={() => setNext(o.value)}>
                   <span class="t">{o.label}</span>
-                  <span class="s">{!o.allowed || (o.value === "advance" && symptoms) ? o.reason ?? "这一周有不适：不能往上走" : o.value === "repeat" ? "照这一周的量再练一周" : o.value === "advance" ? "这一周没有不适" : "复盘存好以后接着做"}</span>
+                  <span class="s">{!o.allowed ? o.reason ?? "这一周有不适：不能往上走"
+                    : o.value === "advance" && symptoms ? "这一周有不适：不能往上走"
+                    : o.value === "advance" && eventSym ? "这一周有头晕、摔倒或差点摔倒：不能往上走，告诉医生；摔倒的要做一次触发评估"
+                    : o.value === "repeat" ? "照这一周的量再练一周" : o.value === "advance" ? "这一周没有不适" : "复盘存好以后接着做"}</span>
                 </button>
               ))}
             </div>

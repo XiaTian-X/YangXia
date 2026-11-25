@@ -517,9 +517,13 @@ export function cycleGoals(ctx: AssessContext, n: number, record?: AssessFile): 
 }
 
 /** 档案目录里目标的核对（profile check、导出之前都跑）。 */
+/** 规则要求"这一周起 / 下一周起退回保持"的报错带这个代号：服务端排下一周时照它把目标改成保持，不让整份复盘存不了。 */
+export const GOAL_REVERT = "GOAL_REVERT";
+
 export function goalIssues(ctx: AssessContext): Issue[] {
   const out: Issue[] = [];
   const err = (path: string, message: string) => out.push({ level: "error", path, message });
+  const revert = (path: string, message: string) => out.push({ level: "error", path, message, code: GOAL_REVERT });
   const gr = goalRules(ctx.rules);
   const p = ctx.profile;
   const ss = (p.segments ?? []) as SegmentEntry[];
@@ -576,20 +580,20 @@ export function goalIssues(ctx: AssessContext): Issue[] {
       const endDay = addDays(x.start, 6);
       const st = bodyStateOn(p, x.start) !== "记" ? x.start : (Array.isArray(p.bodyLog) ? p.bodyLog : []).find((b: Obj) => b.date >= x.start && b.date <= endDay && b.body !== "记")?.date
         ?? (p.body === "停记" && typeof p.bodyStopDate === "string" && p.bodyStopDate >= x.start && p.bodyStopDate <= endDay ? p.bodyStopDate : undefined);
-      if (st) err(path(j), `${st} 起不记（或停记）体重腰围：这一周起目标退回保持（这一周的计划单重新生成）`);
-      else if (j > 0 && dietByProOn(p, x.start)) err(path(j), `医生、营养师给了自己的减重方案（dietByPro，${x.start} 这一周开始时已经记了）：这一周起退回保持，吃照他们的`);
+      if (st) revert(path(j), `${st} 起不记（或停记）体重腰围：这一周起目标退回保持（这一周的计划单重新生成）`);
+      else if (j > 0 && dietByProOn(p, x.start)) revert(path(j), `医生、营养师给了自己的减重方案（dietByPro，${x.start} 这一周开始时已经记了）：这一周起退回保持，吃照他们的`);
       else if (g === "减脂" && obeseAt(x.start) && !clearValid(ctx, "weightClear", x.start, code, { waitDoctor: true }).valid) {
         const had = (Array.isArray(p.weightClear) ? p.weightClear : []).some((c: Obj) => typeof c?.date === "string" && c.date <= x.start);
-        err(path(j), had ? `减重的医生同意（weightClear）到 ${x.start} 这一周已经失效（过期，或者重做了筛查、有了新的要问医生的事，看了医生没续）：这一周起退回保持，下一个周期再选`
+        revert(path(j), had ? `减重的医生同意（weightClear）到 ${x.start} 这一周已经失效（过期，或者重做了筛查、有了新的要问医生的事，看了医生没续）：这一周起退回保持，下一个周期再选`
           : `${x.start} 这一周开始时最近一次称的 BMI 到了 ${obeseLine}（肥胖），没有减重的医生同意（weightClear）：这一周起退回保持，医生同意了下一个周期再选`);
       }
-      else if (stop && seg.first + j >= stop.index) err(path(j), `${stop.why}：下一周起退回保持，问问有没有饿着、没力气、头晕`);
+      else if (stop && seg.first + j >= stop.index) revert(path(j), `${stop.why}：下一周起退回保持，问问有没有饿着、没力气、头晕`);
       if (g === "增肌") {
         const over = goalParam(gr, "超重 BMI", code) ?? 24;
         const bulkWaist = goalParam(gr, "增肌腰围", code) ?? 85;
         const hit = ctx.assessments.find((a) => typeof a.raw?.date === "string" && a.raw.date >= seg.entries[0].start && a.raw.date < x.start && a.raw.body
           && ((bmiW(a.raw.body.weight, entryHeight(ctx)) ?? 0) >= over || (typeof a.raw.body.waist === "number" && a.raw.body.waist >= bulkWaist)));
-        if (hit) err(path(j), `${hit.name} 量的 BMI 到了 ${over} 或者腰围到了 ${bulkWaist} cm：之后的周退回保持`);
+        if (hit) revert(path(j), `${hit.name} 量的 BMI 到了 ${over} 或者腰围到了 ${bulkWaist} cm：之后的周退回保持`);
       }
     });
     // 复盘数据：体重、有氧分钟、没力气只给这一周按减脂的人；体重要那一周是"记"

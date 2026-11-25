@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { BmiCheck } from "../components/BmiCheck.tsx";
 import { Pills } from "../components/Pills.tsx";
 import { apiRequest, formatApiError } from "../lib/api.ts";
 import { qrSvgPath } from "../lib/qr.ts";
@@ -71,6 +72,9 @@ export function FamilyProfilesPage({
   // 当前档案能改的设置
   const [editHousehold, setEditHousehold] = useState<string[]>([]);
   const [editBody, setEditBody] = useState<"记" | "不记" | "停记">("不记");
+  // 训练条件：这份成品要问的（规则层原话）；"没确认"不写进档案，按保守版本导出
+  const [conds, setConds] = useState<{ name: string; ask: string; note: string; perSession: boolean; recorded: boolean | null; bmiAtLeast?: number }[]>([]);
+  const [editConds, setEditConds] = useState<Record<string, "是" | "否" | "没确认">>({});
   const [editWake, setEditWake] = useState("");
   const [editBedtime, setEditBedtime] = useState("");
   const [editDoctor, setEditDoctor] = useState<"" | "是" | "否">("");
@@ -96,10 +100,14 @@ export function FamilyProfilesPage({
       return;
     }
     try {
-      const [det, aud] = await Promise.all([
+      const [det, aud, cs] = await Promise.all([
         apiRequest<any>(`/api/profiles/${selectedProfile.id}`),
         apiRequest<any>(`/api/profiles/${selectedProfile.id}/audit`),
+        apiRequest<{ conditions: { name: string; ask: string; note: string; perSession: boolean; recorded: boolean | null; bmiAtLeast?: number }[] }>(`/api/profiles/${selectedProfile.id}/conditions`)
+          .catch(() => ({ conditions: [] })),
       ]);
+      setConds(cs.conditions);
+      setEditConds(Object.fromEntries(cs.conditions.map((x) => [x.name, x.recorded === null ? "没确认" : x.recorded ? "是" : "否"])));
       setProfileDetail(det);
       setAuditData(aud);
       setEditHousehold(Array.isArray(det.profile?.household) ? det.profile.household : []);
@@ -144,6 +152,17 @@ export function FamilyProfilesPage({
       if (selectedProfile.age === "a18" || selectedProfile.age === "a40") {
         patch.body = editBody;
         if (editBody === "停记" && profileDetail.profile?.body !== "停记") patch.bodyStopDate = todayIso();
+      }
+      // 训练条件：只改这份成品问的那几项，别的照留；"没确认"的不写
+      if (conds.length) {
+        const nextConds: Record<string, boolean> = { ...(profileDetail.profile?.conditions ?? {}) };
+        for (const x of conds) {
+          const v = editConds[x.name];
+          if (v === "是") nextConds[x.name] = true;
+          else if (v === "否") nextConds[x.name] = false;
+          else delete nextConds[x.name];
+        }
+        patch.conditions = nextConds;
       }
       const before = profileDetail.profile?.screening ?? {};
       const cleared = editDoctor === "是";
@@ -306,6 +325,25 @@ export function FamilyProfilesPage({
                     医生同意的日期
                     <input id="ed-dd" type="date" value={editDoctorDate} max={todayIso()} onInput={(e) => setEditDoctorDate((e.target as HTMLInputElement).value)} />
                   </label>
+                )}
+
+                {conds.length > 0 && (
+                  <div class="stack" style={{ gap: "12px" }}>
+                    <div class="field2">
+                      训练条件<span class="hint">只记是 / 否；没确认的按保守的版本排课。改了以后到「排课」重新发课</span>
+                    </div>
+                    {conds.map((x) => (
+                      <div key={x.name} class="field2">
+                        {x.ask}{x.perSession ? "（每次练之前手机上还会再问）" : ""}
+                        <Pills label={x.ask} value={editConds[x.name] ?? "没确认"}
+                          options={[{ value: "是", label: "是" }, { value: "否", label: "否" }, { value: "没确认", label: "没确认" }]}
+                          onChange={(v) => setEditConds((cur) => ({ ...cur, [x.name]: v as "是" | "否" | "没确认" }))} />
+                        {typeof x.bmiAtLeast === "number" && (
+                          <BmiCheck line={x.bmiAtLeast} idPrefix={`ed-bmi-${x.name}`} onResult={(yes) => setEditConds((cur) => ({ ...cur, [x.name]: yes ? "是" : "否" }))} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
 
                 <div class="field2">

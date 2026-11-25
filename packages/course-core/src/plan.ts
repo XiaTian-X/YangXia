@@ -342,6 +342,8 @@ export interface ConditionCheck {
   ask: string;
   /** 档案记的：true 是、false 否、null 没确认（按保守版本导出）。 */
   recorded: boolean | null;
+  /** 没确认时按哪一边导出（规则层的"没确认时"，保守的那一边）。 */
+  conservative: boolean;
   move: string;
 }
 
@@ -457,7 +459,7 @@ export function exportCourse(input: ExportInput): ExportResult {
     const cond = r.condition ? rules.conditions[r.condition.name] : null;
     if (r.condition && cond?.per_session) {
       const rec = profile?.conditions?.[r.condition.name];
-      const c: ConditionCheck = { condition: r.condition.name, ask: cond.ask, recorded: typeof rec === "boolean" ? rec : null, move };
+      const c: ConditionCheck = { condition: r.condition.name, ask: cond.ask, recorded: typeof rec === "boolean" ? rec : null, conservative: cond.default, move };
       out.checks!.push(c);
       out.notes.push(checkNote(c));
     }

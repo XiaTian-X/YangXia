@@ -123,6 +123,65 @@ describe("表单接口：建档、评估、复盘、个人进度都由服务端�
     expect((await ok.json()).progress.squat.level).toBe(1);
   });
 
+  it("练完页每个动作的补充当个人进度的依据：感受\"做到上限还很轻松\"找级升一级，\"当场退回\"降回上一级", async () => {
+    const { s, call } = await setup();
+    srv = s;
+    const snap = s.ctx.templates.current();
+    const created = await (await call("/api/profiles", "POST", {
+      profile: makeA18HomeProfile(snap.manifest, "依据甲"),
+      initialAssessment: { schema: ASSESS_FORMAT, date: "2026-11-02", kind: "入门", base: 0, tests: [{ id: "pushup-test", level: 2, value: 8 }], conclusion: {} },
+    })).json();
+    const pid = created.id as string;
+    const move = "squat";
+    expect((await call(`/api/profiles/${pid}/progress-log`, "POST", { entries: [{ date: "2026-11-02", move, field: "level", to: 1, rule: "建档" }] })).status).toBe(200);
+    const pub = await (await call(`/api/profiles/${pid}/courses/publish`, "POST", { week: 1, day: "A" })).json();
+    const course = pub.envelope.course;
+    const ladder = (snap.plans!.products["18-39岁-居家版"].ladders?.[move] ?? []) as { exercise: string }[];
+    const items = course.blocks.flatMap((b: { items: { exercise: string; sets?: number }[] }) => b.items);
+    const pi = items.findIndex((it: { exercise: string }) => ladder.some((l) => l.exercise === it.exercise));
+    expect(pi).toBeGreaterThanOrEqual(0);
+    // 手机照核心 buildSession 写的记录：只有填了的动作带 feel / spare / reverted
+    const session = (startedAt: string, extra: Record<string, unknown>) => ({
+      schema: SESSION_FORMAT,
+      course: { id: course.id, name: course.name, source: course.source },
+      startedAt,
+      endedAt: new Date(Date.parse(startedAt) + 30 * 60_000).toISOString(),
+      items: items.map((it: { exercise: string; sets?: number }, i: number) => ({ exercise: it.exercise, setsPlanned: it.sets ?? 1, setsDone: it.sets ?? 1, skipped: false, ...(i === pi ? extra : {}) })),
+      feeling: "正好",
+      symptoms: { pain: false, dizzy: false, chest: false },
+    });
+    s.setNow(new Date("2026-11-05T09:00:00.000Z"));
+    expect((await call("/api/mobile/sessions", "POST", { profileId: pid, session: session("2026-11-03T01:00:00.000Z", { feel: "做到上限还很轻松" }) })).status).toBe(201);
+    const pf = await (await call(`/api/profiles/${pid}/progress/form`)).json();
+    const ev1 = pf.form.evidence.sessions[0].value as string;
+    const up = await call(`/api/profiles/${pid}/progress-log`, "POST", { entries: [{ date: "2026-11-04", move, field: "level", to: 2, rule: "找级", evidence: ev1 }] });
+    expect(JSON.stringify(await up.clone().json())).not.toMatch(CLI);
+    expect(up.status).toBe(200);
+    expect((await up.json()).progress[move].level).toBe(2);
+
+    expect((await call("/api/mobile/sessions", "POST", { profileId: pid, session: session("2026-11-05T01:00:00.000Z", { feel: "做不到下限或后面几下变形", reverted: true }) })).status).toBe(201);
+    const pf2 = await (await call(`/api/profiles/${pid}/progress/form`)).json();
+    const ev2 = (pf2.form.evidence.sessions as { value: string }[]).find((x) => x.value !== ev1)!.value;
+    // 没有标"当场退回"的那份记录不能当退回的依据
+    const wrong = await call(`/api/profiles/${pid}/progress-log`, "POST", { entries: [{ date: "2026-11-05", move, field: "level", to: 1, rule: "退回", evidence: ev1 }] });
+    expect(wrong.status).toBe(422);
+    const down = await call(`/api/profiles/${pid}/progress-log`, "POST", { entries: [{ date: "2026-11-05", move, field: "level", to: 1, rule: "退回", evidence: ev2 }] });
+    expect(down.status).toBe(200);
+    expect((await down.json()).progress[move].level).toBe(1);
+  });
+
+  it("档案设置里的训练条件：列这份成品要问的条件和档案记的值；服务端自己的报错也换成界面说法", async () => {
+    const { s, call } = await setup();
+    srv = s;
+    const manifest = s.ctx.templates.current().manifest;
+    const created = await (await call("/api/profiles", "POST", { profile: makeA18HomeProfile(manifest, "条件甲") })).json();
+    const cs = await (await call(`/api/profiles/${created.id}/conditions`)).json();
+    expect(cs.conditions.find((c: { name: string }) => c.name === "高血压")).toMatchObject({ recorded: false, perSession: false });
+    // 报错文字不带英文字段名（AppError 也过 cleanText）
+    const bad = await call("/api/profiles/not-a-profile/conditions");
+    expect(JSON.stringify(await bad.json())).not.toMatch(CLI);
+  });
+
   it("按向导建档：服务端组装档案；有基础的人直接进稳定期，入门评估当场达线；不达线被拒", async () => {
     const { s, call } = await setup();
     srv = s;

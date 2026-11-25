@@ -4,6 +4,8 @@ import type { DatabaseSync } from "node:sqlite";
 import {
   ASSESS_FORMAT,
   auditProfileBundle,
+  buildAssessContext,
+  cleanText,
   collectProgressIssues,
   currentSegment,
   DECLARATION,
@@ -13,6 +15,7 @@ import {
   generateProfileSheet,
   isValidTimeZone,
   nextWeekEntry,
+  nextWeekGoalRevert,
   prepareSessionImport,
   PROFILE_FORMAT,
   progressOn,
@@ -21,6 +24,7 @@ import {
   reviewForm,
   reviewName,
   validateProfile,
+  weekGoal,
   type NextChoice,
   type CourseDeliveryEnvelope,
   type InvalidatedCourse,
@@ -606,7 +610,7 @@ export function submitReviewOp(
     const legacyJsonPath = `复盘/${reviewDataName(segRef)}`;
     const legacyMdPath = `复盘/${reviewName(segRef)}`;
 
-    const state = loadProfileState(db, profileId, {
+    const loadCandidate = () => loadProfileState(db, profileId, {
       profile: candidateProfile,
       extraReviews: [
         {
@@ -619,6 +623,18 @@ export function submitReviewOp(
         },
       ],
     });
+    let state = loadCandidate();
+    // 下一周由服务端排的：目标照规则该退回保持的（减脂停记、掉太快、BMI 太低、医生同意失效，增肌到线），
+    // 直接写成保持并告诉使用者，不让整份复盘存不了
+    let goalReverted: string | null = null;
+    if (input.next && nextEntry && weekGoal(nextEntry) !== "保持") {
+      const reason = nextWeekGoalRevert(buildAssessContext(state.bundle, templates, { now }));
+      if (reason) {
+        nextEntry.goal = "保持";
+        goalReverted = `下一周起目标改回保持：${cleanText(reason)}`;
+        state = loadCandidate();
+      }
+    }
     const auditIssues = auditProfileBundle(
       { ...state.bundle, courses: state.bundle.courses.filter((c) => c.archived) },
       templates,
@@ -682,6 +698,7 @@ export function submitReviewOp(
       reviewJson,
       profile: candidateProfile,
       invalidatedCourses,
+      goalReverted,
       warnings: onlyWarnings(auditIssues),
     };
   });

@@ -22,6 +22,8 @@ export function AssessPanel({ profile, isAdmin, initialKind, onChanged }: {
 }) {
   const [kind, setKind] = useState<Kind>(initialKind ?? "入门");
   const [product, setProduct] = useState<string>("");
+  // 能换成的成品：按没换之前的那份表单记住（换了以后新表单的列表不含它自己，选择框不能跟着变）
+  const [switchList, setSwitchList] = useState<string[]>([]);
   const [form, setForm] = useState<Omit<AssessmentForm, "lines"> | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [values, setValues] = useState<FormValues>({});
@@ -46,7 +48,10 @@ export function AssessPanel({ profile, isAdmin, initialKind, onChanged }: {
         apiRequest<{ assessments: AssessmentListItem[] }>(`/api/profiles/${profile.id}/assessments`),
         apiRequest<{ version: number }>(`/api/profiles/${profile.id}`),
       ]);
-      if (f) setForm(f.form);
+      if (f) {
+        setForm(f.form);
+        if (!product) setSwitchList(f.form.switchProducts);
+      }
       setList(l.assessments ?? []);
       setVersion(d.version);
     } catch (e) {
@@ -54,9 +59,12 @@ export function AssessPanel({ profile, isAdmin, initialKind, onChanged }: {
     }
   };
 
+  // 换档案、换评估种类才清空已填的；触发评估里换了成品，已选的原因、日期这些照留
   useEffect(() => {
     setValues({});
     setResult(null);
+  }, [profile.id, kind]);
+  useEffect(() => {
     void load();
   }, [profile.id, kind, product]);
 
@@ -118,12 +126,12 @@ export function AssessPanel({ profile, isAdmin, initialKind, onChanged }: {
                 哪天做的
                 <input id="as-date" type="date" value={date} onInput={(e) => setDate((e.target as HTMLInputElement).value)} />
               </label>
-              {switching && form.switchProducts.length > 0 && (
+              {switching && switchList.length > 0 && (
                 <label class="field2" for="as-prod" style={{ maxWidth: "360px" }}>
                   换成哪份成品<span class="hint">跨段、换场地：选了以后列出新成品要问、要测的项</span>
                   <select id="as-prod" value={product} onChange={(e) => setProduct((e.target as HTMLSelectElement).value)}>
                     <option value="">请选择</option>
-                    {form.switchProducts.map((p) => <option key={p} value={p}>{p}</option>)}
+                    {switchList.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </label>
               )}
