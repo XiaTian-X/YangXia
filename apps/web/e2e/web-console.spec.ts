@@ -2,7 +2,7 @@
 // 覆盖首次初始化、无大模型全流程闭环（建档/算上床时间/扫码本地 SVG 二维码/入门评估/计划单/排课发布/菜单红线/模板阅读）、
 // Agent SSE 流式回复 + 高危两阶段确认卡、管理员加密配置与备份导出，并强断言 0 外部网络请求。
 import { randomBytes } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -12,6 +12,7 @@ import type { Manifest, MotionsData, PlansData, RulesData } from "@yangxia/cours
 import { templatesDir } from "@yangxia/course-core/node";
 import type { AgentEvent, AgentRuntime } from "../../server/src/agent/runtime/interface.ts";
 import { createApp } from "../../server/src/app.ts";
+import { fileSetupCode } from "../../server/src/auth/setup-code.ts";
 import { createTrustedProxyMatcher, type ServerConfig } from "../../server/src/config.ts";
 import { createServerContext } from "../../server/src/context.ts";
 import { openDatabase } from "../../server/src/db/database.ts";
@@ -80,10 +81,13 @@ async function startLiveTestServer() {
     backupPassphrase: "e2e-auto-backup-pass",
     defaultTimezone: "Asia/Shanghai",
   };
+  // 首次初始化口令照生产入口：写在数据目录的 setup-code.txt（权限 600）
+  const setup = fileSetupCode(tempDir, false);
   const ctx = createServerContext({
     db,
     config,
     templates,
+    setupCode: setup.store,
     masterKey: randomBytes(32),
     scrypt: { N: 1024, r: 8, p: 1, keylen: 64 },
     now: () => new Date("2026-11-02T03:00:00.000Z"),
@@ -101,6 +105,8 @@ async function startLiveTestServer() {
 
   return {
     baseUrl,
+    setupCode: setup.code!,
+    setupPath: setup.path,
     async close() {
       await new Promise<void>((res) => server.close(() => res()));
       ctx.close();
@@ -128,10 +134,17 @@ test("桌面 1440×900 与平板 820×1180：无大模型全闭环 + Agent SSE �
     // 1. 首次初始化管理员
     await expect(page.getByRole("heading", { name: "首次初始化管理员" })).toBeVisible();
     await expect(page.getByText("未经专业审核，不是医学建议，不能替代医生的判断")).toBeVisible();
+    // 初始化口令：没带、带错都进不去；口令文件只有本机能读，用过就删
+    expect(statSync(srv.setupPath).mode & 0o777).toBe(0o600);
     await page.locator('input[name="password"]').fill("AdminPass123!");
     await page.locator('input[name="confirmPassword"]').fill("AdminPass123!");
+    await page.locator('input[name="setupCode"]').fill("WRONG-CODE-0000");
+    await page.getByRole("button", { name: "创建管理员并进入" }).click();
+    await expect(page.getByRole("alert")).toContainText("初始化口令不对");
+    await page.locator('input[name="setupCode"]').fill(srv.setupCode.toLowerCase());
     await page.getByRole("button", { name: "创建管理员并进入" }).click();
     await expect(page.getByRole("heading", { name: "尚未建立或选择档案" })).toBeVisible();
+    expect(existsSync(srv.setupPath)).toBe(false);
 
     // 2. 家庭与档案：可视向导建档 + 按公式算上床时间 + 扫码本地 SVG 二维码
     await page.getByRole("button", { name: "前往可视向导建档" }).click();

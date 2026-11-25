@@ -12,6 +12,7 @@ import {
 } from "@yangxia/course-core";
 import { templatesDir } from "@yangxia/course-core/node";
 import type { AgentRuntime } from "../src/agent/runtime/interface.ts";
+import { memorySetupCode } from "../src/auth/setup-code.ts";
 import { createApp } from "../src/app.ts";
 import { createTrustedProxyMatcher, type ServerConfig } from "../src/config.ts";
 import { createServerContext, type ServerContext } from "../src/context.ts";
@@ -22,6 +23,8 @@ const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
 const FIX = join(REPO_ROOT, "contracts", "fixtures");
 
 export const FAST_SCRYPT = { N: 1024, r: 8, p: 1, keylen: 64 };
+/** 测试服务端的首次初始化口令（生产环境由启动时生成、写日志和数据目录）。 */
+export const TEST_SETUP_CODE = "TEST-SETU-PCOD";
 
 function loadFixtureSnapshot(): TemplatesSnapshot {
   const manifest = JSON.parse(readFileSync(join(FIX, "manifest.json"), "utf8")) as Manifest;
@@ -114,6 +117,7 @@ export async function createTestServer(opts: {
     scrypt: FAST_SCRYPT,
     now: () => curNow,
     agentRuntimeFactory: opts.agentRuntimeFactory,
+    setupCode: memorySetupCode(TEST_SETUP_CODE),
   });
 
   const app = createApp(ctx);

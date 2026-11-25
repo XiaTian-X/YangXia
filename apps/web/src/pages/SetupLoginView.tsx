@@ -12,6 +12,7 @@ export function SetupLoginView({
   const [username, setUsername] = useState(initialized ? "" : "admin");
   const [password, setPassword] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
+  const [setupCode, setSetupCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +28,7 @@ export function SetupLoginView({
       if (!initialized) {
         await apiRequest("/api/setup/init", {
           method: "POST",
-          body: { username: username.trim(), password },
+          body: { username: username.trim(), password, setupCode: setupCode.trim() },
         });
       } else {
         await apiRequest("/api/auth/login", {
@@ -65,6 +66,21 @@ export function SetupLoginView({
         )}
 
         <form class="stack" onSubmit={submit}>
+          {!initialized && (
+            <label class="field">
+              <span>初始化口令（在服务启动日志里，也写在数据目录的 setup-code.txt 里）</span>
+              <input
+                type="text"
+                name="setupCode"
+                required
+                autoComplete="off"
+                spellcheck={false}
+                value={setupCode}
+                onInput={(e) => setSetupCode((e.target as HTMLInputElement).value)}
+                placeholder="如 ABCD-EFGH-JKMN"
+              />
+            </label>
+          )}
           <label class="field">
             <span>用户名</span>
             <input

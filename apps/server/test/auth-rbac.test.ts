@@ -6,6 +6,7 @@ import {
   makeA13Profile,
   makeA18HomeProfile,
   type TestServerHandle,
+  TEST_SETUP_CODE,
 } from "./helpers.ts";
 
 let srv: TestServerHandle | null = null;
@@ -18,7 +19,7 @@ async function initAdmin(s: TestServerHandle) {
   const res = await s.req("/api/setup/init", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "admin", password: "AdminPassword123" }),
+    body: JSON.stringify({ username: "admin", password: "AdminPassword123", setupCode: TEST_SETUP_CODE }),
   });
   expect(res.status).toBe(201);
   return { cookie: extractSessionCookie(res), body: await res.json() };
@@ -28,17 +29,31 @@ describe("认证、安全加固与四类角色严格白名单", () => {
   it("初始化、Cookie CSRF 防护、受信任反代 Secure 判定与限速退避", async () => {
     srv = await createTestServer({ trustedProxies: "10.0.0.1" });
 
-    // 未初始化健康检查
+    // 健康检查不登录只回 ok：不透露是否初始化、模板版本和哈希
     const h0 = await (await srv.req("/api/health")).json();
-    expect(h0.ok).toBe(true);
-    expect(h0.initialized).toBe(false);
+    expect(h0).toEqual({ ok: true });
+    expect(await (await srv.req("/api/setup/status")).json()).toEqual({ needsSetup: true });
 
-    // 首次初始化 + 禁止重复初始化
+    // 没带初始化口令、口令不对：一律拒绝（不再"谁先访问谁当管理员"）
+    for (const setupCode of [undefined, "WRONG-CODE-0000"]) {
+      const bad = await srv.req("/api/setup/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "intruder", password: "AdminPassword123", ...(setupCode ? { setupCode } : {}) }),
+      });
+      expect(bad.status).toBe(403);
+    }
+    // 口令大小写、空格、短横线不敏感
+    expect(srv.ctx.setupCode.matches(" test setu pcod ")).toBe(true);
+
+    // 首次初始化 + 禁止重复初始化（口令用过就失效）
     const { cookie } = await initAdmin(srv);
+    expect(srv.ctx.setupCode.current()).toBeNull();
+    expect(await (await srv.req("/api/setup/status")).json()).toEqual({ needsSetup: false });
     const dupInit = await srv.req("/api/setup/init", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: "admin2", password: "AdminPassword123" }),
+      body: JSON.stringify({ username: "admin2", password: "AdminPassword123", setupCode: TEST_SETUP_CODE }),
     });
     expect(dupInit.status).toBe(409);
 

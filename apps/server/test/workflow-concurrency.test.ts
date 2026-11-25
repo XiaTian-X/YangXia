@@ -7,6 +7,7 @@ import {
   makeA18HomeProfile,
   makeA65Profile,
   type TestServerHandle,
+  TEST_SETUP_CODE,
 } from "./helpers.ts";
 
 let srv: TestServerHandle | null = null;
@@ -19,7 +20,7 @@ async function setupAdmin(s: TestServerHandle) {
   const res = await s.req("/api/setup/init", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "admin", password: "AdminPassword123" }),
+    body: JSON.stringify({ username: "admin", password: "AdminPassword123", setupCode: TEST_SETUP_CODE }),
   });
   expect(res.status).toBe(201);
   return extractSessionCookie(res);

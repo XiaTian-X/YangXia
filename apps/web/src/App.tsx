@@ -44,9 +44,9 @@ export function App() {
   const boot = async () => {
     setBooting(true);
     try {
-      const health = await apiRequest<{ ok: boolean; initialized: boolean }>("/api/health");
-      setInitialized(health.initialized);
-      if (!health.initialized) {
+      const status = await apiRequest<{ needsSetup: boolean }>("/api/setup/status");
+      setInitialized(!status.needsSetup);
+      if (status.needsSetup) {
         setMe(null);
         return;
       }

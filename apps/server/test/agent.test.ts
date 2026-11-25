@@ -18,6 +18,7 @@ import {
   makeA65Profile,
   screeningAllNo,
   type TestServerHandle,
+  TEST_SETUP_CODE,
 } from "./helpers.ts";
 
 const SERVER_SRC_DIR = new URL("../src/", import.meta.url).pathname;
@@ -80,7 +81,7 @@ async function setupAdmin(opts: Parameters<typeof createTestServer>[0] = {}) {
   const setupRes = await srv.req("/api/setup/init", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "admin", password: "AdminPassword123" }),
+    body: JSON.stringify({ username: "admin", password: "AdminPassword123", setupCode: TEST_SETUP_CODE }),
   });
   expect(setupRes.status).toBe(201);
   const cookie = extractSessionCookie(setupRes);

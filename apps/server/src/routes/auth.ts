@@ -21,6 +21,8 @@ const SetupSchema = z.object({
   username: z.string().trim().min(2).max(40).regex(/^[a-zA-Z0-9_\u4e00-\u9fa5-]+$/, "用户名只允许字母、数字、中文、下划线与短横线"),
   password: z.string().min(8).max(128),
   deviceName: z.string().max(80).optional(),
+  /** 首次初始化口令：服务启动日志里、数据目录的 setup-code.txt 里。 */
+  setupCode: z.string().max(40).optional(),
 });
 
 const LoginSchema = z.object({
@@ -54,17 +56,14 @@ function requireJsonContentType(c: Context): void {
 }
 
 export function registerPublicAuthRoutes(app: Hono, ctx: ServerContext): void {
-  app.get("/api/health", (c) => {
+  // 存活检查：不登录只回 ok（不透露是否初始化、模板版本和哈希）
+  app.get("/api/health", (c) => c.json({ ok: true }));
+
+  // 网页判断要不要进初始化页：只回要不要初始化
+  app.get("/api/setup/status", (c) => {
     const db = ctx.getDb();
     const row = db.prepare("SELECT COUNT(*) AS n FROM users").get() as { n: number };
-    const snap = ctx.templates.current();
-    return c.json({
-      ok: true,
-      initialized: row.n > 0,
-      templateVersion: snap.version,
-      templateHash: snap.templateHash,
-      serverNow: ctx.now().toISOString(),
-    });
+    return c.json({ needsSetup: row.n === 0 });
   });
 
   app.post("/api/setup/init", async (c) => {
@@ -79,6 +78,11 @@ export function registerPublicAuthRoutes(app: Hono, ctx: ServerContext): void {
     ctx.setupLimiter.hit(`setup:${ip}`, now.getTime());
 
     const body = SetupSchema.parse(await c.req.json());
+    if (!ctx.setupCode.matches(body.setupCode)) {
+      const already = (ctx.getDb().prepare("SELECT COUNT(*) AS n FROM users").get() as { n: number }).n > 0;
+      if (already) throw new AppError(409, "ALREADY_INITIALIZED", "系统已完成初始化，请直接登录");
+      throw new AppError(403, "SETUP_CODE_INVALID", "初始化口令不对：口令在服务启动日志里，也写在数据目录的 setup-code.txt 里");
+    }
     const pwErr = validatePassword(body.password);
     if (pwErr) throw new AppError(400, "WEAK_PASSWORD", pwErr);
 
@@ -112,6 +116,8 @@ export function registerPublicAuthRoutes(app: Hono, ctx: ServerContext): void {
       });
       return { userId, sess };
     });
+    // 口令只用一次：初始化成功就删
+    ctx.setupCode.consume();
 
     setSessionCookie(c, created.sess.token, ctx.config);
     return c.json(

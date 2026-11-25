@@ -7,6 +7,7 @@ import { DEFAULT_SCRYPT, type ScryptOptions } from "./crypto/password.ts";
 import { openDatabase } from "./db/database.ts";
 import { AppError } from "./db/lock.ts";
 import type { AgentRuntime } from "./agent/runtime/interface.ts";
+import { memorySetupCode, type SetupCodeStore } from "./auth/setup-code.ts";
 import type { TemplatesManager } from "./templates/manager.ts";
 
 export interface ServerContext {
@@ -18,6 +19,8 @@ export interface ServerContext {
   authLimiter: RateLimiter;
   pairLimiter: RateLimiter;
   setupLimiter: RateLimiter;
+  /** 首次初始化口令（还没有账号时有效）。 */
+  setupCode: SetupCodeStore;
   /** 可选注入自定义 AgentRuntime（如测试中的 Mock LLM 或未来切换 dsh）。 */
   agentRuntimeFactory?: () => AgentRuntime;
   getDb(): DatabaseSync;
@@ -33,6 +36,8 @@ export interface CreateServerContextOptions {
   scrypt?: ScryptOptions;
   now?: () => Date;
   agentRuntimeFactory?: () => AgentRuntime;
+  /** 首次初始化口令；不传的没有口令可用（初始化一律拒绝），生产入口由 fileSetupCode 生成。 */
+  setupCode?: SetupCodeStore;
   /** 测试用自定义恢复回调（例如使用内存库时替换成临时文件库）。 */
   onRestoreDb?: (sqliteBytes: Buffer, currentDb: DatabaseSync) => DatabaseSync;
 }
@@ -50,6 +55,7 @@ export function createServerContext(opts: CreateServerContextOptions): ServerCon
     authLimiter: new RateLimiter(AUTH_LIMIT_POLICY),
     pairLimiter: new RateLimiter(PAIR_LIMIT_POLICY),
     setupLimiter: new RateLimiter(AUTH_LIMIT_POLICY),
+    setupCode: opts.setupCode ?? memorySetupCode(null),
     agentRuntimeFactory: opts.agentRuntimeFactory,
     getDb() {
       return currentDb;

@@ -4,6 +4,7 @@ import { createApp } from "./app.ts";
 import { runAutoBackup } from "./backup/backup.ts";
 import { loadConfig } from "./config.ts";
 import { createServerContext } from "./context.ts";
+import { fileSetupCode } from "./auth/setup-code.ts";
 import { loadOrCreateMasterKey } from "./crypto/master-key.ts";
 import { openDatabase } from "./db/database.ts";
 import { TemplatesManager } from "./templates/manager.ts";
@@ -13,7 +14,9 @@ async function main() {
   const db = openDatabase(config.dbPath);
   const masterKey = loadOrCreateMasterKey(config.masterKeyPath);
   const templates = await TemplatesManager.create(config.templatesDir);
-  const ctx = createServerContext({ db, config, templates, masterKey });
+  const users = (db.prepare("SELECT COUNT(*) AS n FROM users").get() as { n: number }).n;
+  const setup = fileSetupCode(config.dataDir, users > 0);
+  const ctx = createServerContext({ db, config, templates, masterKey, setupCode: setup.store });
   const app = createApp(ctx);
 
   // 可选定期自动加密备份检查（每 15 分钟检查一次是否达到配置间隔）
@@ -54,6 +57,9 @@ async function main() {
   console.log(
     `养夏自托管服务已启动：http://${config.host}:${config.port}（模板 ${templates.current().version}，数据库 ${config.dbPath}）`,
   );
+  if (setup.code) {
+    console.log(`[yangxia-server] 还没有管理员：首次初始化口令 ${setup.code}（也写在 ${setup.path}，只有本机能读；初始化完成后自动删除）`);
+  }
 
   const shutdown = () => {
     clearInterval(backupTimer);
