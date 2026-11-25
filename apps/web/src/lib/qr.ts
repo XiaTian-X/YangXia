@@ -167,7 +167,12 @@ export function encodeQrMatrix(text: string): QrMatrix {
 
   for (const ar of align) {
     for (const ac of align) {
-      if (reserved[ar][ac]) continue;
+      // 仅跳过与三个定位角重叠的坐标，绝不能因定时线 reserved[6][x]/reserved[x][6] 跳过第 7–10 版的校正图形
+      const inFinder =
+        (ar <= 8 && ac <= 8) ||
+        (ar <= 8 && ac >= size - 8) ||
+        (ar >= size - 8 && ac <= 8);
+      if (inFinder) continue;
       for (let dr = -2; dr <= 2; dr++) {
         for (let dc = -2; dc <= 2; dc++) {
           const on = Math.max(Math.abs(dr), Math.abs(dc)) !== 1;
@@ -216,25 +221,82 @@ export function encodeQrMatrix(text: string): QrMatrix {
     upward = !upward;
   }
 
-  // 5. 应用掩码（Mask 0: (r + c) % 2 === 0）并写入 Level M 格式信息
-  const maskId = 0;
-  for (let r = 0; r < size; r++) {
-    for (let c = 0; c < size; c++) {
-      if (!reserved[r][c] && (r + c) % 2 === 0) grid[r][c] = !grid[r][c];
+  // 5. 按 ISO 18004 评估 8 种掩码并选最低惩罚分，提升手机镜头对焦与反光屏幕扫码成功率
+  const maskPred = (m: number, r: number, c: number): boolean => {
+    switch (m) {
+      case 0: return (r + c) % 2 === 0;
+      case 1: return r % 2 === 0;
+      case 2: return c % 3 === 0;
+      case 3: return (r + c) % 3 === 0;
+      case 4: return (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0;
+      case 5: return ((r * c) % 2) + ((r * c) % 3) === 0;
+      case 6: return (((r * c) % 2) + ((r * c) % 3)) % 2 === 0;
+      default: return (((r + c) % 2) + ((r * c) % 3)) % 2 === 0;
+    }
+  };
+
+  const applyFormat = (g: boolean[][], maskId: number) => {
+    const fmt = FORMAT_M[maskId];
+    const bitAt = (i: number) => ((fmt >>> i) & 1) === 1;
+    const topLeftH = [0, 1, 2, 3, 4, 5, 7, 8];
+    for (let i = 0; i < 8; i++) g[8][topLeftH[i]] = bitAt(14 - i);
+    const topLeftV = [7, 5, 4, 3, 2, 1, 0];
+    for (let i = 0; i < 7; i++) g[topLeftV[i]][8] = bitAt(6 - i);
+    for (let i = 0; i < 7; i++) g[size - 1 - i][8] = bitAt(14 - i);
+    for (let i = 0; i < 8; i++) g[8][size - 8 + i] = bitAt(7 - i);
+  };
+
+  const penalty = (g: boolean[][]): number => {
+    let score = 0;
+    // 规则 1：同行/列连续 5 个以上同色
+    for (let r = 0; r < size; r++) {
+      let runH = 1;
+      let runV = 1;
+      for (let c = 1; c < size; c++) {
+        if (g[r][c] === g[r][c - 1]) runH++;
+        else {
+          if (runH >= 5) score += 3 + (runH - 5);
+          runH = 1;
+        }
+        if (g[c][r] === g[c - 1][r]) runV++;
+        else {
+          if (runV >= 5) score += 3 + (runV - 5);
+          runV = 1;
+        }
+      }
+      if (runH >= 5) score += 3 + (runH - 5);
+      if (runV >= 5) score += 3 + (runV - 5);
+    }
+    // 规则 2：2x2 同色块
+    for (let r = 0; r < size - 1; r++) {
+      for (let c = 0; c < size - 1; c++) {
+        const v = g[r][c];
+        if (v === g[r][c + 1] && v === g[r + 1][c] && v === g[r + 1][c + 1]) score += 3;
+      }
+    }
+    // 规则 4：深浅模块比例平衡
+    let dark = 0;
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) if (g[r][c]) dark++;
+    const k = Math.floor(Math.abs((dark * 100) / (size * size) - 50) / 5);
+    score += k * 10;
+    return score;
+  };
+
+  let bestGrid = grid;
+  let bestScore = Infinity;
+  for (let m = 0; m < 8; m++) {
+    const cand = grid.map((row, r) =>
+      row.map((val, c) => (!reserved[r][c] && maskPred(m, r, c) ? !val : val)),
+    );
+    applyFormat(cand, m);
+    const sc = penalty(cand);
+    if (sc < bestScore) {
+      bestScore = sc;
+      bestGrid = cand;
     }
   }
 
-  const fmt = FORMAT_M[maskId];
-  const bitAt = (i: number) => ((fmt >>> i) & 1) === 1;
-  // 垂直与水平格式信息位（按 ISO 18004 标准位置）
-  const topLeftH = [0, 1, 2, 3, 4, 5, 7, 8];
-  for (let i = 0; i < 8; i++) grid[8][topLeftH[i]] = bitAt(14 - i);
-  const topLeftV = [7, 5, 4, 3, 2, 1, 0];
-  for (let i = 0; i < 7; i++) grid[topLeftV[i]][8] = bitAt(6 - i);
-  for (let i = 0; i < 7; i++) grid[size - 1 - i][8] = bitAt(14 - i);
-  for (let i = 0; i < 8; i++) grid[8][size - 8 + i] = bitAt(7 - i);
-
-  return { size, modules: grid };
+  return { size, modules: bestGrid };
 }
 
 export function qrSvgPath(text: string): { size: number; quiet: number; path: string } {

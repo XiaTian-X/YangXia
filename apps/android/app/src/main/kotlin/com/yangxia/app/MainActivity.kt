@@ -113,10 +113,11 @@ class MainActivity : ComponentActivity() {
                                 pendingQrCallback = cb
                                 qrLauncher.launch(
                                     ScanOptions().apply {
+                                        setCaptureActivity(PortraitCaptureActivity::class.java)
                                         setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                                        setPrompt("对准网页端 5 分钟配对二维码")
-                                        setBeepEnabled(false)
-                                        setOrientationLocked(false)
+                                        setPrompt("请竖屏对准网页端 5 分钟配对二维码")
+                                        setBeepEnabled(true)
+                                        setOrientationLocked(true)
                                     },
                                 )
                             },

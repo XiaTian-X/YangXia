@@ -120,12 +120,19 @@ fun ConnectScreen(
                     OutlinedButton(
                         onClick = {
                             onRequestQrScan { raw ->
+                                var nextUrl = serverUrl
+                                var nextCode = pairCode
                                 runCatching {
                                     val obj = Json.parseToJsonElement(raw).jsonObject
-                                    obj["serverUrl"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }?.let { serverUrl = it }
-                                    obj["code"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }?.let { pairCode = it }
+                                    obj["serverUrl"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }?.let { nextUrl = it }
+                                    obj["code"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }?.let { nextCode = it }
                                 }.onFailure {
-                                    pairCode = raw.trim()
+                                    nextCode = raw.trim()
+                                }
+                                serverUrl = nextUrl
+                                pairCode = nextCode
+                                if (nextUrl.isNotBlank() && nextCode.isNotBlank()) {
+                                    onLoginPairCode(nextUrl, nextCode)
                                 }
                             }
                         },
