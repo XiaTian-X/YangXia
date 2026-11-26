@@ -245,6 +245,32 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * "今天"页显示一节课时先在后台把时间轴算好，点"开始跟练"直接用（小米 6 上第一次算要 300ms 左右，之后约 160ms）。
+     * 课程、信封、本机设置、播放偏好任何一样变了，键就不一样，开练时照常重算。
+     */
+    private data class PlanKey(val courseRecordId: String, val envelopeHash: Int, val prefs: com.yangxia.app.storage.DevicePrefs, val playbackJson: String?)
+    private val preparedPlan = java.util.concurrent.atomic.AtomicReference<Pair<PlanKey, Triple<com.yangxia.app.player.DeliveryEnvelopeDto, String, com.yangxia.app.player.PlayerPlanResultDto>>?>(null)
+    private var prepareJob: kotlinx.coroutines.Job? = null
+
+    private suspend fun planKeyOf(courseEntity: CachedCourseEntity): PlanKey {
+        val prof = repo.db.profileDao().getById(courseEntity.profileId)
+        return PlanKey(courseEntity.courseRecordId, courseEntity.envelopeJson.hashCode(), devicePrefs.value, prof?.playbackJson)
+    }
+
+    fun prepareCourse(courseEntity: CachedCourseEntity) {
+        if (courseEntity.status != "active") return
+        prepareJob?.cancel()
+        prepareJob = viewModelScope.launch {
+            runCatching {
+                val key = planKeyOf(courseEntity)
+                if (preparedPlan.get()?.first == key) return@runCatching
+                val built = repo.buildPlanForCachedCourse(courseEntity, key.prefs, key.playbackJson)
+                preparedPlan.set(key to built)
+            }
+        }
+    }
+
     fun startCourse(courseEntity: CachedCourseEntity) {
         if (courseEntity.status != "active") {
             _error.value = "该课程已作废（${courseEntity.invalidatedReason ?: "规则变更"}），禁止开练，请刷新获取新课"
@@ -256,7 +282,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             runCatching {
                 val prof = repo.db.profileDao().getById(courseEntity.profileId)
                 val prefs = devicePrefs.value
-                val (envelope, rawCourseJson, plan) = repo.buildPlanForCachedCourse(courseEntity, prefs, prof?.playbackJson)
+                val key = PlanKey(courseEntity.courseRecordId, courseEntity.envelopeJson.hashCode(), prefs, prof?.playbackJson)
+                // 后台那一次还没算完就等它，不重复算
+                prepareJob?.join()
+                val (envelope, rawCourseJson, plan) = preparedPlan.get()?.takeIf { it.first == key }?.second
+                    ?: repo.buildPlanForCachedCourse(courseEntity, prefs, prof?.playbackJson)
                 val clipIds = envelope.course.allItems().mapNotNull { it.figure }.distinct()
                 val (rawMap, metaMap) = repo.loadMotionClips(clipIds)
                 _motionRawMap.value = rawMap

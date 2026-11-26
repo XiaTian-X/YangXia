@@ -91,6 +91,8 @@ fun TodayScreen(
     onOpenSettings: () -> Unit,
     /** 外部链接指到的课：先选中它，练前确认照样要答。 */
     focusCourseId: String? = null,
+    /** 选中的课显示出来了：后台先把时间轴算好，开练不用等。 */
+    onCourseShown: (CachedCourseEntity) -> Unit = {},
 ) {
     val activeCourses = courses.filter { it.status == "active" }
     val invalidatedCourses = courses.filter { it.status != "active" }
@@ -98,6 +100,9 @@ fun TodayScreen(
     val selected = activeCourses.firstOrNull { it.courseRecordId == selectedId } ?: activeCourses.firstOrNull()
     val env = remember(selected?.courseRecordId, selected?.envelopeJson) {
         selected?.let { c -> runCatching { todayJson.decodeFromString(DeliveryEnvelopeDto.serializer(), c.envelopeJson) }.getOrNull() }
+    }
+    androidx.compose.runtime.LaunchedEffect(selected?.courseRecordId, selected?.envelopeJson) {
+        selected?.let(onCourseShown)
     }
     val minutes = remember(selected?.courseRecordId, selected?.precomputedPlanJson, env?.minutes) { env?.minutes ?: selected?.let(::minutesOf) }
     // 练前确认的回答只用来决定能不能开练，不存、不传

@@ -95,7 +95,8 @@ class QuickJsTimelineProvider(
         val bundleJs = runtimeJsLoader()
         created.evaluate<Any?>(bundleJs, "player-runtime.js")
         // 仅转义 UTF-16 代理对（非 BMP 4 字节 Emoji 如 🗣️ / 💪），避开 JNI NewStringUTF 的 CESU-8 截断；
-        // 并为 1000+ 条时间轴事件提供紧凑行打包，跳过重复的 22,000 个 JSON 键名解析，使小米 6 单课耗时降至 < 80ms
+        // 并为 1000+ 条时间轴事件提供紧凑行打包，跳过重复的 22,000 个 JSON 键名解析。
+        // 小米 6 实测（2026-11-26，应用在前台、1000 个事件）：排时间轴约 50ms、打包约 30ms、传回并解析约 60ms，合计约 140ms
         created.evaluate<Any?>(
             """
             globalThis.__yxEscSurr = function(s) {

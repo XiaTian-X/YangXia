@@ -138,6 +138,7 @@ class MainActivity : ComponentActivity() {
                             onRefresh = { vm.refreshAll() },
                             onSyncPending = { vm.syncPendingNow() },
                             onStartCourse = { vm.startCourse(it) },
+                            onCourseShown = { vm.prepareCourse(it) },
                             onOpenSettings = { vm.openSettings() },
                             focusCourseId = focusCourseId,
                         )
