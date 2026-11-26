@@ -39,6 +39,13 @@ android {
     shaders = false
   }
 
+  // 真机界面核对（androidTest）用的样例：黄金课程和动作示意动图，取自 contracts/fixtures，只进测试包
+  sourceSets {
+    getByName("androidTest") {
+      assets.srcDir("../../../contracts/fixtures")
+    }
+  }
+
   packaging {
     resources {
       excludes += "/META-INF/{AL2.0,LGPL2.1}"

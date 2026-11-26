@@ -76,6 +76,10 @@ class Mi6LiveServerE2eTest {
 
             val prefs = repo.prefsStore.prefsFlow.first()
             val (env, rawCourseJson, plan) = repo.buildPlanForCachedCourse(active, prefs, adult.playbackJson)
+            // 第一轮修复：服务端给每节课带约几分钟；练前确认是结构化的 checks（18–39 居家没有每次确认的条件）
+            val envDto = repo.json.decodeFromString(com.yangxia.app.player.DeliveryEnvelopeDto.serializer(), active.envelopeJson)
+            assertTrue("课程要带约几分钟（${envDto.minutes}）", (envDto.minutes ?: 0) > 0)
+            assertTrue("成人居家没有摔倒一问", envDto.checks.none { it.kind == "fall" })
             assertTrue("QuickJS 时间轴事件应非空", plan.timeline.events.size > 30)
 
             val clipIds = env.course.allItems().mapNotNull { it.figure }.distinct()
@@ -126,7 +130,11 @@ class Mi6LiveServerE2eTest {
 
             // 结束跟练并验证服务退出 COMPLETED
             WorkoutPlaybackBus.stopAndFinish(context)
-            delay(500L)
+            // 结束要经主线程上的前台服务处理：等它真的到 COMPLETED（最多 5 秒），记下用了多久
+            val finishAt = android.os.SystemClock.elapsedRealtime()
+            while (WorkoutPlaybackBus.state.value.status != WorkoutPhaseStatus.COMPLETED &&
+                android.os.SystemClock.elapsedRealtime() - finishAt < 5_000L) delay(50L)
+            Log.i("Mi6LiveE2E", "结束跟练到 COMPLETED 用了 ${android.os.SystemClock.elapsedRealtime() - finishAt} ms")
             assertEquals(WorkoutPhaseStatus.COMPLETED, WorkoutPlaybackBus.state.value.status)
 
             // M8 Deep Link：非跟练态拉起 6–12 岁档案应提示无手机跟练；带敏感参数应直接拒收
@@ -153,6 +161,10 @@ class Mi6LiveServerE2eTest {
                 symptoms = emptyList(),
                 feel = "正好",
                 note = "Mi6 真机自动化联调完成",
+                // 练完页每个动作的补充：第 1 个动作记一句感受（成品原话）
+                perItemJson = com.yangxia.app.ui.screens.perItemToJson(
+                    mapOf(0 to com.yangxia.app.ui.screens.ItemNote(feel = "能做到下限，最后两下有点难")),
+                ),
             )
             Log.i("Mi6LiveE2E", "Session sync report: synced=${syncReport.syncedCount}, skew=${syncReport.clockSkewBlocked}, err=${syncReport.lastError}")
             assertEquals("练习记录应成功同步至服务端（err=${syncReport.lastError}）", 1, syncReport.syncedCount)

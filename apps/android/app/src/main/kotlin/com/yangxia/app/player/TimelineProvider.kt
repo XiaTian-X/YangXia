@@ -133,6 +133,7 @@ class QuickJsTimelineProvider(
               }
               for (var i = 0; i < evs.length; i++) {
                 var e = evs[i];
+                var v = e.view || {};
                 var bp = e.breathPluck ? ((e.breathPluck.direction === "inhale" ? "i" : "e") + (e.breathPluck.isRestPhase ? "1" : "0")) : "";
                 var vt = e.voiceTokens ? e.voiceTokens.join("|") : "";
                 var flags = (e.isLastThree ? 1 : 0)
@@ -150,7 +151,18 @@ class QuickJsTimelineProvider(
                   + "\t" + (e.timedProgressRatio != null ? e.timedProgressRatio : "")
                   + "\t" + esc(e.phaseGroup)
                   + "\t" + (e.itemIndex | 0)
-                  + "\t" + esc(JSON.stringify(e.view || {}));
+                  // 第 20–30 列：跟练画面用的结构化字段（核心库 EventView），拆成普通列，安卓不用逐个解析 JSON（小米 6 上省下约一半时间）
+                  + "\t" + (v.breath === "inhale" ? "i" : v.breath === "exhale" ? "e" : "")
+                  + "\t" + (v.lead ? 1 : 0)
+                  + "\t" + (v.tempo || "")
+                  + "\t" + (v.rep ? v.rep.n : "")
+                  + "\t" + (v.rep ? v.rep.of : "")
+                  + "\t" + (v.secLeft != null ? v.secLeft : "")
+                  + "\t" + (v.restTotal != null ? v.restTotal : "")
+                  + "\t" + (v.count != null ? v.count : "")
+                  + "\t" + esc(v.side || "")
+                  + "\t" + (v.sideSwitch ? 1 : 0)
+                  + "\t" + (v.done ? 1 : 0);
               }
               var head = globalThis.__yxToJniSafeJson({
                 course: plan.course,
@@ -211,7 +223,7 @@ class QuickJsTimelineProvider(
         val headJson = packed.substring(0, firstNl)
         val head = json.decodeFromString(PlayerPlanResultDto.serializer(), headJson)
         val events = ArrayList<TimelineEventDto>(1024)
-        val cols = Array(20) { "" }
+        val cols = Array(30) { "" }
         var pos = firstNl + 1
         val len = packed.length
         while (pos < len) {
@@ -230,7 +242,7 @@ class QuickJsTimelineProvider(
         var col = 0
         var cStart = start
         var i = start
-        while (i < end && col < 19) {
+        while (i < end && col < 29) {
             if (src[i] == '\t') {
                 cols[col++] = src.substring(cStart, i)
                 cStart = i + 1
@@ -283,8 +295,19 @@ class QuickJsTimelineProvider(
             timedProgressRatio = if (ratioRaw.isEmpty()) null else ratioRaw.toDoubleOrNull(),
             phaseGroup = unescapeCell(cols[17]),
             itemIndex = cols[18].toIntOrNull() ?: 0,
-            // 第 20 列：跟练画面用的结构化字段（核心库 EventView，紧凑 JSON）
-            view = if (cols[19].isEmpty()) EventViewDto() else json.decodeFromString(EventViewDto.serializer(), unescapeCell(cols[19])),
+            // 第 20–30 列：跟练画面用的结构化字段（核心库 EventView）
+            view = EventViewDto(
+                breath = when (cols[19]) { "i" -> "inhale"; "e" -> "exhale"; else -> null },
+                lead = cols[20] == "1",
+                tempo = cols[21].ifEmpty { null },
+                rep = if (cols[22].isNotEmpty()) RepDto(n = cols[22].toInt(), of = cols[23].toIntOrNull() ?: 0) else null,
+                secLeft = cols[24].toIntOrNull(),
+                restTotal = cols[25].toIntOrNull(),
+                count = cols[26].toIntOrNull(),
+                side = cols[27].takeIf { it.isNotEmpty() }?.let(::unescapeCell),
+                sideSwitch = cols[28] == "1",
+                done = cols[29] == "1",
+            ),
         )
     }
 

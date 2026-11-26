@@ -1,5 +1,6 @@
 package com.yangxia.app.ui.screens
 
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -197,12 +198,12 @@ fun SummaryScreen(
             }
 
             Section("备注", sub = "不写病名、用药、血压体重数字") {
-                OutlinedTextField(value = note, onValueChange = { if (it.codePointCount(0, it.length) <= 500) note = it }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                OutlinedTextField(value = note, onValueChange = { if (it.codePointCount(0, it.length) <= 500) note = it }, modifier = Modifier.fillMaxWidth().testTag("summary-note"), minLines = 2)
             }
         }
 
         Column(
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(YangXiaColors.Ground).padding(horizontal = 18.dp, vertical = 12.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().testTag("summary-bottom").background(YangXiaColors.Ground).padding(horizontal = 18.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Button(

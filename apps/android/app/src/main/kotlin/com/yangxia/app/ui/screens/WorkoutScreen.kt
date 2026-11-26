@@ -1,5 +1,8 @@
 package com.yangxia.app.ui.screens
 
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -70,7 +73,7 @@ fun WorkoutSafetyNote(modifier: Modifier = Modifier) {
         color = Color(0xFFC9D4CD),
         fontSize = 16.sp,
         lineHeight = 22.sp,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().testTag("workout-safety"),
     )
 }
 
@@ -212,7 +215,7 @@ fun WorkoutScreen(
 
 @Composable
 private fun TitleBlock(frame: LiveFrame?, titleSp: Int, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
+    Column(modifier = modifier.testTag("workout-title")) {
         if (!frame?.sub.isNullOrBlank()) {
             Text(frame.sub, color = YangXiaColors.WorkoutInkMuted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -229,7 +232,7 @@ private fun TitleBlock(frame: LiveFrame?, titleSp: Int, modifier: Modifier = Mod
 
 @Composable
 private fun LeftClock(leftText: String) {
-    Column(horizontalAlignment = Alignment.End) {
+    Column(horizontalAlignment = Alignment.End, modifier = Modifier.testTag("workout-left")) {
         Text("还剩", color = YangXiaColors.WorkoutInkMuted, fontSize = 12.sp)
         Text(leftText, color = YangXiaColors.WorkoutInk, fontSize = 17.sp, fontWeight = FontWeight.Bold)
     }
@@ -248,14 +251,14 @@ private fun EndButton(onFinish: () -> Unit) {
     if (armed) {
         Button(
             onClick = onFinish,
-            modifier = Modifier.height(44.dp),
+            modifier = Modifier.height(44.dp).testTag("workout-end"),
             contentPadding = PaddingValues(horizontal = 12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = YangXiaColors.Danger, contentColor = Color.White),
         ) { Text("再点一次结束", fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false) }
     } else {
         OutlinedButton(
             onClick = { armed = true },
-            modifier = Modifier.height(44.dp),
+            modifier = Modifier.height(44.dp).testTag("workout-end"),
             contentPadding = PaddingValues(horizontal = 14.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF5A2F28)),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = YangXiaColors.WorkoutDanger),
@@ -265,7 +268,7 @@ private fun EndButton(onFinish: () -> Unit) {
 
 @Composable
 private fun SegmentBar(fills: List<Float>) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+    Row(modifier = Modifier.fillMaxWidth().testTag("workout-segments"), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         fills.forEach { f ->
             Box(
                 modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(YangXiaColors.WorkoutTrack),
@@ -285,12 +288,19 @@ private fun MotionLottieCard(
     paused: Boolean,
 ) {
     Box(
-        modifier = modifier.clip(RoundedCornerShape(20.dp)).background(YangXiaColors.MotionCardLight).padding(8.dp),
+        modifier = modifier.testTag("workout-motion").clip(RoundedCornerShape(20.dp)).background(YangXiaColors.MotionCardLight).padding(8.dp),
         contentAlignment = Alignment.Center,
     ) {
         if (!rawJson.isNullOrBlank() && figure != null) {
             val composition by rememberLottieComposition(LottieCompositionSpec.JsonString(rawJson), cacheKey = figure.clip)
-            LottieAnimation(composition = composition, progress = { figure.lottieProgress }, modifier = Modifier.fillMaxSize())
+            // 真机核对用：动图载没载进来、现在播到哪（不靠截图认）
+            LottieAnimation(
+                composition = composition,
+                progress = { figure.lottieProgress },
+                modifier = Modifier.fillMaxSize().testTag("workout-motion-lottie").semantics {
+                    stateDescription = if (composition != null) "动图已载入 ${figure.clip} 进度 ${"%.3f".format(figure.lottieProgress)}" else "动图载入中"
+                },
+            )
         } else {
             Text(
                 text = fallbackNote.ifBlank { "跟着语音和呼吸节拍做" },
@@ -324,7 +334,7 @@ private fun CounterRing(frame: LiveFrame?, ringSize: Dp, bigFontSp: Int) {
         else -> YangXiaColors.WorkoutCard to YangXiaColors.WorkoutLine
     }
     val sweep = ((frame?.ring ?: 0.0) * 360.0).toFloat()
-    Box(modifier = Modifier.size(ringSize), contentAlignment = Alignment.Center) {
+    Box(modifier = Modifier.size(ringSize).testTag("workout-ring"), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val stroke = 10.dp.toPx()
             drawArc(color = YangXiaColors.WorkoutTrack, startAngle = 0f, sweepAngle = 360f, useCenter = false, style = Stroke(width = stroke))
@@ -358,7 +368,7 @@ private fun PhasePill(frame: LiveFrame?) {
         else -> listOf(YangXiaColors.WorkoutCard, YangXiaColors.WorkoutLine, YangXiaColors.WorkoutAccent, YangXiaColors.WorkoutInk)
     }
     Row(
-        modifier = Modifier.clip(RoundedCornerShape(50)).background(bg).border(1.dp, line, RoundedCornerShape(50)).padding(horizontal = 16.dp, vertical = 7.dp),
+        modifier = Modifier.testTag("workout-phase").clip(RoundedCornerShape(50)).background(bg).border(1.dp, line, RoundedCornerShape(50)).padding(horizontal = 16.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -373,14 +383,14 @@ private fun NextCard(next: String, stacked: Boolean) {
     if (next.isBlank()) return
     if (stacked) {
         Column(
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(YangXiaColors.WorkoutCard).padding(horizontal = 12.dp, vertical = 9.dp),
+            modifier = Modifier.fillMaxWidth().testTag("workout-next-card").clip(RoundedCornerShape(14.dp)).background(YangXiaColors.WorkoutCard).padding(horizontal = 12.dp, vertical = 9.dp),
         ) {
             Text("接下来", color = YangXiaColors.WorkoutInkMuted, fontSize = 12.sp)
             Text(next, color = YangXiaColors.WorkoutInk, fontSize = 14.sp)
         }
     } else {
         Row(
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(YangXiaColors.WorkoutCard).padding(horizontal = 14.dp, vertical = 9.dp),
+            modifier = Modifier.fillMaxWidth().testTag("workout-next-card").clip(RoundedCornerShape(14.dp)).background(YangXiaColors.WorkoutCard).padding(horizontal = 14.dp, vertical = 9.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -394,7 +404,7 @@ private fun NextCard(next: String, stacked: Boolean) {
 private fun PauseButton(isPaused: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier.fillMaxWidth(), height: Dp) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(height),
+        modifier = modifier.height(height).testTag("workout-pause"),
         shape = RoundedCornerShape(22.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = if (isPaused) YangXiaColors.ExhaleRing else YangXiaColors.WorkoutAccent,
@@ -408,7 +418,7 @@ private fun StageButton(label: String, enabled: Boolean, onClick: () -> Unit, mo
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(height),
+        modifier = modifier.height(height).testTag("workout-stage-$label"),
         shape = RoundedCornerShape(20.dp),
         contentPadding = PaddingValues(horizontal = 6.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, YangXiaColors.WorkoutLine),

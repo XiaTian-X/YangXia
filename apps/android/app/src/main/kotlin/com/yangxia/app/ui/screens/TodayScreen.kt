@@ -1,5 +1,6 @@
 package com.yangxia.app.ui.screens
 
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -209,6 +210,7 @@ fun TodayScreen(
                     fontSize = 13.sp,
                     lineHeight = 21.sp,
                     color = YangXiaColors.Ink2,
+                    modifier = Modifier.testTag("today-disclaimer"),
                 )
             }
 
@@ -300,6 +302,7 @@ private fun ChecksCard(checks: List<PreSessionCheckDto>, answers: Map<Int, Boole
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("today-checks")
             .background(YangXiaColors.WarnSoft, RoundedCornerShape(20.dp))
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -534,7 +537,7 @@ private fun InfoCard(title: String, body: String) {
 
 @Composable
 private fun StartBar(modifier: Modifier, enabled: Boolean, label: String, onClick: () -> Unit) {
-    Column(modifier = modifier.fillMaxWidth().background(YangXiaColors.Ground)) {
+    Column(modifier = modifier.fillMaxWidth().testTag("today-startbar").background(YangXiaColors.Ground)) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(YangXiaColors.Line))
         Button(
             onClick = onClick,
